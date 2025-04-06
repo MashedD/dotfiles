@@ -1,0 +1,33 @@
+0   Edit todo.txt
+    $EDITOR ~/Documents/todo.txt
+
+1   Edit notes.md
+    $EDITOR ~/Documents/notes.md
+
+2   Edit calendar.txt
+    $EDITOR ~/Documents/calendar.txt
+
+4   Edit snippets.md
+    $EDITOR ~/Documents/snippets.md
+
+5   Edit trading-personal-notes.md
+    $EDITOR ~/Documents/notes/trading-personal-notes.md
+
+6   Edit trading.md
+    $EDITOR ~/Documents/notes/trading.md
+
+7   Edit notes
+    $EDITOR ~/Documents/notes/
+
+q   Play Quake
+    cd ~/Games/ironwail; ./ironwail
+
+w   Play Quake Bots
+    cd ~/Games/qssm; ./qssm.sh
+
+e   Play Quake 2 Bots
+    cd ~/Games/q2pro; ./q2pro-bots.sh
+
+e   Play Quake 2 Remastered Bots
+    cd ~/Games/q2repro; ./q2pro-bots.sh
+ 

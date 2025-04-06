@@ -1,0 +1,10 @@
+#!/usr/bin/env xdg-open
+[Desktop Entry]
+Type=Application
+Name=Evince
+MimeType=application/pdf;
+Exec=mupdf %f
+NoDisplay=true
+StartupNotify=true
+Icon=
+

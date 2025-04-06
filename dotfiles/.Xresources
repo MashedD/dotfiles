@@ -1,0 +1,25 @@
+*.font: FiraCode Nerd Font Mono:style=Regular:size=12
+*.boldFont: FiraCode Nerd Font Mono:style=Bold:size=12
+*.italicFont: FiraCode Nerd Font Mono:style=Italic:size=12
+*.boldItalicFont: FiraCode Nerd Font Mono:style=Bold Italic:size=12
+*.alpha: 1.0
+*.linespace: 1
+*.scrollbar: false
+*.internalBorder: 26
+Xft*hinting: true
+Xft*hintstyle: hintslight
+Xft*rgba: rgb
+Xft*lcdfilter: lcddefault
+Xft*antialias: true
+Xft*autohint: true
+XTerm*background: black
+XTerm*foreground: green
+XTerm*cursorColor: green
+XTerm*scrollBar: false
+XTerm*rightScrollBar: false
+XTerm*saveLines: 10000
+XTerm*faceName: FiraCode Nerd Font Mono
+XTerm*faceSize: 12
+XTerm*toolBar: off
+URxvt.scrollBar: false
+

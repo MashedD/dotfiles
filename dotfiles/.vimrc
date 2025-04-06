@@ -1,0 +1,124 @@
+filetype plugin indent on
+
+" Install plug and plugins
+if empty(glob('~/.local/share/vim/autoload/plug.vim'))
+    silent !curl -fLo ~/.local/share/vim/autoload/plug.vim --create-dirs
+        \ https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+
+    augroup PLUG
+        au!
+        autocmd VimEnter * PlugInstall
+    augroup END
+endif
+
+" Plugins
+call plug#begin()
+"Plug 'preservim/nerdtree'
+"Plug 'dense-analysis/ale'
+"Plug 'nvie/vim-flake8'
+"Plug 'airblade/vim-gitgutter'
+"Plug 'sheerun/vim-polyglot'
+"Plug 'elkowar/yuck.vim'
+"Plug 'iruzo/matrix-nvim'
+"Plug 'thedenisnikulin/vim-cyberpunk'
+call plug#end()
+
+" Color settings
+let &t_8f = "\<Esc>[38;2;%lu;%lu;%lum"
+let &t_8b = "\<Esc>[48;2;%lu;%lu;%lum"
+set termguicolors
+set t_Co=256
+set background=dark
+let g:hybrid_termcolors=256
+let g:hybrid_termtrans=1
+hi Normal ctermbg=none
+hi Visual cterm=reverse ctermbg=NONE
+autocmd vimenter * hi Normal guibg=NONE ctermbg=NONE " Transparent bg
+
+colorscheme torte
+"colorscheme matrix
+highlight Normal guibg=black guifg=green
+highlight Comment guifg=lightgreen
+highlight Constant guifg=green
+highlight Identifier guifg=lightgreen
+
+let g:lightline = {'colorscheme': 'default'}
+
+let python_highlight_all=1
+
+let mapleader=","
+set modelines=0
+set number
+set mouse=a
+set visualbell t_vb=
+set noerrorbells
+set encoding=utf-8
+set scrolloff=3
+set backspace=indent,eol,start
+set matchpairs+=<:>
+set laststatus=2
+set ruler
+set wildmenu
+set history=1000
+set hidden
+"set colorcolumn=78,140
+highlight ColorColumn ctermbg=160 guibg=#00FF00
+set wrap
+set undofile
+set nofoldenable
+set virtualedit=all
+
+" Tab settings
+set tabstop=4
+set shiftwidth=4
+set softtabstop=4
+set expandtab
+set noshiftround
+set listchars=tab:▸\ ,eol:¬
+set list lcs=trail:·,tab:»·
+set textwidth=0 wrapmargin=0
+
+" Searching
+set hlsearch
+set incsearch
+set ignorecase
+
+" File settings
+augroup configgroup
+    autocmd!
+    autocmd BufEnter Makefile setlocal noexpandtab
+    autocmd BufEnter *.sh,.bashrc setlocal tabstop=4 shiftwidth=4 softtabstop=4
+    autocmd BufEnter *.lua setlocal tabstop=4 shiftwidth=4 softtabstop=4
+augroup END
+
+"" Partially based on Youtube presentation:
+"" 'How to Do 90% of What Plugins Do (With Just Vim)'
+set path+=** " Search down into subfolders; provides tab-completion for all file-related tasks
+let g:netrw_banner=0
+let g:netrw_browse_split=0
+let g:netrw_altv=1
+
+au BufNewFile,BufReadPost *.md set filetype=markdown
+let g:markdown_fenced_languages = ['bash=sh', 'fish=sh']
+
+" Remember last position in a file
+"if has("autocmd")
+au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g'\"" | endif
+"endif
+
+" Avoid EX mode
+map Q <Nop>
+
+vmap <C-c> y:call system("xclip -i -selection clipboard", getreg("\""))<CR>:call system("xclip -i", getreg("\""))<CR>
+
+nnoremap <leader>n :NERDTreeFocus<CR>
+nnoremap <C-n> :NERDTree<CR>
+nnoremap <C-e> :NERDTreeToggle<CR>
+nnoremap <C-f> :NERDTreeFind<CR>
+
+let g:vim_json_syntax_conceal = 0
+let g:vim_markdown_conceal = 0
+let g:vim_markdown_conceal_code_blocks = 0
+
+set nofoldenable
+
