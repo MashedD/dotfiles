@@ -1,0 +1,10 @@
+#!/usr/bin/env xdg-open
+[Desktop Entry]
+Type=Application
+Name=Sxiv
+MimeType=application/pdf;
+Exec=sxiv %f
+NoDisplay=true
+StartupNotify=true
+Icon=
+
