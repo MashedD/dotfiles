@@ -22,12 +22,22 @@
 q   Play Quake
     cd ~/Games/ironwail; ./ironwail
 
-w   Play Quake Bots
-    cd ~/Games/qssm; ./qssm.sh
-
-e   Play Quake 2 Bots
+w   Play Quake 2 Bots
     cd ~/Games/q2pro; ./q2pro-bots.sh
 
-e   Play Quake 2 Remastered Bots
-    cd ~/Games/q2repro; ./q2pro-bots.sh
- 
+c   Compress folder to .tar.gz
+    CURRENT_FOLDER_NAME=$(basename %d /)
+    echo -n "Name of the compressed file (without extension) [$CURRENT_FOLDER_NAME]: "
+    read ARCHIVE_NAME
+    [ "$ARCHIVE_NAME"x = x ] && ARCHIVE_NAME="$CURRENT_FOLDER_NAME"
+    cd ..
+    tar cf - "$CURRENT_FOLDER_NAME" | gzip -f9 > "$ARCHIVE_NAME.tar.gz"
+    echo "../$ARCHIVE_NAME.tar.gz created"
+
+x   Compress folder to .zip with password
+    CURRENT_FOLDER_NAME=$(basename %d /)
+    echo -n "Name of the compressed file (without extension) [$CURRENT_FOLDER_NAME]: "
+    read ARCHIVE_NAME
+    [ "$ARCHIVE_NAME"x = x ] && ARCHIVE_NAME="$CURRENT_FOLDER_NAME"
+    zip -re "../$ARCHIVE_NAME.zip" .
+
