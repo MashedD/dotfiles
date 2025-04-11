@@ -19,6 +19,9 @@
 7   Edit notes
     $EDITOR ~/Documents/notes/
 
+a   Edit artix.md
+    $EDITOR ~/Documents/notes/artix.md
+
 q   Play Quake
     cd ~/Games/ironwail; ./ironwail
 

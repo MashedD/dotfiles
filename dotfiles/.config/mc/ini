@@ -88,9 +88,9 @@ filepos_max_saved_entries=1024
 
 [Layout]
 output_lines=0
-left_panel_size=95
+left_panel_size=52
 top_panel_size=0
-message_visible=false
+message_visible=true
 keybar_visible=true
 xterm_title=true
 command_prompt=true
@@ -114,15 +114,10 @@ clipboard_paste=
 
 [Colors]
 base_color=
-xterm-256color=
-color_terminals=
-tmux-256color=
-alacritty=
-xterm-kitty=
 linux=
-foot=
-xterm=
+color_terminals=
 st-256color=
+xterm-256color=
 
 [Panels]
 show_mini_info=true
@@ -144,10 +139,9 @@ permission_mode=false
 torben_fj_mode=false
 quick_search_mode=2
 select_flags=6
-simple_swap=false
 
 [Panelize]
-Find rejects after patching=find . -name \\*.rej -print
 Modified git files=git ls-files --modified
-Find SUID and SGID programs=find . \\( \\( -perm -04000 -a -perm /011 \\) -o \\( -perm -02000 -a -perm /01 \\) \\) -print
 Find *.orig after patching=find . -name \\*.orig -print
+Find SUID and SGID programs=find . \\( \\( -perm -04000 -a -perm /011 \\) -o \\( -perm -02000 -a -perm /01 \\) \\) -print
+Find rejects after patching=find . -name \\*.rej -print

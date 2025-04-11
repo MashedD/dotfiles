@@ -26,7 +26,7 @@ call plug#end()
 " Color settings
 let &t_8f = "\<Esc>[38;2;%lu;%lu;%lum"
 let &t_8b = "\<Esc>[48;2;%lu;%lu;%lum"
-set termguicolors
+"set termguicolors
 set t_Co=256
 set background=dark
 let g:hybrid_termcolors=256
@@ -35,7 +35,7 @@ hi Normal ctermbg=none
 hi Visual cterm=reverse ctermbg=NONE
 autocmd vimenter * hi Normal guibg=NONE ctermbg=NONE " Transparent bg
 
-colorscheme torte
+"colorscheme torte
 "colorscheme matrix
 highlight Normal guibg=black guifg=green
 highlight Comment guifg=lightgreen
@@ -66,7 +66,8 @@ highlight ColorColumn ctermbg=160 guibg=#00FF00
 set wrap
 set undofile
 set nofoldenable
-set virtualedit=all
+"set virtualedit=all
+set viminfo+=n~/.config/vim/viminfo
 
 " Tab settings
 set tabstop=4
@@ -77,6 +78,15 @@ set noshiftround
 set listchars=tab:▸\ ,eol:¬
 set list lcs=trail:·,tab:»·
 set textwidth=0 wrapmargin=0
+
+" Disable auto indenting
+set nocindent
+set cinoptions=
+set nosmartindent
+set noautoindent
+set indentexpr=
+filetype indent off
+filetype plugin indent off
 
 " Searching
 set hlsearch
@@ -119,6 +129,4 @@ nnoremap <C-f> :NERDTreeFind<CR>
 let g:vim_json_syntax_conceal = 0
 let g:vim_markdown_conceal = 0
 let g:vim_markdown_conceal_code_blocks = 0
-
-set nofoldenable
 
