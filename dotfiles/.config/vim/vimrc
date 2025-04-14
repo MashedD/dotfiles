@@ -32,7 +32,7 @@ set background=dark
 let g:hybrid_termcolors=256
 let g:hybrid_termtrans=1
 hi Normal ctermbg=none
-hi Visual cterm=reverse ctermbg=NONE
+"hi Visual cterm=reverse ctermbg=NONE
 autocmd vimenter * hi Normal guibg=NONE ctermbg=NONE " Transparent bg
 
 "colorscheme torte
@@ -67,7 +67,7 @@ set wrap
 set undofile
 set nofoldenable
 "set virtualedit=all
-set viminfo+=n~/.config/vim/viminfo
+set viminfo='10000,<10000,s1000,h,n~/.config/vim/viminfo
 
 " Tab settings
 set tabstop=4
