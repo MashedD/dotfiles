@@ -19,17 +19,15 @@ shopt -s autocd 2> /dev/null
 shopt -s dirspell 2> /dev/null
 shopt -s cdspell 2> /dev/null
 shopt -s cdable_vars
-[[ $- == *i* ]] && {
-    bind Space:magic-space
-    bind "set completion-ignore-case on"
-    bind "set completion-map-case on"
-    bind "set show-all-if-ambiguous on"
-    bind "set mark-symlinked-directories on"
-    bind '"\e[A": history-search-backward'
-    bind '"\e[B": history-search-forward'
-    bind '"\e[C": forward-char'
-    bind '"\e[D": backward-char'
-}
+bind Space:magic-space
+bind "set completion-ignore-case on"
+bind "set completion-map-case on"
+bind "set show-all-if-ambiguous on"
+bind "set mark-symlinked-directories on"
+bind '"\e[A": history-search-backward'
+bind '"\e[B": history-search-forward'
+bind '"\e[C": forward-char'
+bind '"\e[D": backward-char'
 
 man() {
   LESS_TERMCAP_md=$'\e[01;31m' \
@@ -51,6 +49,9 @@ alias free="free -m"
 alias grep="grep --colour=auto"
 alias egrep="egrep --colour=auto"
 alias fgrep="fgrep --colour=auto"
+alias zzz="sudo zzz"
+alias reboot="sudo reboot"
+alias poweroff="sudo poweroff"
 
 export EDITOR="vim"
 export VIEWER="vim -R"

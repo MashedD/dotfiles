@@ -23,10 +23,10 @@ a   Edit artix.md
     $EDITOR ~/Documents/notes/artix.md
 
 q   Play Quake
-    cd ~/Games/ironwail; ./ironwail
+    ~/Projects/scripts/play-vkquake.sh
 
 w   Play Quake 2 Bots
-    cd ~/Games/q2pro; ./q2pro-bots.sh
+    ~/Projects/scripts/play-q2pro-bots.sh
 
 c   Compress folder to .tar.gz
     CURRENT_FOLDER_NAME=$(basename %d /)

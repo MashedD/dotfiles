@@ -1,0 +1,12 @@
+#!/usr/bin/env xdg-open
+[Desktop Entry]
+Type=Application
+Name=nsxiv
+Comment=Lightweight image viewer
+MimeType=image/jpeg;image/png;image/gif;image/webp;image/bmp;image/svg+xml;
+Exec=/home/user/Projects/scripts/nsxiv-rifle %f
+Icon=nsxiv
+NoDisplay=false
+Categories=Graphics;Viewer;
+StartupNotify=true
+

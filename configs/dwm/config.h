@@ -68,8 +68,10 @@ static const Layout layouts[] = {
 static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
 static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", col4, "-nf", col2, "-sb", col3, "-sf", col0, NULL };
 static const char *pcmancmd[] = { "pcmanfm", NULL };
-static const char *termcmd[]  = { "st", "-e", "bash"};
-static const char *mc[]  = { "st", "-e", "mc"};
+static const char *termcmd[]  = { "st", "-e", "bash", NULL};
+static const char *mc[]  = { "st", "-e", "mc", NULL};
+static const char *brightness_up[]   = { "brightnessctl", "set", "+10%", NULL };
+static const char *brightness_down[] = { "brightnessctl", "set", "10%-", NULL };
 
 static const Key keys[] = {
 	/* modifier                     key        function        argument */
@@ -108,15 +110,17 @@ static const Key keys[] = {
 	TAGKEYS(                        XK_8,                      7)
 	TAGKEYS(                        XK_9,                      8)
 	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} },
-    { 0, XF86XK_AudioPlay, spawn, SHCMD("playerctl play-pause") },
-    { 0, XF86XK_AudioNext, spawn, SHCMD("playerctl next") },
-    { 0, XF86XK_AudioPrev, spawn, SHCMD("playerctl previous") },
-    { 0, XF86XK_AudioRaiseVolume, spawn, SHCMD("pactl set-sink-volume @DEFAULT_SINK@ +5%") },
-    { 0, XF86XK_AudioLowerVolume, spawn, SHCMD("pactl set-sink-volume @DEFAULT_SINK@ -5%") },
-    { 0, XF86XK_AudioMute, spawn, SHCMD("pactl set-sink-mute @DEFAULT_SINK@ toggle") },
-    { MODKEY,                       XK_Print, spawn,          {.v = maimcmd} },
-    { MODKEY|ShiftMask,             XK_Print, spawn,          {.v = maimclip} },
-    { MODKEY|ControlMask,           XK_Print, spawn,          SHCMD("maim -u ~/Pictures/Screenshots/$(date +%Y-%m-%d_%H-%M-%S).png") },
+	{ 0, XF86XK_AudioPlay,          spawn,                     SHCMD("playerctl play-pause") },
+	{ 0, XF86XK_AudioNext,          spawn,                     SHCMD("playerctl next") },
+	{ 0, XF86XK_AudioPrev,          spawn,                     SHCMD("playerctl previous") },
+	{ 0, XF86XK_AudioRaiseVolume,   spawn,                     SHCMD("pactl set-sink-volume @DEFAULT_SINK@ +5%") },
+	{ 0, XF86XK_AudioLowerVolume,   spawn,                     SHCMD("pactl set-sink-volume @DEFAULT_SINK@ -5%") },
+	{ 0, XF86XK_AudioMute,          spawn,                     SHCMD("pactl set-sink-mute @DEFAULT_SINK@ toggle") },
+	{ MODKEY,             XK_Print, spawn,                     {.v = maimcmd} },
+	{ MODKEY|ShiftMask,   XK_Print, spawn,                     {.v = maimclip} },
+	{ MODKEY|ControlMask, XK_Print, spawn,                     SHCMD("maim -u ~/Pictures/Screenshots/$(date +%Y-%m-%d_%H-%M-%S).png") },
+	{ 0, XF86XK_MonBrightnessDown,  spawn,                     {.v = brightness_down} },
+	{ 0, XF86XK_MonBrightnessUp,    spawn,                     {.v = brightness_up} },
 };
 
 /* button definitions */
