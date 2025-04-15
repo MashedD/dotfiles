@@ -112,6 +112,6 @@ export VIEWER="vim -R"
 export TERMINAL="kitty"
 export PATH="$PATH:$HOME/.local/bin:$HOME/Projects/scripts"
 
-eval "$(~/.local/bin/oh-my-posh init zsh --config $HOME/.config/ohmyposh/zen.toml)"
+eval "$(oh-my-posh init zsh --config $HOME/.config/ohmyposh/zen.toml)"
 #PS1="%F{green}%n@%m%f %F{blue}%~%f %# "
 
