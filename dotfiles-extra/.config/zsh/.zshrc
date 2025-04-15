@@ -34,7 +34,6 @@ export LESS_TERMCAP_us="$(printf '%b' '[1;32m')"
 export LESS_TERMCAP_ue="$(printf '%b' '[0m')"
 export LESSOPEN="| /usr/bin/highlight -O ansi %s 2>/dev/null"
 
-# Dracula Pro Van Helsing
 #export FZF_DEFAULT_OPTS=TODO:
 
 # Add in zsh plugins
@@ -110,8 +109,8 @@ alias poweroff="sudo poweroff"
 
 export EDITOR="vim"
 export VIEWER="vim -R"
-export TERMINAL="st"
-export PATH="$PATH:~/.local/bin:~/Projects/scripts"
+export TERMINAL="kitty"
+export PATH="$PATH:$HOME/.local/bin:$HOME/Projects/scripts"
 
 eval "$(~/.local/bin/oh-my-posh init zsh --config $HOME/.config/ohmyposh/zen.toml)"
 #PS1="%F{green}%n@%m%f %F{blue}%~%f %# "
