@@ -1,22 +1,22 @@
-0   Edit todo.txt
+t   Edit todo.txt
     $EDITOR ~/Documents/todo.txt
 
-1   Edit notes.md
+n   Edit notes.md
     $EDITOR ~/Documents/notes.md
 
-2   Edit calendar.txt
+c   Edit calendar.txt
     $EDITOR ~/Documents/calendar.txt
 
-4   Edit snippets.md
+s   Edit snippets.md
     $EDITOR ~/Documents/snippets.md
 
-5   Edit trading-personal-notes.md
+1   Edit trading-personal-notes.md
     $EDITOR ~/Documents/notes/trading-personal-notes.md
 
-6   Edit trading.md
+2   Edit trading.md
     $EDITOR ~/Documents/notes/trading.md
 
-7   Edit notes
+3   Edit notes
     $EDITOR ~/Documents/notes/
 
 a   Edit artix.md
@@ -28,7 +28,7 @@ q   Play Quake
 w   Play Quake 2 Bots
     ~/Projects/scripts/play-q2pro-bots.sh
 
-c   Compress folder to .tar.gz
+z   Compress folder to .tar.gz
     CURRENT_FOLDER_NAME=$(basename %d /)
     echo -n "Name of the compressed file (without extension) [$CURRENT_FOLDER_NAME]: "
     read ARCHIVE_NAME

@@ -56,5 +56,5 @@ alias poweroff="sudo poweroff"
 export EDITOR="vim"
 export VIEWER="vim -R"
 export TERMINAL="st"
-export PATH="$PATH:~/.local/bin:~/Projects/scripts"
+export PATH="$PATH:$HOME/.local/bin:$HOME/Projects/scripts"
 
