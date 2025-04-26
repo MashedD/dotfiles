@@ -23,7 +23,7 @@ a   Edit artix.md
     $EDITOR ~/Documents/notes/artix.md
 
 q   Play Quake
-    ~/Projects/scripts/play-vkquake.sh
+    ~/Projects/scripts/play-ironwail.sh
 
 w   Play Quake 2 Bots
     ~/Projects/scripts/play-q2pro-bots.sh
