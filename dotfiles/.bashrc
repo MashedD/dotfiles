@@ -52,6 +52,7 @@ alias fgrep="fgrep --colour=auto"
 alias zzz="sudo zzz"
 alias reboot="sudo reboot"
 alias poweroff="sudo poweroff"
+alias mpv="mpv --audio-display=no"
 
 export EDITOR="vim"
 export VIEWER="vim -R"

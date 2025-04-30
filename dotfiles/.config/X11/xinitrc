@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 userresources=$HOME/.Xresources
 usermodmap=$HOME/.Xmodmap
 sysresources=/etc/X11/xinit/.Xresources
@@ -6,45 +6,13 @@ sysmodmap=/etc/X11/xinit/.Xmodmap
 
 xrdb -load "$XDG_CONFIG_HOME/X11/xresources"
 
-#if [ -f $sysresources ]; then
-#    xrdb -merge $sysresources
-#fi
-#
-#if [ -f $sysmodmap ]; then
-#    xmodmap $sysmodmap
-#fi
-#
-#if [ -f "$userresources" ]; then
-#    xrdb -merge "$userresources"
-#fi
-#
-#if [ -f "$usermodmap" ]; then
-#    xmodmap "$usermodmap"
-#fi
-
-#if [ -d /etc/X11/xinit/xinitrc.d ] ; then
-#    for f in /etc/X11/xinit/xinitrc.d/?*.sh ; do
-#        [ -x "$f" ] && . "$f"
-#    done
-#    unset f
-#fi
-
 xset s off
 xset -dpms
 setxkbmap pl
 
 xsetroot -solid '#008080'
-
-#pkill syncthing
-
-syncthing --no-browser &
-# nm-applet &
-# blueman-applet &
-
-~/Projects/scripts/dwm-status.sh &
-
-# redshift
 # feh --bg-scale ~/Pictures/Wallpapers/951.png &
-
+syncthing --no-browser &
+~/Projects/scripts/dwm-status.sh &
 exec dwm
 
