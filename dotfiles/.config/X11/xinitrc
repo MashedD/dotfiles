@@ -18,3 +18,6 @@ fluidsynth -a pulseaudio /usr/share/soundfonts/FluidR3_GM.sf2 -q -s &
 ~/Projects/scripts/dwm-status.sh &
 exec dwm
 
+#sxbar &
+#exec sxwm
+
