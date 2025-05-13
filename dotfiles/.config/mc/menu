@@ -4,6 +4,9 @@ t   Edit todo.txt
 n   Edit notes.md
     $EDITOR ~/Documents/notes.md
 
+b   Edit buy.txt
+    $EDITOR ~/Documents/buy.txt
+
 c   Edit calendar.txt
     $EDITOR ~/Documents/calendar.txt
 
