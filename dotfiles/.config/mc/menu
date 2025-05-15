@@ -31,6 +31,9 @@ q   Play Quake
 w   Play Quake 2 Bots
     ~/Projects/scripts/play-q2pro-bots.sh
 
+j   Play Quake 2 Jump Mod
+    ~/Projects/scripts/play-q2pro-jump.sh
+
 z   Compress folder to .tar.gz
     CURRENT_FOLDER_NAME=$(basename %d /)
     echo -n "Name of the compressed file (without extension) [$CURRENT_FOLDER_NAME]: "
