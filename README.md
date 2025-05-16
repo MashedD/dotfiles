@@ -4,3 +4,5 @@ After x years I went full circle to basic WMs. Currently DWM again. Recently use
 Currently on Artix Linux I'm striving for simplest working config and using "stow" to apply it.
 In separate (private) repo I've got notes how I've set everything up.
 
+![Screenshot](screenshot.png)
+
