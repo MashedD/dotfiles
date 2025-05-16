@@ -10,6 +10,7 @@ xset s off
 xset -dpms
 setxkbmap pl
 
+picom --backend glx --config ~/.config/picom.conf &
 xsetroot -solid '#008080'
 # feh --bg-scale ~/Pictures/Wallpapers/951.png &
 syncthing --no-browser &
@@ -17,6 +18,7 @@ fluidsynth -a pulseaudio /usr/share/soundfonts/FluidR3_GM.sf2 -q -s &
 
 ~/Projects/scripts/dwm-status.sh &
 #exec dbus-launch --sh-syntax --exit-with-session dwm
+
 exec dwm
 
 #sxbar &
