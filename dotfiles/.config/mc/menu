@@ -28,11 +28,11 @@ a   Edit artix.md
 q   Play Quake
     ~/Projects/scripts/play-ironwail.sh
 
-w   Play Quake 2 Bots
-    ~/Projects/scripts/play-q2pro-bots.sh
+w   Play Quake 2
+    ~/Projects/scripts/play-q2pro.sh
 
-j   Play Quake 2 Jump Mod
-    ~/Projects/scripts/play-q2pro-jump.sh
+l   Play LibreAim
+    ~/Projects/scripts/play-libreaim.sh
 
 z   Compress folder to .tar.gz
     CURRENT_FOLDER_NAME=$(basename %d /)
