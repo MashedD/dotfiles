@@ -25,6 +25,9 @@ s   Edit snippets.md
 a   Edit artix.md
     $EDITOR ~/Documents/notes/artix.md
 
+x   Edit quake2.md
+    $EDITOR ~/Documents/notes/quake2.md
+
 q   Play Quake
     ~/Projects/scripts/play-ironwail.sh
 
