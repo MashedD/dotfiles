@@ -100,10 +100,10 @@ man() {
   command man "$@"
 }
 
-alias l="ls --color=auto"
-alias la='ls --color=auto -A'
-alias ls="ls --color=auto"
-alias ll="ls --color=auto -lA"
+alias l="eza"
+alias la='eza -A'
+alias ls="eza"
+alias ll="eza -lA"
 alias cp="cp -i" # confirm before overwriting something
 alias df="df -h"
 alias free="free -m"
