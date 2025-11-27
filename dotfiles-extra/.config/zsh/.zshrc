@@ -119,7 +119,7 @@ alias tmux="tmux -2"
 export EDITOR="vim"
 export VIEWER="vim -R"
 export TERMINAL="kitty"
-export PATH="$PATH:$HOME/.local/bin:$HOME/Projects/scripts"
+export PATH="$PATH:$HOME/.local/bin:$HOME/Data/Projects/scripts"
 export _JAVA_AWT_WM_NONREPARENTING=1 # Fix for JDownloader 2
 
 export PS1="%F{blue}%~%f $ "
