@@ -13,12 +13,21 @@ xset -dpms
 #xsetroot -solid '#008080' # incompatible with picom
 hsetroot -solid '#008080'
 # feh --bg-scale ~/Pictures/Wallpapers/951.png &
-syncthing --no-browser 2>&1 >/dev/null &
-fluidsynth -a pulseaudio /usr/share/soundfonts/FluidR3_GM.sf2 -q -s &
-setxkbmap pl
 
-~/Projects/scripts/dwm-status.sh &
-exec dbus-run-session dwm
+# Should be started after login in framebuffer
+syncthing --no-browser 2>&1 >/dev/null &
+#fluidsynth -a pulseaudio /usr/share/soundfonts/FluidR3_GM.sf2 -q -s &
+mpd &
+cd Data/Projects/notes/html
+python3 -m http.server 2>&1 >/dev/null &
+cd -
+
+setxkbmap pl &
+
+#~/Projects/scripts/dwm-status.sh &
+#exec dbus-run-session dwm
+
+exec dbus-run-session startxfce4
 
 #sxbar &
 #exec sxwm

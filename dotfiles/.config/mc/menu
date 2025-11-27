@@ -1,41 +1,23 @@
 t   Edit todo.txt
-    $EDITOR ~/Documents/todo.txt
+    $EDITOR ~/Data/Documents/Notes/todo.txt
 
 n   Edit notes.md
-    $EDITOR ~/Documents/notes.md
+    $EDITOR ~/Data/Documents/Notes/notes.md
 
 b   Edit buy.txt
-    $EDITOR ~/Documents/buy.txt
+    $EDITOR ~/Data/Documents/Notes/buy.txt
 
 c   Edit calendar.txt
-    $EDITOR ~/Documents/calendar.txt
+    $EDITOR ~/Data/Documents/Notes/calendar.txt
 
 s   Edit snippets.md
-    $EDITOR ~/Documents/snippets.md
+    $EDITOR ~/Data/Documents/Notes/snippets.md
 
-1   Edit trading-personal-notes.md
-    $EDITOR ~/Documents/notes/trading-personal-notes.md
-
-2   Edit trading.md
-    $EDITOR ~/Documents/notes/trading.md
-
-3   Edit notes
-    $EDITOR ~/Documents/notes/
+r   Edit trading.md
+    $EDITOR ~/Data/Projects/notes/trading.md
 
 a   Edit artix.md
-    $EDITOR ~/Documents/notes/artix.md
-
-x   Edit quake2.md
-    $EDITOR ~/Documents/notes/quake2.md
-
-q   Play Quake
-    ~/Projects/scripts/play-ironwail.sh
-
-w   Play Quake 2
-    ~/Projects/scripts/play-q2pro.sh
-
-l   Play LibreAim
-    ~/Projects/scripts/play-libreaim.sh
+    $EDITOR ~/Data/Projects/notes/_old/artix.md
 
 z   Compress folder to .tar.gz
     CURRENT_FOLDER_NAME=$(basename %d /)

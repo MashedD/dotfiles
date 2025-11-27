@@ -49,9 +49,9 @@ alias free="free -m"
 alias grep="grep --colour=auto"
 alias egrep="egrep --colour=auto"
 alias fgrep="fgrep --colour=auto"
-alias zzz="sudo zzz"
-alias reboot="sudo reboot"
-alias poweroff="sudo poweroff"
+#alias zzz="sudo zzz"
+#alias reboot="sudo reboot"
+#alias poweroff="sudo poweroff"
 alias mpv="mpv --volume=65 --audio-display=no"
 alias tmux="tmux -2"
 
@@ -60,4 +60,5 @@ export VIEWER="vim -R"
 export TERMINAL="st"
 export PATH="$PATH:$HOME/.local/bin:$HOME/Projects/scripts"
 export PS1="\[\033[01;36m\]\[\033[01;34m\]\W\[\033[01;36m\]\$\[\033[00m\] "
+export _JAVA_AWT_WM_NONREPARENTING=1 # Fix for JDownloader 2
 

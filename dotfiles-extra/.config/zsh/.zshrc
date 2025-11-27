@@ -110,9 +110,9 @@ alias free="free -m"
 alias grep="grep --colour=auto"
 alias egrep="egrep --colour=auto"
 alias fgrep="fgrep --colour=auto"
-alias zzz="sudo zzz"
-alias reboot="sudo reboot"
-alias poweroff="sudo poweroff"
+#alias zzz="sudo zzz"
+#alias reboot="sudo reboot"
+#alias poweroff="sudo poweroff"
 alias mpv="mpv --volume=65 --audio-display=no"
 alias tmux="tmux -2"
 
@@ -120,7 +120,35 @@ export EDITOR="vim"
 export VIEWER="vim -R"
 export TERMINAL="kitty"
 export PATH="$PATH:$HOME/.local/bin:$HOME/Projects/scripts"
+export _JAVA_AWT_WM_NONREPARENTING=1 # Fix for JDownloader 2
 
-#eval "$(oh-my-posh init zsh --config $HOME/.config/ohmyposh/zen.toml)"
 export PS1="%F{blue}%~%f $ "
+
+# Cyberpunk
+
+#unset PS1 PROMPT RPS1 RPROMPT
+#autoload -Uz colors && colors
+#
+#CYAN=%F{cyan}
+#MAG=%F{magenta}
+#YLW=%F{yellow}
+#GRN=%F{green}
+#WHT=%F{white}
+#RST=%f
+#
+#PROMPT="${MAG}[${CYAN}%n${MAG}@${CYAN}%m${MAG}:${YLW}%~${MAG}]${GRN} >> ${RST}"
+#setopt PROMPT_SUBST
+#
+#BLUE='%F{#5577ff}'
+#CYAN='%F{#55ffff}'
+#LIME='%F{#55ff99}'
+#MAGENTA='%F{#ff55ff}'
+#YELLOW='%F{#ffff55}'
+#RED='%F{#ff5555}'
+#RESET='%f%b'
+#
+#PS1='%B'"$BLUE"'%n'"$RESET"'@'"$CYAN"'%m'"$RESET"' '"$LIME"'%~'"$RESET"'
+#%(?..'"$RED"'✘✘✘ '"$RESET"')'"$MAGENTA"'❯'"$CYAN"'❯'"$LIME"'❯ '"$RESET"
+#
+#RPS1='%B'"$YELLOW"'$(git rev-parse --abbrev-ref HEAD 2>/dev/null)'"$RESET"
 

@@ -34,6 +34,7 @@ let g:hybrid_termtrans=1
 hi Normal ctermbg=none
 "hi Visual cterm=reverse ctermbg=NONE
 autocmd vimenter * hi Normal guibg=NONE ctermbg=NONE " Transparent bg
+autocmd BufRead,BufNewFile TODO.txt,CHANGELOG.txt,NOTES.txt set filetype=markdown
 
 "colorscheme torte
 "colorscheme matrix
@@ -61,12 +62,12 @@ set ruler
 set wildmenu
 set history=1000
 set hidden
-"set colorcolumn=78,140
-highlight ColorColumn ctermbg=160 guibg=#00FF00
+set colorcolumn=78,140
+highlight ColorColumn ctermbg=161 guibg=#0000FF
 set wrap
 set undofile
 set nofoldenable
-"set virtualedit=all
+set virtualedit=all
 set viminfo='10000,<10000,s1000,h,n~/.config/vim/viminfo
 
 " Tab settings
@@ -119,7 +120,25 @@ au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g
 " Avoid EX mode
 map Q <Nop>
 
-vmap <C-c> y:call system("xclip -i -selection clipboard", getreg("\""))<CR>:call system("xclip -i", getreg("\""))<CR>
+
+if executable('wl-copy')
+  " Visual mode Ctrl+C
+  vnoremap <C-c> y:call system('wl-copy', @")<CR>
+
+  " Normal mode: yank current line or last yank with Ctrl+C
+  nnoremap <C-c> :call setreg('+', getreg('0'))<CR>:call system('wl-copy', @+)<CR>
+
+  " Or even better: auto-copy every yank (like clipboard=unnamedplus)
+  if has('autocmd')
+    augroup WaylandYank
+      autocmd!
+      autocmd TextYankPost * if v:event.operator == 'y' |
+          \ call system('wl-copy', getreg('"')) | endif
+    augroup END
+  endif
+else
+    vmap <C-c> y:call system("xclip -i -selection clipboard", getreg("\""))<CR>:call system("xclip -i", getreg("\""))<CR>
+endif
 
 nnoremap <leader>n :NERDTreeFocus<CR>
 nnoremap <C-n> :NERDTree<CR>
@@ -129,4 +148,18 @@ nnoremap <C-f> :NERDTreeFind<CR>
 let g:vim_json_syntax_conceal = 0
 let g:vim_markdown_conceal = 0
 let g:vim_markdown_conceal_code_blocks = 0
+
+
+augroup vimrc_todo
+    au!
+    au Syntax * syn match MyTodo /\v<(FIXME|NOTE|TODO|OPTIMIZE|XXX):/
+          \ containedin=.*Comment,vimCommentTitle
+augroup END
+hi def link MyTodo Todo
+
+"nnoremap <F5> :w !./build.sh<CR>
+nnoremap <F5> :<C-u>w<CR>:!g++ -std=c++20 -O2 -Wall -Wextra -pedantic "%" -o "%<"; if [ $? -eq 0 ]; then ./%< ; fi<CR>
+
+"colorscheme cyberpunk
+"set cursorline
 
