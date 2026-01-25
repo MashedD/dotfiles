@@ -2,12 +2,12 @@
     font-family: "FiraCode Nerd Font Mono", "Microsoft Sans Serif", "Segoe UI", Sans;
     font-size: 16px;
     font-weight: bold;
-    color: #00ff41;
+    color: #00ff41;          /* Główny zielony fosfor – możesz dać #00ff00, #22ff22, #44ff44 */
 }
 
 window#waybar {
-    background: #000000;
-    border-bottom: 1px solid #003300;
+    background: #000000;     /* głęboka czerń – klasyczne CRT */
+    border-bottom: 1px solid #003300;   /* bardzo ciemny zielony zamiast białego */
     border-top:    1px solid #003300;
 }
 
@@ -15,7 +15,7 @@ window#waybar {
 @define-color bevel-dark    #001100;
 @define-color bevel-shadow  #002200;
 @define-color bevel-light   #004400;
-@define-color bevel-white   #008811;
+@define-color bevel-white   #008811;   /* delikatny zielony highlight */
 
 #workspaces, #clock, #pulseaudio, #memory, #cpu, #battery, #disk, #tray,
 #clock#1, #clock#2, #clock#3 {
@@ -23,15 +23,15 @@ window#waybar {
     padding: 0 8px;
     margin: 2px 0;
     border: 1px solid;
-    border-top-color:    #004400;
+    border-top-color:    #004400;    /* jasniejszy zielony bevel góra/lewo */
     border-left-color:   #004400;
-    border-right-color:  #001100;
+    border-right-color:  #001100;    /* ciemniejszy dół/prawo – efekt wklęsłości */
     border-bottom-color: #001100;
 }
 
 #workspaces button.active,
 #workspaces button.focused {
-    background: #003300;
+    background: #003300;             /* ciemniejszy zielony „wciśnięty” ekran */
     border-top-color:    #001100;
     border-left-color:   #001100;
     border-right-color:  #008822;
@@ -40,7 +40,7 @@ window#waybar {
 
 #workspaces button.active label,
 #workspaces button.focused label {
-    color: #00ff41;
+    color: #00ff41;                  /* jasny zielony tekst na aktywnym */
 }
 
 #workspaces button:hover {
@@ -55,8 +55,8 @@ window#waybar {
 #disk       { color: #00ff41; }
 #clock      { color: #00ff41; }
 
-#battery.critical { color: #ff4444; }
-#battery.warning  { color: #ffaa00; }
+#battery.critical { color: #ff4444; }   /* czerwony alarm – zostaje, bo pasuje do retro */
+#battery.warning  { color: #ffaa00; }   /* pomarańczowe ostrzeżenie */
 
 #tray {
     padding-right: 8px;
@@ -67,10 +67,10 @@ window#waybar {
 }
 
 tooltip {
-    background: #001100;
+    background: #001100;           /* bardzo ciemny zielony tooltip */
     border: 1px solid #004400;
     padding: 4px 8px;
-    border-radius: 0;
+    border-radius: 0;              /* prostokątny, bez zaokrągleń – bardziej retro */
     box-shadow: 2px 2px 0 #000000;
 }
 

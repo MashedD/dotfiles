@@ -1,0 +1,11 @@
+width=380
+height=420
+location=center
+allow_images=true
+prompt=Start
+lines=14
+line_wrap=off
+allow_markup=true
+image_size=24
+termite=false
+

@@ -1,0 +1,61 @@
+window {
+    font-family: "FiraCode Nerd Font Mono", "Microsoft Sans Serif", "Segoe UI", Sans;
+    font-size: 15px;
+    font-weight: bold;
+    background-color: #c0c0c0;
+    border: 2px solid #000000;
+}
+
+#outer-box {
+    margin: 8px;
+    background-color: #c0c0c0;
+}
+
+#input {
+    background-color: #ffffff;
+    color: #000000;
+    border: 1px solid;
+    border-top-color: #808080;
+    border-left-color: #808080;
+    border-right-color: #dfdfdf;
+    border-bottom-color: #dfdfdf;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+}
+
+#input:focus {
+    border: 1px dotted #000000;
+}
+
+#scroll {
+    background-color: #c0c0c0;
+}
+
+entry {
+    padding: 6px 10px;
+    color: #000000;
+    background-color: #c0c0c0;
+    border: 1px solid transparent;
+}
+
+entry:selected {
+    background-color: #000080;
+    color: #ffffff;
+    outline: none;
+}
+
+#img {
+    margin-right: 10px;
+}
+
+tooltip {
+    background: #ffffe1;
+    border: 1px solid #000000;
+    color: #000000;
+    font-family: "FiraCode Nerd Font Mono", "Microsoft Sans Serif", "Segoe UI", Sans;
+    font-size: 14px;
+    font-weight: bold;
+    padding: 4px 8px;
+    box-shadow: 2px 2px 0 #000000;
+}
+

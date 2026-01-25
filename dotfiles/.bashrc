@@ -62,3 +62,5 @@ export PATH="$PATH:$HOME/.local/bin:$HOME/Data/Projects/scripts"
 export PS1="\[\033[01;36m\]\[\033[01;34m\]\W\[\033[01;36m\]\$\[\033[00m\] "
 export _JAVA_AWT_WM_NONREPARENTING=1 # Fix for JDownloader 2
 
+export MPD_HOST="$XDG_RUNTIME_DIR/mpd/socket"
+

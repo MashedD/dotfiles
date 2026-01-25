@@ -1,0 +1,81 @@
+* {
+    font-family: "FiraCode Nerd Font Mono", "Microsoft Sans Serif", "Segoe UI", Sans;
+    font-size: 16px;
+    font-weight: bold;
+    color: black;
+}
+
+window#waybar {
+    background: #c0c0c0;
+    border-bottom: 1px solid #ffffff;
+    border-top: 1px solid #808080;
+}
+
+@define-color bevel-dark  #000000;
+@define-color bevel-shadow #808080;
+@define-color bevel-light  #dfdfdf;
+@define-color bevel-white  #ffffff;
+
+#workspaces, #clock, #pulseaudio, #memory, #cpu, #battery, #disk, #tray,
+#clock#1, #clock#2, #clock#3 {
+    background: #c0c0c0;
+    padding: 0 8px;
+    margin: 2px 0;
+    border: 1px solid;
+    border-top-color: #ffffff;
+    border-left-color: #ffffff;
+    border-right-color: #808080;
+    border-bottom-color: #808080;
+}
+
+#workspaces button.active,
+#workspaces button.focused {
+    background: #000080;
+    border-top-color: #808080;
+    border-left-color: #808080;
+    border-right-color: #ffffff;
+    border-bottom-color: #ffffff;
+}
+
+#workspaces button.active label,
+#workspaces button.focused label {
+    color: #ffffff;
+}
+
+#workspaces button:hover {
+    background: #dfdfdf;
+    box-shadow: none;
+}
+
+#pulseaudio { color: black; }
+#memory     { color: black; }
+#cpu        { color: black; }
+#battery    { color: black; }
+#disk       { color: black; }
+#clock      { color: black; }
+#battery.critical { color: #ff0000; }
+#battery.warning  { color: #ff8000; }
+
+#tray {
+    padding-right: 8px;
+}
+
+#clock#1, #clock#2, #clock#3 {
+    padding: 0 12px;
+}
+
+tooltip {
+    background: #ffffe1;
+    border: 1px solid #000000;
+    padding: 4px 8px;
+    border-radius: 5px;
+    box-shadow: 2px 2px 0 #000000;
+}
+
+tooltip label {
+    color: #000000;
+    font-family: "FiraCode Nerd Font", "Microsoft Sans Serif", "Segoe UI", Sans;
+    font-weight: normal;
+    font-size: 14px;
+}
+

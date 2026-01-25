@@ -67,6 +67,7 @@ bindkey '^[[F' end-of-line # End
 
 # History
 HISTSIZE=5000
+# Note: in case history doesn't work, then create this dir: mkdir -p "$XDG_STATE_HOME/zsh"
 HISTFILE="$XDG_STATE_HOME"/zsh/history
 SAVEHIST=$HISTSIZE
 HISTDUP=erase
@@ -115,12 +116,15 @@ alias fgrep="fgrep --colour=auto"
 #alias poweroff="sudo poweroff"
 alias mpv="mpv --volume=65 --audio-display=no"
 alias tmux="tmux -2"
+alias vim="nvim"
 
-export EDITOR="vim"
-export VIEWER="vim -R"
+export EDITOR="nvim"
+export VIEWER="nvim -R"
 export TERMINAL="kitty"
-export PATH="$PATH:$HOME/.local/bin:$HOME/Data/Projects/scripts"
+export PATH="$PATH:$HOME/.local/bin:$HOME/.local/share/cargo/bin:$HOME/Data/Projects/scripts"
 export _JAVA_AWT_WM_NONREPARENTING=1 # Fix for JDownloader 2
+
+export MPD_HOST="$XDG_RUNTIME_DIR/mpd/socket"
 
 export PS1="%F{blue}%~%f $ "
 
@@ -151,4 +155,12 @@ export PS1="%F{blue}%~%f $ "
 #%(?..'"$RED"'✘✘✘ '"$RESET"')'"$MAGENTA"'❯'"$CYAN"'❯'"$LIME"'❯ '"$RESET"
 #
 #RPS1='%B'"$YELLOW"'$(git rev-parse --abbrev-ref HEAD 2>/dev/null)'"$RESET"
+
+function y() {
+    local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+    yazi "$@" --cwd-file="$tmp"
+    IFS= read -r -d '' cwd < "$tmp"
+    [ -n "$cwd" ] && [ "$cwd" != "$PWD" ] && builtin cd -- "$cwd"
+    rm -f -- "$tmp"
+}
 

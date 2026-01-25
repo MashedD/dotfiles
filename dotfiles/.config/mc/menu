@@ -1,14 +1,14 @@
 t   Edit todo.txt
-    $EDITOR ~/Data/Documents/Notes/todo.txt
+    $EDITOR ~/Data/Documents/Notes/todo.md
 
 n   Edit notes.md
     $EDITOR ~/Data/Documents/Notes/notes.md
 
 b   Edit buy.txt
-    $EDITOR ~/Data/Documents/Notes/buy.txt
+    $EDITOR ~/Data/Documents/Notes/buy.md
 
 c   Edit calendar.txt
-    $EDITOR ~/Data/Documents/Notes/calendar.txt
+    $EDITOR ~/Data/Documents/Notes/calendar.md
 
 s   Edit snippets.md
     $EDITOR ~/Data/Documents/Notes/snippets.md
@@ -16,8 +16,8 @@ s   Edit snippets.md
 r   Edit trading.md
     $EDITOR ~/Data/Projects/notes/trading.md
 
-a   Edit artix.md
-    $EDITOR ~/Data/Projects/notes/_old/artix.md
+a   Edit cachyos.md
+    $EDITOR ~/Data/Documents/Notes/cachyos.md
 
 z   Compress folder to .tar.gz
     CURRENT_FOLDER_NAME=$(basename %d /)
