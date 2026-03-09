@@ -2,6 +2,7 @@ font-family = FiraCode Nerd Font
 font-size = 16
 keybind = f11=toggle_fullscreen
 confirm-close-surface = false
+mouse-scroll-multiplier = 1
 
 theme = Neon
 cursor-color = #00FF00
@@ -29,5 +30,5 @@ background = #000000
 #selection-foreground = #ffffff
 #cursor-text = #000000
 
-custom-shader = ~/.config/ghostty/shaders/retro-terminal.glsl
+#custom-shader = ~/.config/ghostty/shaders/retro-terminal.glsl
 

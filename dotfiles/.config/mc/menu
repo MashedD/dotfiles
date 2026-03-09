@@ -1,3 +1,12 @@
+0   Spawn shell
+    zsh
+
+1   Sleep
+    systemctl suspend
+
+2   Quake 2
+    cd $HOME/Data/Games/q2pro && ./start-q2pro-lin64-mashedd.sh
+
 t   Edit todo.txt
     $EDITOR ~/Data/Documents/Notes/todo.md
 

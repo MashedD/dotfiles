@@ -106,6 +106,14 @@ vim.api.nvim_create_autocmd("ColorScheme", {
 })
 vim.cmd.colorscheme("torte")
 
+vim.g.markdown_fenced_languages = {
+  "bash=sh",
+  "sh",
+  "python",
+  "lua",
+  -- itd.
+}
+
 -- =====================================
 -- Plugins via lazy.nvim
 -- =====================================
@@ -236,4 +244,15 @@ end, { desc = "Compile & run C++" })
 
 -- Ctrl+C: copy
 vim.keymap.set('v', '<C-c>', '"+y', { remap = false })
+
+-- Hide ^M (new lines in mixed mode files)
+--vim.api.nvim_create_autocmd("BufEnter", {
+--  callback = function()
+--    vim.cmd([[
+--      syntax match HideCr /\r$/ conceal containedin=ALL
+--      setlocal conceallevel=2
+--      setlocal concealcursor=nvic
+--    ]])
+--  end,
+--})
 
