@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Firefox
+Comment=Firefox
+Exec=firefox %U
+Icon=firefox
+Terminal=false
+Type=Application
+Categories=
+MimeType=application/xhtml+xml;text/html
+StartupNotify=true
