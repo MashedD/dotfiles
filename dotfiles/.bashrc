@@ -57,13 +57,17 @@ alias mpv="mpv --volume=65 --audio-display=no"
 alias tmux="tmux -2"
 alias vim="nvim"
 alias mc="mc -u"
+alias rg="rg --no-ignore"
+alias fd="fd --no-ignore"
 
 export EDITOR="vim"
 export VIEWER="vim -R"
-export TERMINAL="st"
-export PATH="$PATH:$HOME/.local/bin:$HOME/Data/Projects/scripts"
+#export TERMINAL="st"
+export PATH="$PATH:$HOME/.local/bin:$HOME/Data/Projects/scripts:$HOME/Data/Programs"
 export PS1="\[\033[01;36m\]\[\033[01;34m\]\W\[\033[01;36m\]\$\[\033[00m\] "
 export _JAVA_AWT_WM_NONREPARENTING=1 # Fix for JDownloader 2
 
 export MPD_HOST="$XDG_RUNTIME_DIR/mpd/socket"
+
+eval "$(direnv hook bash)"
 

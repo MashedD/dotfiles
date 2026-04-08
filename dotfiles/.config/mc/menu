@@ -1,11 +1,17 @@
 0   Spawn shell
     zsh
 
-1   Sleep
-    systemctl suspend
+1   Quake
+    cd $HOME/Data/Games/quake && ./ironwail.sh
 
 2   Quake 2
-    cd $HOME/Data/Games/q2pro && ./start-q2pro-lin64-mashedd.sh
+    cd $HOME/Data/Games/quake2 && ./q2pro
+
+3   Quake 3
+    cd $HOME/Data/Games/quake3 && ./start-quake3e-lin64-mashedd.sh
+
+4   Sleep
+    systemctl suspend
 
 t   Edit todo.txt
     $EDITOR ~/Data/Documents/Notes/todo.md

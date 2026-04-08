@@ -126,7 +126,7 @@ alias rg="rg --no-ignore"
 export EDITOR="nvim"
 export VIEWER="nvim -R"
 export TERMINAL="kitty"
-export PATH="$PATH:$HOME/.local/bin:$HOME/.local/share/cargo/bin:$HOME/Data/Projects/scripts"
+export PATH="$PATH:$HOME/.local/bin:$HOME/.local/share/cargo/bin:$HOME/Data/Projects/scripts:$HOME/Data/Programs"
 export _JAVA_AWT_WM_NONREPARENTING=1 # Fix for JDownloader 2
 
 export MPD_HOST="$XDG_RUNTIME_DIR/mpd/socket"
@@ -169,3 +169,7 @@ function y() {
     rm -f -- "$tmp"
 }
 
+eval "$(direnv hook zsh)"
+
+# opencode
+export PATH=/home/user/.opencode/bin:$PATH

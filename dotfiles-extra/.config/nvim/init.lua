@@ -106,14 +106,6 @@ vim.api.nvim_create_autocmd("ColorScheme", {
 })
 vim.cmd.colorscheme("torte")
 
-vim.g.markdown_fenced_languages = {
-  "bash=sh",
-  "sh",
-  "python",
-  "lua",
-  -- itd.
-}
-
 -- =====================================
 -- Plugins via lazy.nvim
 -- =====================================
@@ -136,7 +128,7 @@ require("lazy").setup({
     opts = {
       window = {
         backdrop = 0.95,          -- shade the backdrop slightly (0 = fully dark, 1 = no shade)
-        width = 80,              -- fixed width (or 0.8 for 80% of screen)
+        width = 80,               -- fixed width (or 0.8 for 80% of screen)
         height = 1.0,             -- full height
         options = {
           signcolumn = "no",      -- disable sign column
@@ -151,7 +143,7 @@ require("lazy").setup({
       plugins = {
         -- disable some global plugins when in zen mode
         options = { enabled = true },
-        twilight = { enabled = false },
+        -- twilight = { enabled = false },
         gitsigns = { enabled = false },
         tmux = { enabled = true },      -- if using tmux
       },
@@ -170,15 +162,17 @@ require("lazy").setup({
       { "<F7>", "<cmd>ZenMode<cr>", desc = "Toggle Zen Mode" },
     },
   },
-  {
-    "folke/twilight.nvim",
-    opts = {
-      -- your configuration comes here
-      -- or leave it empty to use the default settings
-      -- refer to the configuration section below
-    }
-  },
-  -- Optional: even more green alternatives (uncomment if you want to try)
+  -- {
+  --   "folke/twilight.nvim",
+  --   opts = {
+  --   }
+  -- },
+  -- {
+  --   "yousefhadder/markdown-plus.nvim",
+  --   ft = "markdown",
+  --   opts = {},
+  -- }
+  -- Optional: even more green alternatives
   -- { "ribru17/bamboo.nvim", config = function() vim.cmd.colorscheme("bamboo") end },
   -- { "luisiacc/the-matrix.nvim", config = function() vim.cmd.colorscheme("thematrix") end },
 
@@ -195,14 +189,30 @@ local au  = vim.api.nvim_create_autocmd
 -- Makefile: no expandtab
 au("FileType", {
   pattern = "make",
-  callback = function() vim.bo.expandtab = false end,
+  callback = function()
+    vim.bo.expandtab = false
+  end,
 })
 
 -- Markdown files
 au({ "BufNewFile", "BufRead" }, {
   pattern = { "*.md", "TODO.txt", "CHANGELOG.txt", "NOTES.txt" },
-  callback = function() vim.bo.filetype = "markdown" end,
+  callback = function()
+    vim.bo.filetype = "markdown"
+  end,
 })
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "markdown",
+  callback = function()
+    vim.treesitter.stop() -- seems buggy, doesn't highlight fenced blocks
+    vim.bo.syntax = "markdown"   -- stary vim highlighter
+  end,
+})
+vim.g.markdown_fenced_languages = {
+  "bash=sh", "sh", "zsh", "python", "lua", "js=javascript",
+  "ts=typescript", "html", "css"
+}
+--vim.treesitter.language.register("sh", { "bash" })
 
 -- Jump to last position
 vim.api.nvim_create_autocmd("BufReadPost", {
@@ -229,21 +239,21 @@ au("Syntax", {
   end,
 })
 
--- F5: compile & run C++
-vim.keymap.set("n", "<F5>", function()
-  vim.cmd("w")
-  local file = vim.fn.expand("%")
-  local out  = vim.fn.expand("%<")
-  local cmd = string.format(
-    "g++ -std=c++23 -fmodules -O2 -Wall -Wextra -pedantic '%s' -o '%s' && echo -e \"\\n\\n\" && ./" .. out,
-    vim.fn.shellescape(file),
-    vim.fn.shellescape(out)
-  )
-  vim.cmd("!" .. cmd)
-end, { desc = "Compile & run C++" })
-
 -- Ctrl+C: copy
 vim.keymap.set('v', '<C-c>', '"+y', { remap = false })
+
+-- F5: compile & run C++
+--vim.keymap.set("n", "<F5>", function()
+--  vim.cmd("w")
+--  local file = vim.fn.expand("%")
+--  local out  = vim.fn.expand("%<")
+--  local cmd = string.format(
+--    "g++ -std=c++23 -fmodules -O2 -Wall -Wextra -pedantic '%s' -o '%s' && echo -e \"\\n\\n\" && ./" .. out,
+--    vim.fn.shellescape(file),
+--    vim.fn.shellescape(out)
+--  )
+--  vim.cmd("!" .. cmd)
+--end, { desc = "Compile & run C++" })
 
 -- Hide ^M (new lines in mixed mode files)
 --vim.api.nvim_create_autocmd("BufEnter", {

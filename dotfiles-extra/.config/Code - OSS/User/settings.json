@@ -16,7 +16,7 @@
     "editor.largeFileOptimizations": false,
     "editor.minimap.enabled": false,
     "editor.renderControlCharacters": true,
-    //"editor.renderWhitespace": "all",
+    "editor.renderWhitespace": "all",
     "editor.quickSuggestions": {
         "comments": "off",
         "strings": "off",
@@ -61,4 +61,27 @@
     "workbench.startupEditor": "none",
     "workbench.welcomePage.walkthroughs.openOnInstall": false,
     "zenMode.fullScreen": false,
+    "todohighlight.isEnable": true,
+    "todohighlight.keywords": [
+        {
+            "text": "TODO:",
+            "color": "#fff",
+            "backgroundColor": "black",
+            "overviewRulerColor": "rgba(255,189,42,0.8)"
+        },
+        {
+            "text": "FIXME:",
+            "color": "#fff",
+            "backgroundColor": "black",
+            "overviewRulerColor": "rgba(240,98,146,0.8)"
+        },
+        {
+            "text": "XXX:",
+            "color": "#fff",
+            "backgroundColor": "black",
+            "overviewRulerColor": "rgba(240,98,146,0.8)"
+        }
+
+    ],
+    "python.defaultInterpreterPath": "/home/user/Data/Projects/escapecontrol/entrack/.venv"
 }
