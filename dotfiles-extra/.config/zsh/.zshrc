@@ -119,7 +119,7 @@ alias mpv="mpv --volume=65 --audio-display=no"
 alias tmux="tmux -2"
 alias vim="nvim"
 alias mc="mc -u"
-alias q="cd $HOME/Games/q2pro"
+alias q="cd $HOME/Games/quake2"
 alias fd="fd --no-ignore"
 alias rg="rg --no-ignore"
 

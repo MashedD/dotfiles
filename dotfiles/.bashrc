@@ -59,6 +59,7 @@ alias vim="nvim"
 alias mc="mc -u"
 alias rg="rg --no-ignore"
 alias fd="fd --no-ignore"
+alias q="cd $HOME/Games/quake2"
 
 export EDITOR="vim"
 export VIEWER="vim -R"
