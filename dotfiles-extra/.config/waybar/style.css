@@ -17,7 +17,7 @@ window#waybar {
 @define-color bevel-light   #004400;
 @define-color bevel-white   #008811;
 
-#workspaces, #clock, #pulseaudio, #memory, #cpu, #battery, #disk, #tray,
+#custom-start, #clock, #pulseaudio, #memory, #cpu, #battery, #disk, #tray,
 #clock#1, #clock#2, #clock#3 {
     background: #000000;
     padding: 0 8px;
@@ -29,8 +29,58 @@ window#waybar {
     border-bottom-color: #001100;
 }
 
-#workspaces button.active,
-#workspaces button.focused {
+#custom-start {
+    padding: 0 4px 0 2px;
+    margin-left: 0;
+}
+
+#custom-start label {
+    color: #00ff41;
+    font-size: 15px;
+}
+
+#custom-start:hover {
+    border-top-color:    #001100;
+    border-left-color:   #001100;
+    border-right-color:  #004400;
+    border-bottom-color: #004400;
+}
+
+/* Win98 taskbar buttons */
+#taskbar {
+    background: #000000;
+    margin: 2px 0;
+    padding: 0;
+}
+
+#taskbar button {
+    background: #000000;
+    padding: 0 6px;
+    margin: 1px 1px;
+    border: 1px solid;
+    border-top-color:    #004400;
+    border-left-color:   #004400;
+    border-right-color:  #001100;
+    border-bottom-color: #001100;
+    font-size: 12px;
+    font-weight: normal;
+}
+
+#taskbar button label {
+    color: #00ff41;
+    font-size: 12px;
+    font-weight: normal;
+}
+
+#taskbar button:hover {
+    background: #002200;
+    border-top-color:    #002200;
+    border-left-color:   #002200;
+    border-right-color:  #004400;
+    border-bottom-color: #004400;
+}
+
+#taskbar button.active {
     background: #003300;
     border-top-color:    #001100;
     border-left-color:   #001100;
@@ -38,14 +88,8 @@ window#waybar {
     border-bottom-color: #008822;
 }
 
-#workspaces button.active label,
-#workspaces button.focused label {
+#taskbar button.active label {
     color: #00ff41;
-}
-
-#workspaces button:hover {
-    background: #002200;
-    box-shadow: none;
 }
 
 #pulseaudio { color: #00ff41; }

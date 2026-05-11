@@ -1,9 +1,23 @@
 {
     "layer": "top",
     "position": "top",
-    "modules-left": ["hyprland/workspaces"],
+    "modules-left": ["custom/start", "hyprland/workspaces", "wlr/taskbar"],
     "modules-center": ["clock#1", "clock#2", "clock#3"],
     "modules-right": ["pulseaudio", "memory", "cpu", "disk", "battery", "tray"],
+
+    "custom/start": {
+        "format": "  ",
+        "on-click": "wofi --show drun",
+        "tooltip": false
+    },
+
+    "wlr/taskbar": {
+        "format": "{name}",
+        "icon-size": 14,
+        "icon": true,
+        "tooltip": false,
+        "all-outputs": false
+    },
 
     "clock#1": {
         "format": "{:%a}",
