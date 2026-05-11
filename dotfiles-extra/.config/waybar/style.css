@@ -17,6 +17,7 @@ window#waybar {
 @define-color bevel-light   #004400;
 @define-color bevel-white   #008811;
 
+#workspaces,
 #custom-start, #clock, #pulseaudio, #memory, #cpu, #battery, #disk, #tray,
 #clock#1, #clock#2, #clock#3 {
     background: #000000;
@@ -27,6 +28,26 @@ window#waybar {
     border-left-color:   #004400;
     border-right-color:  #001100;
     border-bottom-color: #001100;
+}
+
+#workspaces button {
+    background: #000000;
+    padding: 0 4px;
+    border: 1px solid transparent;
+    color: #00ff41;
+}
+
+#workspaces button.active {
+    background: #003300;
+    border-top-color:    #001100;
+    border-left-color:   #001100;
+    border-right-color:  #008822;
+    border-bottom-color: #008822;
+}
+
+#workspaces button:hover {
+    background: #002200;
+    box-shadow: none;
 }
 
 #custom-start {

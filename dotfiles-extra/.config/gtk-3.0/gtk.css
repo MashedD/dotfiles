@@ -1,0 +1,22 @@
+/*
+ * Matrix-green overrides on top of Chicago95
+ */
+@define-color bg_color #0a0a0a;
+@define-color fg_color #00ff41;
+@define-color panel_fg_color #00ff41;
+@define-color panel_fg_color_bright #00ff41;
+@define-color base_color #0d0d0d;
+@define-color text_color #00ff41;
+@define-color text_color_light #00aa33;
+@define-color selected_bg_color #003300;
+@define-color selected_fg_color #00ff41;
+@define-color selected_inactive_bg_color #002200;
+@define-color selected_inactive_fg_color #00aa33;
+@define-color tooltip_bg_color #001100;
+@define-color tooltip_bg_shade #000a00;
+@define-color tooltip_fg_color #00ff41;
+@define-color borders #004400;
+@define-color bg_bright #1a1a1a;
+@define-color bg_shade #003300;
+@define-color bg_dark #000000;
+@define-color border_color #004400;
