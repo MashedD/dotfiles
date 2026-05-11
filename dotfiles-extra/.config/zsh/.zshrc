@@ -119,14 +119,14 @@ alias mpv="mpv --volume=65 --audio-display=no"
 alias tmux="tmux -2"
 alias vim="nvim"
 alias mc="mc -u"
-alias q="cd $HOME/Data/Games/q2pro"
+alias q="cd $HOME/Games/q2pro"
 alias fd="fd --no-ignore"
 alias rg="rg --no-ignore"
 
 export EDITOR="nvim"
 export VIEWER="nvim -R"
 export TERMINAL="kitty"
-export PATH="$PATH:$HOME/.local/bin:$HOME/.local/share/cargo/bin:$HOME/Data/Projects/scripts:$HOME/Data/Programs"
+export PATH="$PATH:$HOME/.local/bin:$HOME/.local/share/cargo/bin:$HOME/Projects/scripts:$HOME/Programs:$HOME/go/bin"
 export _JAVA_AWT_WM_NONREPARENTING=1 # Fix for JDownloader 2
 
 export MPD_HOST="$XDG_RUNTIME_DIR/mpd/socket"
@@ -173,3 +173,10 @@ eval "$(direnv hook zsh)"
 
 # opencode
 export PATH=/home/user/.opencode/bin:$PATH
+
+export PATH="$HOME/.local/bin/dotnet:$PATH"
+export DOTNET_ROOT="$HOME/.local/bin/dotnet"
+export CODEX_HOME="$HOME/.config/codex"
+
+export DO_NOT_TRACK=1 # https://donottrack.sh/
+

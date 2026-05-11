@@ -62,12 +62,18 @@ alias fd="fd --no-ignore"
 
 export EDITOR="vim"
 export VIEWER="vim -R"
-#export TERMINAL="st"
-export PATH="$PATH:$HOME/.local/bin:$HOME/Data/Projects/scripts:$HOME/Data/Programs"
+export TERMINAL="kitty"
+export PATH="$PATH:$HOME/.local/bin:$HOME/Projects/scripts:$HOME/Programs:$HOME/go/bin"
+
+export PATH="$HOME/.local/bin/dotnet:$PATH"
+export DOTNET_ROOT="$HOME/.local/bin/dotnet"
+
 export PS1="\[\033[01;36m\]\[\033[01;34m\]\W\[\033[01;36m\]\$\[\033[00m\] "
 export _JAVA_AWT_WM_NONREPARENTING=1 # Fix for JDownloader 2
 
 export MPD_HOST="$XDG_RUNTIME_DIR/mpd/socket"
+export CODEX_HOME="$HOME/.config/codex"
+export DO_NOT_TRACK=1 # https://donottrack.sh/
 
 eval "$(direnv hook bash)"
 

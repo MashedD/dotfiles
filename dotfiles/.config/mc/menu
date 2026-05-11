@@ -2,37 +2,34 @@
     zsh
 
 1   Quake
-    cd $HOME/Data/Games/quake && ./ironwail.sh
+    cd $HOME/Games/quake && ./ironwail.sh
 
 2   Quake 2
-    cd $HOME/Data/Games/quake2 && ./q2pro
+    cd $HOME/Games/quake2 && ./q2pro
 
 3   Quake 3
-    cd $HOME/Data/Games/quake3 && ./start-quake3e-lin64-mashedd.sh
+    cd $HOME/Games/quake3 && ./start-quake3e-lin64-mashedd.sh
 
 4   Sleep
     systemctl suspend
 
 t   Edit todo.txt
-    $EDITOR ~/Data/Documents/Notes/todo.md
+    $EDITOR ~/Documents/todo.md
 
 n   Edit notes.md
-    $EDITOR ~/Data/Documents/Notes/notes.md
+    $EDITOR ~/Documents/notes.md
 
 b   Edit buy.txt
-    $EDITOR ~/Data/Documents/Notes/buy.md
+    $EDITOR ~/Documents/buy.md
 
 c   Edit calendar.txt
-    $EDITOR ~/Data/Documents/Notes/calendar.md
+    $EDITOR ~/Documents/calendar.md
 
 s   Edit snippets.md
-    $EDITOR ~/Data/Documents/Notes/snippets.md
-
-r   Edit trading.md
-    $EDITOR ~/Data/Projects/notes/trading.md
+    $EDITOR ~/Documents/snippets.md
 
 a   Edit cachyos.md
-    $EDITOR ~/Data/Documents/Notes/cachyos.md
+    $EDITOR ~/Documents/cachyos.md
 
 z   Compress folder to .tar.gz
     CURRENT_FOLDER_NAME=$(basename %d /)
