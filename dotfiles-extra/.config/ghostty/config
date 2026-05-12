@@ -6,29 +6,27 @@ mouse-scroll-multiplier = 1
 
 theme = Neon
 cursor-color = #00FF00
-
-#palette = 0  = #000000
-#palette = 1  = #aa0000
-#palette = 2  = #00aa00
-#palette = 3  = #aa5500
-#palette = 4  = #0000aa
-#palette = 5  = #aa00aa
-#palette = 6  = #00aaaa
-#palette = 7  = #aaaaaa
-#palette = 8  = #555555
-#palette = 9  = #ff5555
-#palette = 10 = #55ff55
-#palette = 11 = #ffff55
-#palette = 12 = #5555ff
-#palette = 13 = #ff55ff
-#palette = 14 = #55ffff
-#palette = 15 = #ffffff
-#
 background = #000000
-#foreground = #aaaaaa
-#selection-background = #444444
-#selection-foreground = #ffffff
-#cursor-text = #000000
+foreground = #00ff41
+selection-background = #003300
+selection-foreground = #00ff41
+cursor-text = #000000
 
-#custom-shader = ~/.config/ghostty/shaders/retro-terminal.glsl
+palette = 0  = #000000
+palette = 1  = #aa0000
+palette = 2  = #00aa33
+palette = 3  = #aa7700
+palette = 4  = #003300
+palette = 5  = #00aa66
+palette = 6  = #00cc66
+palette = 7  = #00cc33
+palette = 8  = #003300
+palette = 9  = #ff4444
+palette = 10 = #00ff41
+palette = 11 = #ffff55
+palette = 12 = #00aa33
+palette = 13 = #55ff99
+palette = 14 = #88ffaa
+palette = 15 = #ccffcc
 
+custom-shader = ~/.config/ghostty/shaders/retro-terminal.glsl

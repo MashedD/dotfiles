@@ -2,20 +2,22 @@
     font-family: "FiraCode Nerd Font Mono", "Microsoft Sans Serif", "Segoe UI", Sans;
     font-size: 16px;
     font-weight: bold;
-    color: #00ff41;
+    color: #00cc33;
 }
 
 window#waybar {
     background: #000000;
-    border-bottom: 1px solid #003300;
-    border-top:    1px solid #003300;
+    border-top: 1px solid #00aa33;
+    border-bottom: 2px solid #001100;
 }
 
 @define-color bg-dark       #000000;
 @define-color bevel-dark    #001100;
-@define-color bevel-shadow  #002200;
-@define-color bevel-light   #004400;
-@define-color bevel-white   #008811;
+@define-color bevel-shadow  #003300;
+@define-color bevel-light   #00aa33;
+@define-color bevel-white   #00ff41;
+@define-color text-dim      #00aa33;
+@define-color text-bright   #00ff41;
 
 #workspaces,
 #custom-start, #clock, #pulseaudio, #memory, #cpu, #battery, #disk, #tray,
@@ -24,25 +26,31 @@ window#waybar {
     padding: 0 8px;
     margin: 2px 0;
     border: 1px solid;
-    border-top-color:    #004400;
-    border-left-color:   #004400;
+    border-top-color:    #00aa33;
+    border-left-color:   #00aa33;
     border-right-color:  #001100;
     border-bottom-color: #001100;
+    box-shadow: inset -1px -1px #003300, inset 1px 1px #00ff41;
 }
 
 #workspaces button {
     background: #000000;
     padding: 0 4px;
     border: 1px solid transparent;
-    color: #00ff41;
+    color: #00aa33;
 }
 
 #workspaces button.active {
     background: #003300;
     border-top-color:    #001100;
     border-left-color:   #001100;
-    border-right-color:  #008822;
-    border-bottom-color: #008822;
+    border-right-color:  #00ff41;
+    border-bottom-color: #00ff41;
+    box-shadow: inset 1px 1px #000000;
+}
+
+#workspaces button.active label {
+    color: #00ff41;
 }
 
 #workspaces button:hover {
@@ -51,7 +59,7 @@ window#waybar {
 }
 
 #custom-start {
-    padding: 0 4px 0 2px;
+    padding: 0 10px;
     margin-left: 0;
 }
 
@@ -79,16 +87,17 @@ window#waybar {
     padding: 0 6px;
     margin: 1px 1px;
     border: 1px solid;
-    border-top-color:    #004400;
-    border-left-color:   #004400;
+    border-top-color:    #00aa33;
+    border-left-color:   #00aa33;
     border-right-color:  #001100;
     border-bottom-color: #001100;
     font-size: 12px;
     font-weight: normal;
+    box-shadow: inset -1px -1px #003300, inset 1px 1px #00ff41;
 }
 
 #taskbar button label {
-    color: #00ff41;
+    color: #00aa33;
     font-size: 12px;
     font-weight: normal;
 }
@@ -97,16 +106,17 @@ window#waybar {
     background: #002200;
     border-top-color:    #002200;
     border-left-color:   #002200;
-    border-right-color:  #004400;
-    border-bottom-color: #004400;
+    border-right-color:  #00aa33;
+    border-bottom-color: #00aa33;
 }
 
 #taskbar button.active {
     background: #003300;
     border-top-color:    #001100;
     border-left-color:   #001100;
-    border-right-color:  #008822;
-    border-bottom-color: #008822;
+    border-right-color:  #00ff41;
+    border-bottom-color: #00ff41;
+    box-shadow: inset 1px 1px #000000;
 }
 
 #taskbar button.active label {
@@ -114,10 +124,10 @@ window#waybar {
 }
 
 #pulseaudio { color: #00ff41; }
-#memory     { color: #00ff41; }
-#cpu        { color: #00ff41; }
-#battery    { color: #00ff41; }
-#disk       { color: #00ff41; }
+#memory     { color: #00cc33; }
+#cpu        { color: #00cc33; }
+#battery    { color: #00cc33; }
+#disk       { color: #00cc33; }
 #clock      { color: #00ff41; }
 
 #battery.critical { color: #ff4444; }
@@ -132,11 +142,11 @@ window#waybar {
 }
 
 tooltip {
-    background: #001100;
-    border: 1px solid #004400;
+    background: #000000;
+    border: 1px solid #00aa33;
     padding: 4px 8px;
     border-radius: 0;
-    box-shadow: 2px 2px 0 #000000;
+    box-shadow: 2px 2px 0 #001100;
 }
 
 tooltip label {
@@ -145,4 +155,3 @@ tooltip label {
     font-weight: normal;
     font-size: 14px;
 }
-

@@ -6,7 +6,7 @@
     "modules-right": ["pulseaudio", "memory", "cpu", "disk", "battery", "tray"],
 
     "custom/start": {
-        "format": "  ",
+        "format": " Start ",
         "on-click": "wofi --show drun",
         "tooltip": false
     },
@@ -79,4 +79,3 @@
         "icon-size": 20
     }
 }
-
