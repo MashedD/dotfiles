@@ -39,10 +39,28 @@ export LESSOPEN="| /usr/bin/highlight -O ansi %s 2>/dev/null"
 #export FZF_DEFAULT_OPTS=TODO:
 
 # Add in zsh plugins
-zinit light zsh-users/zsh-syntax-highlighting
+# NOTE: zsh-syntax-highlighting must be loaded LAST (after all other plugins)
 zinit light zsh-users/zsh-completions
 zinit light zsh-users/zsh-autosuggestions
 zinit light Aloxaf/fzf-tab
+zinit light zsh-users/zsh-syntax-highlighting
+
+# Enable pattern highlighter - catches $var patterns the main highlighter misses
+ZSH_HIGHLIGHT_HIGHLIGHTERS+=(pattern)
+ZSH_HIGHLIGHT_PATTERNS=(
+  '\$[a-zA-Z_][a-zA-Z0-9_]#' 'fg=#00ffaa'
+  '\$\{[a-zA-Z_][a-zA-Z0-9_]#\}' 'fg=#00ffaa'
+  '\$[#?!@*-]' 'fg=#00ffaa'
+  '\$[0-9]##' 'fg=#00ffaa'
+)
+
+# Override main highlighter styles with explicit hex colors
+ZSH_HIGHLIGHT_STYLES[default]='fg=#00ffaa'
+ZSH_HIGHLIGHT_STYLES[comment]='fg=#00ffaa'
+ZSH_HIGHLIGHT_STYLES[dollar-double-quoted-argument]='fg=#00ffaa'
+ZSH_HIGHLIGHT_STYLES[back-double-quoted-argument]='fg=#00ffaa'
+ZSH_HIGHLIGHT_STYLES[back-dollar-quoted-argument]='fg=#00ffaa'
+ZSH_HIGHLIGHT_STYLES[path]='fg=#00ffaa'
 
 # Add in snippets
 zinit snippet OMZP::git
@@ -179,4 +197,3 @@ export DOTNET_ROOT="$HOME/.local/bin/dotnet"
 export CODEX_HOME="$HOME/.config/codex"
 
 export DO_NOT_TRACK=1 # https://donottrack.sh/
-

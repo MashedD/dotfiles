@@ -2,7 +2,7 @@
     font-family: "FiraCode Nerd Font Mono", "Microsoft Sans Serif", "Segoe UI", Sans;
     font-size: 16px;
     font-weight: bold;
-    color: #00cc33;
+    color: #00aa33;
 }
 
 window#waybar {
@@ -37,7 +37,11 @@ window#waybar {
     background: #000000;
     padding: 0 4px;
     border: 1px solid transparent;
-    color: #00aa33;
+    color: #008822;
+}
+
+#workspaces button label {
+    color: #008822;
 }
 
 #workspaces button.active {
@@ -71,8 +75,8 @@ window#waybar {
 #custom-start:hover {
     border-top-color:    #001100;
     border-left-color:   #001100;
-    border-right-color:  #004400;
-    border-bottom-color: #004400;
+    border-right-color:  #00aa33;
+    border-bottom-color: #00aa33;
 }
 
 /* Win98 taskbar buttons */
@@ -97,7 +101,7 @@ window#waybar {
 }
 
 #taskbar button label {
-    color: #00aa33;
+    color: #008822;
     font-size: 12px;
     font-weight: normal;
 }
@@ -124,14 +128,21 @@ window#waybar {
 }
 
 #pulseaudio { color: #00ff41; }
-#memory     { color: #00cc33; }
-#cpu        { color: #00cc33; }
-#battery    { color: #00cc33; }
-#disk       { color: #00cc33; }
+#memory     { color: #00aa33; }
+#cpu        { color: #00aa33; }
+#battery    { color: #00aa33; }
+#disk       { color: #00aa33; }
 #clock      { color: #00ff41; }
 
-#battery.critical { color: #ff4444; }
-#battery.warning  { color: #ffaa00; }
+#battery.critical {
+    color: #000000;
+    background: #ff4444;
+}
+
+#battery.warning {
+    color: #000000;
+    background: #ffaa00;
+}
 
 #tray {
     padding-right: 8px;
@@ -139,6 +150,20 @@ window#waybar {
 
 #clock#1, #clock#2, #clock#3 {
     padding: 0 12px;
+    background: #001100;
+    border-top-color: #000000;
+    border-left-color: #000000;
+    border-right-color: #00aa33;
+    border-bottom-color: #00aa33;
+    box-shadow: inset 1px 1px #000000;
+}
+
+#clock#1, #clock#3 {
+    color: #00aa33;
+}
+
+#clock#2 {
+    color: #00ff41;
 }
 
 tooltip {

@@ -7,7 +7,7 @@
 
     "custom/start": {
         "format": " Start ",
-        "on-click": "wofi --show drun",
+        "on-click": "walker",
         "tooltip": false
     },
 

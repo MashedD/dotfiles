@@ -1,0 +1,229 @@
+@define-color bg #000000;
+@define-color bg-light #001a00;
+@define-color bg-dim #001100;
+@define-color fg-bright #00ff41;
+@define-color fg #00cc33;
+@define-color fg-dim #00aa33;
+@define-color fg-dark #008822;
+@define-color border-dark #001100;
+@define-color border-mid #003300;
+@define-color border-light #00aa33;
+@define-color border-bright #00ff41;
+@define-color surface #000000;
+
+* {
+  all: unset;
+  font-family: "FiraCode Nerd Font Mono", "Microsoft Sans Serif", "Segoe UI", Sans;
+  font-size: 14px;
+}
+
+popover {
+  background: @bg;
+  border: 1px solid @border-light;
+  border-radius: 0;
+  padding: 10px;
+}
+
+.normal-icons {
+  -gtk-icon-size: 16px;
+}
+
+.large-icons {
+  -gtk-icon-size: 32px;
+}
+
+scrollbar {
+  opacity: 0;
+}
+
+.box-wrapper {
+  box-shadow: 4px 4px 0 @bg-dim, 2px 2px 0 @bg;
+  background: @surface;
+  padding: 0;
+  border-radius: 0;
+  border: 2px solid;
+  border-top-color: @border-light;
+  border-left-color: @border-light;
+  border-right-color: @border-dark;
+  border-bottom-color: @border-dark;
+}
+
+.preview-box,
+.elephant-hint,
+.placeholder {
+  color: @fg-dim;
+}
+
+.search-container {
+  border: 2px solid;
+  border-top-color: #808080;
+  border-left-color: #808080;
+  border-right-color: #ffffff;
+  border-bottom-color: #ffffff;
+  background: @bg;
+  margin: 5px;
+  border-radius: 0;
+}
+
+.input placeholder {
+  color: @border-mid;
+  opacity: 0.8;
+}
+
+.input selection {
+  background: @bg-light;
+}
+
+.input {
+  caret-color: @fg-bright;
+  background: @bg;
+  padding: 8px 10px;
+  color: @fg-bright;
+  font-weight: bold;
+}
+
+.content-container {
+  padding: 0 5px;
+}
+
+.list {
+  color: @fg;
+}
+
+.item-box {
+  padding: 6px 10px;
+  margin: 1px 0;
+  border: 1px solid transparent;
+}
+
+.item-quick-activation {
+  background: @bg-light;
+  border: 1px solid @border-mid;
+  border-radius: 0;
+  padding: 8px;
+}
+
+child:selected .item-box,
+row:selected .item-box {
+  background: @bg-light;
+  border: 1px dotted @fg-bright;
+  color: @fg-bright;
+}
+
+child:selected .item-box .item-text,
+row:selected .item-box .item-text {
+  color: @fg-bright;
+}
+
+child:selected .item-box .item-subtext,
+row:selected .item-box .item-subtext {
+  color: @fg-bright;
+}
+
+.item-text {
+  color: @fg;
+}
+
+.item-subtext {
+  font-size: 12px;
+  color: @fg-dim;
+}
+
+.providerlist .item-subtext {
+  font-size: unset;
+  color: @fg-dim;
+}
+
+.item-image-text {
+  font-size: 28px;
+  color: @fg;
+}
+
+.preview {
+  border: 1px solid @border-mid;
+  border-radius: 0;
+  padding: 8px;
+  color: @fg;
+  background: @bg;
+}
+
+.calc .item-text {
+  font-size: 24px;
+  color: @fg-bright;
+}
+
+.symbols .item-image {
+  font-size: 24px;
+}
+
+.todo.done .item-text-box {
+  opacity: 0.3;
+}
+
+.todo.urgent .item-text {
+  color: #ff4444;
+}
+
+.todo.active .item-text {
+  font-weight: bold;
+  color: @fg-bright;
+}
+
+.bluetooth.disconnected {
+  opacity: 0.5;
+}
+
+.preview .large-icons {
+  -gtk-icon-size: 64px;
+}
+
+.keybinds {
+  padding: 6px 5px;
+  margin: 0 5px 5px 5px;
+  border: 1px solid;
+  border-top-color: @border-dark;
+  border-left-color: @border-dark;
+  border-right-color: @border-light;
+  border-bottom-color: @border-light;
+  font-size: 12px;
+  color: @fg-dim;
+  background: @bg;
+}
+
+.keybind-button {
+  color: @fg-dim;
+}
+
+.keybind-button:hover {
+  color: @fg-bright;
+}
+
+.keybind-bind {
+  text-transform: lowercase;
+  color: @fg-dark;
+}
+
+.keybind-label {
+  padding: 2px 6px;
+  border: 1px solid @border-light;
+  color: @fg;
+  background: @bg;
+  border-radius: 0;
+}
+
+.error {
+  padding: 8px;
+  background: @bg;
+  border: 1px solid #ff4444;
+  color: #ff4444;
+  margin: 5px;
+}
+
+:not(.calc).current {
+  font-style: italic;
+}
+
+.preview-content.archlinuxpkgs,
+.preview-content.dnfpackages {
+  font-family: "FiraCode Nerd Font Mono", monospace;
+}

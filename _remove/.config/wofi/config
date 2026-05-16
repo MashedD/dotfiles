@@ -1,0 +1,15 @@
+width=420
+height=480
+location=top_left
+xoffset=0
+yoffset=0
+allow_images=true
+prompt=Start
+lines=18
+line_wrap=off
+allow_markup=true
+image_size=22
+no_actions=true
+close_on_focus_loss=true
+layer=overlay
+termite=false

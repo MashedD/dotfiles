@@ -1,0 +1,121 @@
+;; eww.yuck -- Eww bar configuration
+;; Win98/Matrix retro theme, matching waybar setup
+
+;; ── Variables ──────────────────────────────────────────────────────────────
+
+(defpoll time :interval "1s"
+  "date '+%a  %H:%M  %d.%m.%y'")
+
+(defpoll volume :interval "1s"
+  "wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{print $2*100}' | cut -d. -f1")
+
+(defpoll vol-muted :interval "1s"
+  "wpctl get-volume @DEFAULT_AUDIO_SINK@ | grep -q MUTED && echo yes || echo no")
+
+(defpoll cpu :interval "5s"
+  "top -bn1 | grep 'Cpu(s)' | awk '{print $2}' | cut -d. -f1")
+
+(defpoll mem :interval "5s"
+  "free | grep Mem | awk '{printf \"%.0f\", $3/$2 * 100}'")
+
+(defpoll disk :interval "30s"
+  "df / | tail -1 | awk '{print $5}' | tr -d '%'")
+
+(defpoll battery :interval "30s"
+  "cat /sys/class/power_supply/BAT0/capacity 2>/dev/null || echo 0")
+
+(defpoll batt-status :interval "30s"
+  "cat /sys/class/power_supply/BAT0/status 2>/dev/null || echo 'Unknown'")
+
+(deflisten workspace-list :initial "[]"
+  "$HOME/.config/eww/scripts/workspaces.sh")
+
+
+;; ── Widgets ────────────────────────────────────────────────────────────────
+
+(defwidget ws [id active]
+  (button :class "ws-btn"
+          :style (if active "background: #003300; border-top-color: #001100; border-left-color: #001100; border-right-color: #00ff41; border-bottom-color: #00ff41; box-shadow: inset 1px 1px #000000; color: #00ff41;" "")
+          :onclick "hyprctl dispatch workspace #{id}"
+          :onmiddleclick "hyprctl dispatch movetoworkspace #{id}"
+          (label :text id
+                 :style (if active "color: #00ff41;" "color: #008822;"))))
+
+(defwidget workspaces []
+  (box :class "workspaces" :space-evenly false
+    (for ws in workspace-list
+      (ws :id ws.id :active ws.active))))
+
+(defwidget start-btn []
+  (button :class "start-btn"
+          :onclick "fuzzel"
+          " Start "))
+
+(defwidget clock-box []
+  (box :class "clock-box"
+    (label :text time)))
+
+(defwidget vol-box []
+  (box :class "vol-box"
+    (label :text vol-muted
+           :class "vol-icon")
+    (label :text volume
+           :class "vol-text")))
+
+(defwidget cpu-box []
+  (box :class "cpu-box"
+    (label :text "CPU "
+           :class "cpu-icon")
+    (label :text cpu
+           :class "cpu-text")))
+
+(defwidget mem-box []
+  (box :class "mem-box"
+    (label :text "Mem "
+           :class "mem-icon")
+    (label :text mem
+           :class "mem-text")))
+
+(defwidget disk-box []
+  (box :class "disk-box"
+    (label :text "Disk "
+           :class "disk-icon")
+    (label :text disk
+           :class "disk-text")))
+
+(defwidget batt-box []
+  (box :class "batt-box"
+    (label :text batt-status
+           :class "batt-icon")
+    (label :text battery
+           :class "batt-text")))
+
+(defwidget bar []
+  (box :class "bar-main" :orientation "h" :space-evenly false
+    (start-btn)
+    (workspaces)
+    (box :class "bar-center" :orientation "h" :space-evenly true
+      (clock-box))
+    (box :class "bar-right" :orientation "h" :space-evenly false
+      (vol-box)
+      (cpu-box)
+      (mem-box)
+      (disk-box)
+      (batt-box))))
+
+
+;; ── Windows ────────────────────────────────────────────────────────────────
+
+(defwindow bar
+  :monitor 0
+  :geometry (geometry :x "0%"
+                      :y "0%"
+                      :width "100%"
+                      :height "32px"
+                      :anchor "top center")
+  :windowtype "dock"
+  :stacking "fg"
+  :reserve (struts :distance "start" :side "top")
+  :focusable false
+  :click-through false
+  (bar))

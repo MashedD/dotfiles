@@ -1,0 +1,154 @@
+/* eww.scss -- Win98/Matrix retro theme matching waybar style.css */
+
+* {
+  all: unset;
+  font-family: "FiraCode Nerd Font Mono", "Microsoft Sans Serif", sans-serif;
+  font-size: 14px;
+  font-weight: bold;
+  color: #00aa33;
+}
+
+/* ── Bar window ────────────────────────────────────────────────────────── */
+
+.bar-main {
+  background: #000000;
+  border-bottom: 2px solid #001100;
+  padding: 0 4px;
+  min-height: 32px;
+}
+
+/* ── Start button ──────────────────────────────────────────────────────── */
+
+.start-btn {
+  background: #000000;
+  padding: 0 10px;
+  margin: 2px 4px 2px 0;
+  border: 1px solid;
+  border-top-color: #00aa33;
+  border-left-color: #00aa33;
+  border-right-color: #001100;
+  border-bottom-color: #001100;
+  box-shadow: inset -1px -1px #003300, inset 1px 1px #00ff41;
+  color: #00ff41;
+  font-size: 13px;
+}
+
+.start-btn:hover {
+  border-top-color: #001100;
+  border-left-color: #001100;
+  border-right-color: #00aa33;
+  border-bottom-color: #00aa33;
+}
+
+/* ── Workspaces ────────────────────────────────────────────────────────── */
+
+.workspaces {
+  background: #000000;
+  margin: 2px 0;
+  padding: 0 4px;
+  border: 1px solid;
+  border-top-color: #00aa33;
+  border-left-color: #00aa33;
+  border-right-color: #001100;
+  border-bottom-color: #001100;
+  box-shadow: inset -1px -1px #003300, inset 1px 1px #00ff41;
+}
+
+.ws-btn {
+  background: #000000;
+  padding: 0 6px;
+  margin: 1px;
+  border: 1px solid transparent;
+  color: #008822;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.ws-btn:hover {
+  background: #002200;
+  border: 1px solid;
+  border-top-color: #00aa33;
+  border-left-color: #00aa33;
+  border-right-color: #001100;
+  border-bottom-color: #001100;
+}
+
+/* ── Clock ─────────────────────────────────────────────────────────────── */
+
+.clock-box {
+  background: #001100;
+  padding: 0 12px;
+  margin: 2px 0;
+  border: 1px solid;
+  border-top-color: #000000;
+  border-left-color: #000000;
+  border-right-color: #00aa33;
+  border-bottom-color: #00aa33;
+  box-shadow: inset 1px 1px #000000;
+  color: #00ff41;
+}
+
+/* ── Info boxes ────────────────────────────────────────────────────────── */
+
+.vol-box, .cpu-box, .mem-box, .disk-box, .batt-box {
+  background: #000000;
+  padding: 0 8px;
+  margin: 2px 2px;
+  border: 1px solid;
+  border-top-color: #00aa33;
+  border-left-color: #00aa33;
+  border-right-color: #001100;
+  border-bottom-color: #001100;
+  box-shadow: inset -1px -1px #003300, inset 1px 1px #00ff41;
+}
+
+/* Right side colors matching waybar */
+.vol-box  { color: #00ff41; }
+.cpu-box  { color: #00aa33; }
+.mem-box  { color: #00aa33; }
+.disk-box { color: #00aa33; }
+.batt-box { color: #00aa33; }
+
+.vol-icon, .cpu-icon, .mem-icon, .disk-icon, .batt-icon {
+  font-size: 12px;
+  margin-right: 4px;
+}
+
+/* ── Battery states ────────────────────────────────────────────────────── */
+
+.batt-box.critical {
+  background: #ff4444;
+  color: #000000;
+}
+
+.batt-box.warning {
+  background: #ffaa00;
+  color: #000000;
+}
+
+/* ── Bar sections ──────────────────────────────────────────────────────── */
+
+.bar-center {
+  margin: 0 auto;
+}
+
+.bar-right {
+  margin-left: auto;
+}
+
+/* ── Tooltips ──────────────────────────────────────────────────────────── */
+
+tooltip {
+  background: #000000;
+  border: 1px solid #00aa33;
+  padding: 4px 8px;
+  border-radius: 0;
+  box-shadow: 2px 2px 0 #001100;
+}
+
+tooltip label {
+  color: #00ff41;
+  font-family: "FiraCode Nerd Font", "Microsoft Sans Serif", sans-serif;
+  font-weight: normal;
+  font-size: 13px;
+}

@@ -1,0 +1,108 @@
+window {
+    font-family: "FiraCode Nerd Font Mono", "Microsoft Sans Serif", "Segoe UI", Sans;
+    font-size: 14px;
+    font-weight: bold;
+    background-color: #c0c0c0;
+    color: #00cc33;
+    border: 2px solid;
+    border-top-color: #ffffff;
+    border-left-color: #ffffff;
+    border-right-color: #000000;
+    border-bottom-color: #000000;
+}
+
+#outer-box {
+    margin: 5px;
+    background-color: #c0c0c0;
+    border: 1px solid;
+    border-top-color: #dfdfdf;
+    border-left-color: #dfdfdf;
+    border-right-color: #808080;
+    border-bottom-color: #808080;
+}
+
+#inner-box {
+    background-color: #000000;
+    padding: 2px;
+}
+
+#input {
+    background-color: #000000;
+    color: #00ff41;
+    border: 2px solid;
+    border-top-color:    #808080;
+    border-left-color:   #808080;
+    border-right-color:  #ffffff;
+    border-bottom-color: #ffffff;
+    padding: 5px 8px;
+    margin: 3px 3px 6px 3px;
+    caret-color: #00ff41;
+}
+
+#input:focus {
+    outline: 1px dotted #00ff41;
+}
+
+#scroll {
+    background-color: #000000;
+    border: 2px solid;
+    border-top-color: #808080;
+    border-left-color: #808080;
+    border-right-color: #ffffff;
+    border-bottom-color: #ffffff;
+    margin: 0 3px 3px 3px;
+}
+
+entry {
+    padding: 4px 8px;
+    color: #00aa33;
+    background-color: #000000;
+    border: 1px solid transparent;
+}
+
+#text {
+    color: #00cc33;
+}
+
+label,
+image,
+#img,
+#entry,
+#unselected {
+    color: #00cc33;
+    -gtk-icon-palette: success #00cc33, warning #00cc33, error #00cc33;
+}
+
+entry:selected {
+    background-color: #001a00;
+    color: #00ff41;
+    border: 1px dotted #00ff41;
+    outline: none;
+}
+
+entry:selected #text {
+    color: #00ff41;
+}
+
+entry:selected label,
+entry:selected image,
+entry:selected #img,
+entry:selected #entry,
+entry:selected #selected {
+    color: #00ff41;
+    -gtk-icon-palette: success #00ff41, warning #00ff41, error #00ff41;
+}
+
+#img {
+    margin-right: 8px;
+}
+
+tooltip {
+    background: #000000;
+    border: 1px solid #00aa33;
+    color: #00ff41;
+    font-family: "FiraCode Nerd Font Mono", "Microsoft Sans Serif", "Segoe UI", Sans;
+    font-size: 14px;
+    font-weight: bold;
+    padding: 4px 8px;
+}
