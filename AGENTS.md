@@ -26,7 +26,7 @@
 Combine Windows 98 aesthetic + neon green Matrix.
 
 ### Matrix shader
-`dotfiles-extra/.config/hypr/shaders/matrix.glsl`
+`dotfiles/.config/hypr/shaders/matrix.glsl`
 Toggle with: `$mainMod SHIFT M` / `$mainMod SHIFT N`
 
 ### Border colors (already in hyprland.conf)
@@ -52,11 +52,9 @@ Float for: modal dialogs, file dialogs, confirmations, preferences, properties c
 |------|---------|
 | `configs/` | Legacy configs (dwm, st, etc.) |
 | `dotfiles/` | Current dotfiles managed by some tool |
-| `dotfiles-extra/` | Extra configs (hypr, waybar, etc.) |
 | `_old/` | Abandoned experiments |
 
 ## TODOs / Future
 
 - Clean up `configs/dwm/` leftovers
-- Move hypr configs from `dotfiles-extra/` → `dotfiles/` maybe
 - Keep Win98-Matrix shader as default toggle
