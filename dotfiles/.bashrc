@@ -77,6 +77,7 @@ export CODEX_HOME="$HOME/.config/codex"
 export DO_NOT_TRACK=1 # https://donottrack.sh/
 
 export XDG_PICTURES_DIR="$HOME/Pictures"
+export HYPRSHOT_DIR="$HOME/Pictures"
 
 eval "$(direnv hook bash)"
 
