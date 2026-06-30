@@ -121,24 +121,24 @@ au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g
 map Q <Nop>
 
 
-if executable('wl-copy')
-  " Visual mode Ctrl+C
-  vnoremap <C-c> y:call system('wl-copy', @")<CR>
-
-  " Normal mode: yank current line or last yank with Ctrl+C
-  nnoremap <C-c> :call setreg('+', getreg('0'))<CR>:call system('wl-copy', @+)<CR>
-
-  " Or even better: auto-copy every yank (like clipboard=unnamedplus)
-  if has('autocmd')
-    augroup WaylandYank
-      autocmd!
-      autocmd TextYankPost * if v:event.operator == 'y' |
-          \ call system('wl-copy', getreg('"')) | endif
-    augroup END
-  endif
-else
+"if executable('wl-copy')
+"  " Visual mode Ctrl+C
+"  vnoremap <C-c> y:call system('wl-copy', @")<CR>
+"
+"  " Normal mode: yank current line or last yank with Ctrl+C
+"  nnoremap <C-c> :call setreg('+', getreg('0'))<CR>:call system('wl-copy', @+)<CR>
+"
+"  " Or even better: auto-copy every yank (like clipboard=unnamedplus)
+"  if has('autocmd')
+"    augroup WaylandYank
+"      autocmd!
+"      autocmd TextYankPost * if v:event.operator == 'y' |
+"          \ call system('wl-copy', getreg('"')) | endif
+"    augroup END
+"  endif
+"else
     vmap <C-c> y:call system("xclip -i -selection clipboard", getreg("\""))<CR>:call system("xclip -i", getreg("\""))<CR>
-endif
+"endif
 
 "nnoremap <leader>n :NERDTreeFocus<CR>
 "nnoremap <C-n> :NERDTree<CR>
