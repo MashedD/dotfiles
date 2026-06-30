@@ -15,7 +15,7 @@ socat -U - UNIX-CONNECT:"/tmp/hypr/$INSTANCE/.socket2.sock" 2>/dev/null | while 
   remainder="${remainder#*,}"
   class="${remainder%%,*}"
   [[ "$class" =~ $TILING_CLASSES ]] && continue
-  hyprctl dispatch togglefloating "address:$addr" 2>/dev/null
+  hyprctl dispatch setfloating "address:$addr" 2>/dev/null
   sleep 0.1
   hyprctl dispatch centerwindow "address:$addr" 2>/dev/null
 done

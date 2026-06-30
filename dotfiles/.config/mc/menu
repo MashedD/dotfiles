@@ -5,7 +5,7 @@
     cd $HOME/Games/quake && ./ironwail.sh
 
 2   Quake 2
-    cd $HOME/Games/quake2 && ./q2pro-800.sh
+    cd $HOME/Games/quake2 && ./q2pro.sh
 
 3   Quake 3
     cd $HOME/Games/quake3 && ./start-quake3e-lin64-mashedd.sh
