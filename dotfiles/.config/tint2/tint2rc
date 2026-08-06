@@ -27,7 +27,7 @@ background_color = #808080 100
 border_color = #000000 100
 
 # Panel
-panel_items = TSC
+panel_items = TSEC
 panel_size = 100% 30
 panel_margin = 0 0
 panel_padding = 3 2 3
@@ -83,6 +83,25 @@ systray_background_id = 2
 systray_sort = ascending
 systray_icon_size = 16
 systray_icon_asb = 100 0 0
+
+# Volume indicator
+execp = new
+execp_command = $HOME/.local/bin/tint2-volume
+execp_interval = 1
+execp_has_icon = 0
+execp_cache_icon = 0
+execp_continuous = 0
+execp_markup = 0
+execp_tooltip = Volume
+execp_lclick_command = pavucontrol
+execp_rclick_command = wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+execp_mclick_command = wpctl set-volume @DEFAULT_AUDIO_SINK@ 50%
+execp_uwheel_command = wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 3%+
+execp_dwheel_command = wpctl set-volume @DEFAULT_AUDIO_SINK@ 3%-
+execp_font = Microsoft Sans Serif Bold 8
+execp_font_color = #000000 100
+execp_padding = 8 1
+execp_background_id = 2
 
 # Clock
 time1_format = %H:%M

@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+
+volume=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null) || {
+  printf 'VOL ?'
+  exit 0
+}
+
+case "$volume" in
+  *MUTED*)
+    printf 'MUTE'
+    ;;
+  *)
+    percent=$(printf '%s\n' "$volume" | awk '{print int($2 * 100)}')
+    printf 'VOL %s%%' "$percent"
+    ;;
+esac

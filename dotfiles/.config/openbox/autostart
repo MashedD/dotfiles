@@ -20,5 +20,12 @@ if command -v xsettingsd >/dev/null 2>&1; then
   xsettingsd -c "$HOME/.config/xsettingsd/xsettingsd.conf" &
 fi
 
+if xrandr --query | grep -q '^HDMI-A-1-0 connected'; then
+  xrandr --output HDMI-A-1-0 --primary --mode 2560x1440 --pos 0x0 --output eDP --off
+else
+  xrandr --output eDP --primary --auto
+fi
+
 tint2 -c "$HOME/.config/tint2/tint2rc" &
+snixembed &
 pcmanfm --desktop --set-wallpaper "$HOME/.local/share/wallpapers/win98-teal.svg" --wallpaper-mode=stretch &
