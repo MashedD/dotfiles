@@ -1,0 +1,51 @@
+# Windows 98-style notifications for Openbox.
+
+[global]
+    follow = keyboard
+    width = 360
+    height = (0, 220)
+    origin = top-right
+    offset = (10, 40)
+    notification_limit = 5
+
+    font = Microsoft Sans Serif 8
+    markup = full
+    format = "<b>%s</b>\n%b"
+    alignment = left
+    vertical_alignment = center
+    ellipsize = end
+
+    frame_width = 2
+    frame_color = "#000000"
+    separator_height = 1
+    separator_color = "#000000"
+    padding = 6
+    horizontal_padding = 8
+    text_icon_padding = 6
+    corner_radius = 0
+
+    icon_position = left
+    min_icon_size = 16
+    max_icon_size = 32
+
+    mouse_left_click = close_current
+    mouse_middle_click = do_action, close_current
+    mouse_right_click = close_all
+
+[urgency_low]
+    background = "#ffff00"
+    foreground = "#000000"
+    frame_color = "#000000"
+    timeout = 8
+
+[urgency_normal]
+    background = "#ffff00"
+    foreground = "#000000"
+    frame_color = "#000000"
+    timeout = 10
+
+[urgency_critical]
+    background = "#ffff00"
+    foreground = "#000000"
+    frame_color = "#000000"
+    timeout = 0

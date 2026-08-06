@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+
+idle=$(LC_ALL=C vmstat 1 2 2>/dev/null | awk 'END { print $15 }')
+
+case "$idle" in
+  '' | *[!0-9]*)
+    printf 'CPU N/A'
+    ;;
+  *)
+    printf 'CPU %s%%' "$((100 - idle))"
+    ;;
+esac

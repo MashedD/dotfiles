@@ -28,4 +28,7 @@ fi
 
 tint2 -c "$HOME/.config/tint2/tint2rc" &
 snixembed &
+if command -v dunst >/dev/null 2>&1; then
+  dunst -conf "$HOME/.config/dunst/dunstrc" &
+fi
 pcmanfm --desktop --set-wallpaper "$HOME/.local/share/wallpapers/win98-teal.svg" --wallpaper-mode=stretch &

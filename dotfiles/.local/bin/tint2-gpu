@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+
+if ! command -v amdgpu_top >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+  printf 'GPU N/A'
+  exit 0
+fi
+
+data=$(amdgpu_top --json --pci 0000:03:00.0 --single -s 1000 -n 1 2>/dev/null)
+usage=$(printf '%s\n' "$data" | jq -r 'first(.devices[]? | select(.Info.PCI == "0000:03:00.0") | .gpu_activity.GFX.value) // empty | floor' 2>/dev/null)
+
+case "$usage" in
+  '' | *[!0-9]*)
+    printf 'GPU N/A'
+    ;;
+  *)
+    printf 'GPU %s%%' "$usage"
+    ;;
+esac

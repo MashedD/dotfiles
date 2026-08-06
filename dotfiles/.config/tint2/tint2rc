@@ -27,7 +27,7 @@ background_color = #808080 100
 border_color = #000000 100
 
 # Panel
-panel_items = TSEC
+panel_items = TSBEEEEC
 panel_size = 100% 30
 panel_margin = 0 0
 panel_padding = 3 2 3
@@ -84,6 +84,48 @@ systray_sort = ascending
 systray_icon_size = 16
 systray_icon_asb = 100 0 0
 
+# CPU indicator
+execp = new
+execp_command = $HOME/.local/bin/tint2-cpu
+execp_interval = 2
+execp_has_icon = 0
+execp_cache_icon = 0
+execp_continuous = 0
+execp_markup = 0
+execp_tooltip = All-core CPU utilization (1-second average)
+execp_font = Microsoft Sans Serif Bold 8
+execp_font_color = #000000 100
+execp_padding = 8 1
+execp_background_id = 2
+
+# RX 6400 GPU indicator
+execp = new
+execp_command = $HOME/.local/bin/tint2-gpu
+execp_interval = 2
+execp_has_icon = 0
+execp_cache_icon = 0
+execp_continuous = 0
+execp_markup = 0
+execp_tooltip = RX 6400 GFX-engine utilization
+execp_font = Microsoft Sans Serif Bold 8
+execp_font_color = #000000 100
+execp_padding = 8 1
+execp_background_id = 2
+
+# Root disk indicator
+execp = new
+execp_command = $HOME/.local/bin/tint2-disk
+execp_interval = 10
+execp_has_icon = 0
+execp_cache_icon = 0
+execp_continuous = 0
+execp_markup = 0
+execp_tooltip = Root filesystem capacity used
+execp_font = Microsoft Sans Serif Bold 8
+execp_font_color = #000000 100
+execp_padding = 8 1
+execp_background_id = 2
+
 # Volume indicator
 execp = new
 execp_command = $HOME/.local/bin/tint2-volume
@@ -124,6 +166,15 @@ tooltip_background_id = 2
 tooltip_font = Microsoft Sans Serif 8
 tooltip_font_color = #000000 100
 
-# Battery and executor defaults stay disabled unless added to panel_items.
-battery = 0
+# Battery
+battery_tooltip = 1
+battery_low_status = 10
+bat1_font = Microsoft Sans Serif Bold 8
+bat2_font = Microsoft Sans Serif 7
+battery_font_color = #000000 100
+bat1_format = BAT %p
+bat2_format =
+battery_padding = 8 1
+battery_background_id = 2
+battery_hide = 101
 launcher_padding = 0 0 0
