@@ -1,3 +1,3 @@
 #!/usr/bin/env sh
 
-exec i3lock -c 000000
+exec i3lock -i "$HOME/.local/share/wallpapers/lock-win98-tux.png"

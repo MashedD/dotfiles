@@ -1,0 +1,40 @@
+#!/bin/sh
+
+igpu_provider='AMD Radeon 660M @ pci:0000:07:00.0'
+dgpu_provider='AMD Radeon RX 6500M @ pci:0000:03:00.0'
+hdmi_output='HDMI-A-1-0'
+internal_output='eDP'
+
+log_message() {
+  logger -t openbox-display -- "$*"
+}
+
+if ! xrandr --setprovideroutputsource "$dgpu_provider" "$igpu_provider"; then
+  log_message 'Could not attach the RX 6500M output provider'
+fi
+
+attempt=0
+while [ "$attempt" -lt 20 ]; do
+  if xrandr --query | grep -q "^${hdmi_output} connected"; then
+    if xrandr \
+      --output "$hdmi_output" --primary --mode 2560x1440 --rate 144 --pos 0x0 \
+      --output "$internal_output" --off; then
+      log_message 'Enabled HDMI-only layout at 2560x1440/144 Hz'
+      exit 0
+    fi
+
+    log_message 'HDMI was detected but could not be configured'
+    exit 1
+  fi
+
+  attempt=$((attempt + 1))
+  sleep 0.25
+done
+
+if xrandr --output "$internal_output" --primary --auto; then
+  log_message 'HDMI unavailable; enabled the internal display'
+  exit 0
+fi
+
+log_message 'Could not configure either display'
+exit 1

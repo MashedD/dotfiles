@@ -6,9 +6,6 @@ sysmodmap=/etc/X11/xinit/.Xmodmap
 
 xrdb -load "$XDG_CONFIG_HOME/X11/xresources"
 
-xset s off
-xset -dpms
-
 #picom --no-use-damage --backend glx --config ~/.config/picom.conf &
 #xsetroot -solid '#008080' # incompatible with picom
 hsetroot -solid '#008080'
@@ -37,4 +34,3 @@ setxkbmap pl &
 
 #exec openbox-session
 exec dbus-run-session openbox-session
-

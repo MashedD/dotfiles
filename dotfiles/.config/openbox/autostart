@@ -20,11 +20,7 @@ if command -v xsettingsd >/dev/null 2>&1; then
   xsettingsd -c "$HOME/.config/xsettingsd/xsettingsd.conf" &
 fi
 
-if xrandr --query | grep -q '^HDMI-A-1-0 connected'; then
-  xrandr --output HDMI-A-1-0 --primary --mode 2560x1440 --pos 0x0 --output eDP --off
-else
-  xrandr --output eDP --primary --auto
-fi
+"$HOME/.local/bin/openbox-display"
 
 tint2 -c "$HOME/.config/tint2/tint2rc" &
 snixembed &
@@ -38,9 +34,6 @@ if command -v clipmenud >/dev/null 2>&1; then
   clipmenud &
 fi
 if command -v xss-lock >/dev/null 2>&1 && command -v i3lock >/dev/null 2>&1; then
-  xset s 600 5
-  xset +dpms
-  xset dpms 0 0 900
   xss-lock --transfer-sleep-lock -- "$HOME/.local/bin/openbox-lock" &
 fi
 "$HOME/.local/bin/openbox-battery-watch" &
