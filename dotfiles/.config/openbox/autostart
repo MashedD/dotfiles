@@ -31,4 +31,17 @@ snixembed &
 if command -v dunst >/dev/null 2>&1; then
   dunst -conf "$HOME/.config/dunst/dunstrc" &
 fi
+if command -v lxqt-policykit-agent >/dev/null 2>&1; then
+  lxqt-policykit-agent &
+fi
+if command -v clipmenud >/dev/null 2>&1; then
+  clipmenud &
+fi
+if command -v xss-lock >/dev/null 2>&1 && command -v i3lock >/dev/null 2>&1; then
+  xset s 600 5
+  xset +dpms
+  xset dpms 0 0 900
+  xss-lock --transfer-sleep-lock -- "$HOME/.local/bin/openbox-lock" &
+fi
+"$HOME/.local/bin/openbox-battery-watch" &
 pcmanfm --desktop --set-wallpaper "$HOME/.local/share/wallpapers/win98-teal.svg" --wallpaper-mode=stretch &

@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+
+case "$1" in
+  up) brightnessctl -e4 -n2 set 5%+ ;;
+  down) brightnessctl -e4 -n2 set 5%- ;;
+  *) exit 64 ;;
+esac
+
+percent=$(brightnessctl -m 2>/dev/null | awk -F, 'NR == 1 { gsub(/%/, "", $4); print $4 }')
+
+case "$percent" in
+  '' | *[!0-9]*) exit 0 ;;
+  *) dunstify -a brightness -r 3102 -h "int:value:$percent" -u low "Brightness" "$percent%" ;;
+esac

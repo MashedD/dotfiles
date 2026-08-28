@@ -120,13 +120,13 @@
 
        use obconf if you want to change these without having to log out
        and back in -->
-    <number>1</number>
+    <number>4</number>
     <firstdesk>1</firstdesk>
     <names>
-      <!-- set names up here if you want to, like this:
-    <name>desktop 1</name>
-    <name>desktop 2</name>
-    -->
+      <name>Main</name>
+      <name>Web</name>
+      <name>Chat</name>
+      <name>Media</name>
     </names>
     <popupTime>875</popupTime>
     <!-- The number of milliseconds to show the popup for when switching
@@ -227,24 +227,48 @@
         <wrap>no</wrap>
       </action>
     </keybind>
-    <keybind key="W-F1">
+    <keybind key="W-1">
       <action name="GoToDesktop">
         <to>1</to>
       </action>
     </keybind>
-    <keybind key="W-F2">
+    <keybind key="W-2">
       <action name="GoToDesktop">
         <to>2</to>
       </action>
     </keybind>
-    <keybind key="W-F3">
+    <keybind key="W-3">
       <action name="GoToDesktop">
         <to>3</to>
       </action>
     </keybind>
-    <keybind key="W-F4">
+    <keybind key="W-4">
       <action name="GoToDesktop">
         <to>4</to>
+      </action>
+    </keybind>
+    <keybind key="W-S-1">
+      <action name="SendToDesktop">
+        <to>1</to>
+        <follow>yes</follow>
+      </action>
+    </keybind>
+    <keybind key="W-S-2">
+      <action name="SendToDesktop">
+        <to>2</to>
+        <follow>yes</follow>
+      </action>
+    </keybind>
+    <keybind key="W-S-3">
+      <action name="SendToDesktop">
+        <to>3</to>
+        <follow>yes</follow>
+      </action>
+    </keybind>
+    <keybind key="W-S-4">
+      <action name="SendToDesktop">
+        <to>4</to>
+        <follow>yes</follow>
       </action>
     </keybind>
     <keybind key="W-d">
@@ -336,17 +360,17 @@
     </keybind>
     <keybind key="XF86AudioRaiseVolume">
       <action name="Execute">
-        <command>wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 3%+</command>
+        <command><![CDATA[sh -c '$HOME/.local/bin/openbox-volume up']]></command>
       </action>
     </keybind>
     <keybind key="XF86AudioLowerVolume">
       <action name="Execute">
-        <command>wpctl set-volume @DEFAULT_AUDIO_SINK@ 3%-</command>
+        <command><![CDATA[sh -c '$HOME/.local/bin/openbox-volume down']]></command>
       </action>
     </keybind>
     <keybind key="XF86AudioMute">
       <action name="Execute">
-        <command>wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle</command>
+        <command><![CDATA[sh -c '$HOME/.local/bin/openbox-volume mute']]></command>
       </action>
     </keybind>
     <keybind key="XF86AudioMicMute">
@@ -356,12 +380,12 @@
     </keybind>
     <keybind key="XF86MonBrightnessUp">
       <action name="Execute">
-        <command>brightnessctl -e4 -n2 set 5%+</command>
+        <command><![CDATA[sh -c '$HOME/.local/bin/openbox-brightness up']]></command>
       </action>
     </keybind>
     <keybind key="XF86MonBrightnessDown">
       <action name="Execute">
-        <command>brightnessctl -e4 -n2 set 5%-</command>
+        <command><![CDATA[sh -c '$HOME/.local/bin/openbox-brightness down']]></command>
       </action>
     </keybind>
     <keybind key="XF86AudioNext">
@@ -406,6 +430,16 @@
           <name>pcmanfm</name>
         </startupnotify>
         <command>pcmanfm</command>
+      </action>
+    </keybind>
+    <keybind key="W-v">
+      <action name="Execute">
+        <command><![CDATA[sh -c '$HOME/.local/bin/openbox-clipboard']]></command>
+      </action>
+    </keybind>
+    <keybind key="W-l">
+      <action name="Execute">
+        <command><![CDATA[sh -c '$HOME/.local/bin/openbox-lock']]></command>
       </action>
     </keybind>
     <keybind key="W-Left">

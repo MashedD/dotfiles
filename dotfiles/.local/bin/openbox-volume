@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+
+case "$1" in
+  up) wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 3%+ ;;
+  down) wpctl set-volume @DEFAULT_AUDIO_SINK@ 3%- ;;
+  mute) wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle ;;
+  *) exit 64 ;;
+esac
+
+volume=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null) || exit 0
+
+case "$volume" in
+  *MUTED*)
+    dunstify -a volume -r 3101 -u low "Volume" "Muted"
+    ;;
+  *)
+    percent=$(printf '%s\n' "$volume" | awk '{print int($2 * 100)}')
+    dunstify -a volume -r 3101 -h "int:value:$percent" -u low "Volume" "$percent%"
+    ;;
+esac

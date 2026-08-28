@@ -1,0 +1,35 @@
+#!/usr/bin/env sh
+
+runtime_dir=${XDG_RUNTIME_DIR:-/tmp}
+lock_file="$runtime_dir/openbox-battery-watch.lock"
+
+exec 9>"$lock_file"
+flock -n 9 || exit 0
+
+last_level=normal
+
+while :; do
+  for battery in /sys/class/power_supply/BAT*; do
+    test -r "$battery/capacity" && test -r "$battery/status" || continue
+
+    percent=$(cat "$battery/capacity")
+    status=$(cat "$battery/status")
+
+    case "$percent:$status" in
+      *:Discharging)
+        if [ "$percent" -le 5 ] && [ "$last_level" != critical ]; then
+          dunstify -a battery -r 3103 -u critical "Battery critical" "$percent% remaining — connect power now."
+          last_level=critical
+        elif [ "$percent" -le 15 ] && [ "$last_level" = normal ]; then
+          dunstify -a battery -r 3103 -u normal "Battery low" "$percent% remaining."
+          last_level=warning
+        elif [ "$percent" -gt 15 ]; then
+          last_level=normal
+        fi
+        ;;
+      *) last_level=normal ;;
+    esac
+  done
+
+  sleep 60
+done

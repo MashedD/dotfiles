@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+export CM_LAUNCHER='dmenu -i -fn "Microsoft Sans Serif:size=8" -nb "#c0c0c0" -nf "#000000" -sb "#001a00" -sf "#00ff41"'
+exec clipmenu

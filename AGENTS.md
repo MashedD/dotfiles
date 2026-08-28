@@ -1,60 +1,54 @@
 # AGENTS.md — dotfiles project
 
-## System
+## Active desktop
 
-- WM: **Hyprland** (NOT dwm — dwm config at `configs/dwm/` is old/leftover)
+- WM: **Openbox** (X11)
+- Panel and systray: tint2 + snixembed
 - Terminal: kitty
-- Launcher: walker
-- File manager: pcmanfm
-- Bar: waybar
-- Wallpaper: hyprpaper
-- Notifications: mako
-- Clipboard: cliphist
-- Auth: hyprlock
+- Launcher: xfce4-appfinder
+- File manager and desktop: pcmanfm
+- Wallpaper: pcmanfm (`win98-teal.svg`)
+- Notifications: dunst
+- Clipboard history: clipmenu (`clipmenud` service, Win+V)
+- Authentication agent: lxqt-policykit
+- Screen lock: xss-lock + i3lock (Win+L; locks after 10 minutes idle and before suspend)
 
-## Hyprland Rules — CRITICAL
+Hyprland, Waybar, Walker, Mako, cliphist, and hyprlock configurations remain in the repository but are not part of the active Openbox session. `configs/dwm/` is legacy.
 
-- `windowrulev2` is **deprecated** — causes parse errors.
-- `windowrule` v2 syntax (`windowrule = float, class:^(Foo)$`) **also causes errors** on current Hyprland version — `$` clashes with Hyprland variable prefix.
-- **Use old-style `match:` syntax only:**
-  - `windowrule = match:class ^(Foo|Bar)$ float`
-  - `windowrule = match:title ^(Some Title)$ float`
-- No combined class+title in one rule. Use separate rules per pattern.
+## Openbox rules
+
+- Configure the session through `dotfiles/.config/openbox/rc.xml` and `autostart`.
+- The session uses four desktops: **Main**, **Web**, **Chat**, and **Media**.
+  - Win+1–4 switches desktops.
+  - Win+Shift+1–4 sends the focused window to a desktop and follows it.
+- Start only X11-compatible services from Openbox autostart. Do not add Wayland daemons there.
+- The existing NetworkManager applet is started externally; do not start a second `nm-applet` from this configuration.
+- Removable-drive handling is intentionally unchanged: do not add udiskie unless requested.
 
 ## Theme: Win98 + Matrix
 
-Combine Windows 98 aesthetic + neon green Matrix.
+Combine Windows 98 controls with Matrix-green accents.
 
-### Matrix shader
-`dotfiles/.config/hypr/shaders/matrix.glsl`
-Toggle with: `$mainMod SHIFT M` / `$mainMod SHIFT N`
-
-### Border colors (already in hyprland.conf)
-```
-col.active_border = rgba(001a00ff) rgba(00ff41ff) 270deg
-col.inactive_border = rgba(202020ff) rgba(004400ff) 270deg
-```
-
-### Win98 window rules
-Float for: modal dialogs, file dialogs, confirmations, preferences, properties calculators, volume controls, Pidgin windows, gajim
-
-### General look
-- Zero gaps (`gaps_in = 0`, `gaps_out = 0`)
-- Zero border (`border_size = 0`) — only colored borders on active
-- Zero rounding
-- No blur
-- No shadow on tiled (shadow on floating enabled)
-- No animations (disabled)
+- Openbox and GTK theme: Chicago95, Microsoft Sans Serif 8.
+- Tint2: top, 30px, zero-radius Win98 panel; active elements use the dark-green `#001a00` / neon `#00ff41` pairing.
+- Dunst: classic Win98 tooltip background `#ffffe1`, black text, square black border.
+- Lock screen: solid black, without blur, animation, or transparency.
+- Keep effects minimal: no rounding, blur, or shadows that conflict with the pixel-era style.
 
 ## Directories
 
 | Path | Purpose |
 |------|---------|
-| `configs/` | Legacy configs (dwm, st, etc.) |
-| `dotfiles/` | Current dotfiles managed by some tool |
+| `dotfiles/.config/openbox/` | Active window-manager, keybinding, autostart, and Start-menu configuration |
+| `dotfiles/.config/tint2/` | Active panel, workspace pager, tray, battery, and status widgets |
+| `dotfiles/.config/dunst/` | Active notification theme |
+| `dotfiles/.local/bin/` | Active Openbox helpers for volume, brightness, clipboard, locking, and battery alerts |
+| `configs/` | Legacy configs, including dwm and st |
 | `_old/` | Abandoned experiments |
 
-## TODOs / Future
+## Validation and reload
 
-- Clean up `configs/dwm/` leftovers
-- Keep Win98-Matrix shader as default toggle
+- Reload Openbox: `openbox --reconfigure`
+- Reload tint2: `killall -SIGUSR1 tint2`
+- Reload dunst: `dunstctl reload`
+- A new login starts the autostart services; do not launch duplicate panel, notification, clipboard, or lock daemons manually.
