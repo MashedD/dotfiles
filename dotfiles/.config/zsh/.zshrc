@@ -26,15 +26,27 @@ fi
 # Source/Load zinit
 source "$ZINIT_HOME/zinit.zsh"
 
+# DOS Navigator VAX palette
+typeset -gr VAX_BLACK='#000000'
+typeset -gr VAX_GREEN='#00ff41'
+typeset -gr VAX_DIM_GREEN='#00aa33'
+typeset -gr VAX_SILVER='#c0c0c0'
+typeset -gr VAX_GRAY='#666666'
+typeset -gr VAX_YELLOW='#ffff00'
+typeset -gr VAX_CYAN='#00ffff'
+typeset -gr VAX_BLUE='#5555ff'
+typeset -gr VAX_MAGENTA='#ff55ff'
+typeset -gr VAX_RED='#ff3333'
+
 # Settings for `less`
 export LESS=-R
-export LESS_TERMCAP_mb="$(printf '%b' '[1;31m')"
-export LESS_TERMCAP_md="$(printf '%b' '[1;36m')"
-export LESS_TERMCAP_me="$(printf '%b' '[0m')"
-export LESS_TERMCAP_so="$(printf '%b' '[01;44;33m')"
-export LESS_TERMCAP_se="$(printf '%b' '[0m')"
-export LESS_TERMCAP_us="$(printf '%b' '[1;32m')"
-export LESS_TERMCAP_ue="$(printf '%b' '[0m')"
+export LESS_TERMCAP_mb=$'\e[1;31m'
+export LESS_TERMCAP_md=$'\e[1;33m'
+export LESS_TERMCAP_me=$'\e[0m'
+export LESS_TERMCAP_so=$'\e[30;47m'
+export LESS_TERMCAP_se=$'\e[0m'
+export LESS_TERMCAP_us=$'\e[1;36m'
+export LESS_TERMCAP_ue=$'\e[0m'
 export LESSOPEN="| /usr/bin/highlight -O ansi %s 2>/dev/null"
 
 #export FZF_DEFAULT_OPTS=TODO:
@@ -45,23 +57,40 @@ zinit light zsh-users/zsh-completions
 zinit light zsh-users/zsh-autosuggestions
 zinit light Aloxaf/fzf-tab
 zinit light zsh-users/zsh-syntax-highlighting
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=${VAX_GRAY}"
 
 # Enable pattern highlighter - catches $var patterns the main highlighter misses
 ZSH_HIGHLIGHT_HIGHLIGHTERS+=(pattern)
 ZSH_HIGHLIGHT_PATTERNS=(
-  '\$[a-zA-Z_][a-zA-Z0-9_]#' 'fg=#00ffaa'
-  '\$\{[a-zA-Z_][a-zA-Z0-9_]#\}' 'fg=#00ffaa'
-  '\$[#?!@*-]' 'fg=#00ffaa'
-  '\$[0-9]##' 'fg=#00ffaa'
+  '\$[a-zA-Z_][a-zA-Z0-9_]#' "fg=${VAX_CYAN}"
+  '\$\{[a-zA-Z_][a-zA-Z0-9_]#\}' "fg=${VAX_CYAN}"
+  '\$[#?!@*-]' "fg=${VAX_CYAN}"
+  '\$[0-9]##' "fg=${VAX_CYAN}"
 )
 
-# Override main highlighter styles with explicit hex colors
-ZSH_HIGHLIGHT_STYLES[default]='fg=#00ffaa'
-ZSH_HIGHLIGHT_STYLES[comment]='fg=#00ffaa'
-ZSH_HIGHLIGHT_STYLES[dollar-double-quoted-argument]='fg=#00ffaa'
-ZSH_HIGHLIGHT_STYLES[back-double-quoted-argument]='fg=#00ffaa'
-ZSH_HIGHLIGHT_STYLES[back-dollar-quoted-argument]='fg=#00ffaa'
-ZSH_HIGHLIGHT_STYLES[path]='fg=#00ffaa'
+# VAX syntax roles: green commands, silver text, and high-contrast accents.
+ZSH_HIGHLIGHT_STYLES[default]="fg=${VAX_SILVER}"
+ZSH_HIGHLIGHT_STYLES[comment]="fg=${VAX_DIM_GREEN}"
+ZSH_HIGHLIGHT_STYLES[command]="fg=${VAX_GREEN},bold"
+ZSH_HIGHLIGHT_STYLES[function]="fg=${VAX_GREEN},bold"
+ZSH_HIGHLIGHT_STYLES[builtin]="fg=${VAX_GREEN}"
+ZSH_HIGHLIGHT_STYLES[hashed-command]="fg=${VAX_GREEN}"
+ZSH_HIGHLIGHT_STYLES[reserved-word]="fg=${VAX_YELLOW},bold"
+ZSH_HIGHLIGHT_STYLES[precommand]="fg=${VAX_CYAN}"
+ZSH_HIGHLIGHT_STYLES[alias]="fg=${VAX_CYAN}"
+ZSH_HIGHLIGHT_STYLES[suffix-alias]="fg=${VAX_CYAN}"
+ZSH_HIGHLIGHT_STYLES[path]="fg=${VAX_SILVER}"
+ZSH_HIGHLIGHT_STYLES[path_pathseparator]="fg=${VAX_GREEN}"
+ZSH_HIGHLIGHT_STYLES[commandseparator]="fg=${VAX_SILVER}"
+ZSH_HIGHLIGHT_STYLES[redirection]="fg=${VAX_YELLOW}"
+ZSH_HIGHLIGHT_STYLES[globbing]="fg=${VAX_YELLOW}"
+ZSH_HIGHLIGHT_STYLES[history-expansion]="fg=${VAX_YELLOW}"
+ZSH_HIGHLIGHT_STYLES[single-quoted-argument]="fg=${VAX_MAGENTA}"
+ZSH_HIGHLIGHT_STYLES[double-quoted-argument]="fg=${VAX_MAGENTA}"
+ZSH_HIGHLIGHT_STYLES[dollar-double-quoted-argument]="fg=${VAX_MAGENTA}"
+ZSH_HIGHLIGHT_STYLES[back-double-quoted-argument]="fg=${VAX_MAGENTA}"
+ZSH_HIGHLIGHT_STYLES[back-dollar-quoted-argument]="fg=${VAX_MAGENTA}"
+ZSH_HIGHLIGHT_STYLES[unknown-token]="fg=${VAX_RED},bold"
 
 # Add in snippets
 zinit snippet OMZP::git
@@ -103,20 +132,21 @@ setopt auto_cd
 
 # Completion styling
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
-zstyle ':completion:*' list-colors '${(s.:.)LS_COLORS}'
+zstyle ':completion:*' list-colors 'fi=38;2;192;192;192:di=38;2;192;192;192:ex=38;2;0;255;65:ln=38;2;0;255;255:or=38;2;255;51;51:mi=38;2;255;51;51:pi=38;2;255;255;0:so=38;2;85;85;255:bd=38;2;255;255;0:cd=38;2;255;255;0:ma=30;47'
 zstyle ':completion:*' menu no
 zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza $realpath'
 
 # Shell integration
+export FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:+${FZF_DEFAULT_OPTS} }--color=fg:${VAX_SILVER},bg:${VAX_BLACK},hl:${VAX_YELLOW},fg+:#ffffff,bg+:${VAX_GRAY},hl+:${VAX_YELLOW},info:${VAX_GREEN},prompt:${VAX_GREEN},pointer:${VAX_GREEN},marker:${VAX_YELLOW},spinner:${VAX_GREEN},header:${VAX_DIM_GREEN},border:${VAX_BLUE}"
 eval "$(fzf --zsh)"
 
 man() {
-  LESS_TERMCAP_md=$'\e[01;31m' \
+  LESS_TERMCAP_md=$'\e[01;33m' \
   LESS_TERMCAP_me=$'\e[0m' \
   LESS_TERMCAP_se=$'\e[0m' \
-  LESS_TERMCAP_so=$'\e[01;44;33m' \
+  LESS_TERMCAP_so=$'\e[30;47m' \
   LESS_TERMCAP_ue=$'\e[0m' \
-  LESS_TERMCAP_us=$'\e[01;32m' \
+  LESS_TERMCAP_us=$'\e[1;36m' \
   command man "$@"
 }
 
@@ -150,7 +180,7 @@ export _JAVA_AWT_WM_NONREPARENTING=1 # Fix for JDownloader 2
 
 export MPD_HOST="$XDG_RUNTIME_DIR/mpd/socket"
 
-export PS1="%F{blue}%~%f $ "
+export PS1="%F{${VAX_GREEN}}%~%f %F{${VAX_SILVER}}\$%f "
 
 # Cyberpunk
 
@@ -200,4 +230,3 @@ export CODEX_HOME="$HOME/.config/codex"
 export HYPRSHOT_DIR="$HOME/Pictures"
 
 export DO_NOT_TRACK=1 # https://donottrack.sh/
-

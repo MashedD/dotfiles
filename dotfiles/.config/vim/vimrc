@@ -36,6 +36,21 @@ hi Normal ctermbg=none
 autocmd vimenter * hi Normal guibg=NONE ctermbg=NONE " Transparent bg
 autocmd BufRead,BufNewFile TODO.txt,CHANGELOG.txt,NOTES.txt set filetype=markdown
 
+" tmux forwards Home/End as SS3 sequences; Vim's tmux terminfo otherwise
+" only recognizes the legacy Esc[1~ and Esc[4~ forms.
+function! s:configure_tmux_home_end() abort
+    if &term ==# 'tmux-256color'
+        execute "set <Home>=\eOH"
+        execute "set <End>=\eOF"
+    endif
+endfunction
+
+call s:configure_tmux_home_end()
+augroup vimrc_tmux_home_end
+    autocmd!
+    autocmd VimEnter,TermResponse * call s:configure_tmux_home_end()
+augroup END
+
 "colorscheme torte
 "colorscheme matrix
 highlight Normal guibg=black guifg=green
@@ -162,4 +177,3 @@ nnoremap <F5> :<C-u>w<CR>:!clear && g++ -std=c++23 -fmodules -O2 -Wall -Wextra -
 
 "colorscheme cyberpunk
 "set cursorline
-
