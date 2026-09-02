@@ -32,5 +32,7 @@ setxkbmap pl &
 #exec fluxbox
 #snixembed &
 
-#exec openbox-session
-exec dbus-run-session openbox-session
+# The TTY login already provides the systemd user D-Bus session.  Do not
+# create a second one here: GNOME Keyring and graphical applications must
+# share the same bus.
+exec openbox-session

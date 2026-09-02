@@ -24,6 +24,7 @@ Hyprland, Waybar, Walker, Mako, cliphist, and hyprlock configurations remain in 
 - Start only X11-compatible services from Openbox autostart. Do not add Wayland daemons there.
 - LXPanel is the sole XEmbed tray owner. Start `snixembed --fork` after LXPanel only to bridge modern StatusNotifierItem applications (such as Gajim); do not add another panel or tray manager.
 - LXPanel's Logout action runs `openbox --exit`; in a `startx` session this cleanly returns to the console.
+- The `startx` session must use the existing systemd user D-Bus bus; do not wrap Openbox in `dbus-run-session`, which splits Gajim from GNOME Keyring.
 - The existing NetworkManager applet is started externally; do not start a second `nm-applet` from this configuration.
 - Removable-drive handling is intentionally unchanged: do not add udiskie unless requested.
 

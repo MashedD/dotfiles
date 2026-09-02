@@ -1,2 +1,2 @@
 [Command]
-logout=openbox --exit
+Logout=openbox --exit

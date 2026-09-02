@@ -12,6 +12,10 @@
 #  gnome-settings-daemon &
 #fi
 
+if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+  dbus-update-activation-environment --systemd DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP
+fi
+
 # If you want to use XFCE config tools...
 #
 #xfce-mcs-manager &
