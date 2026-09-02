@@ -11,10 +11,10 @@ volume=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null) || exit 0
 
 case "$volume" in
   *MUTED*)
-    dunstify -a volume -r 3101 -u low "Volume" "Muted"
+    dunstify -a volume -r 3101 -t 500 -u low "Volume" "Muted"
     ;;
   *)
     percent=$(printf '%s\n' "$volume" | awk '{print int($2 * 100)}')
-    dunstify -a volume -r 3101 -h "int:value:$percent" -u low "Volume" "$percent%"
+    dunstify -a volume -r 3101 -t 500 -h "int:value:$percent" -u low "Volume" "$percent%"
     ;;
 esac

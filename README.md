@@ -2,6 +2,10 @@
 
 CachyOS. Windows 98 style + neon green Matrix.
 
+![Screenshot](screenshot.png)
+
+On screenshot:
+
 - Hyprland
 - Waybar
 - Walker (+elephant)
@@ -12,5 +16,5 @@ CachyOS. Windows 98 style + neon green Matrix.
 - Tmux (forgot to show on screenshot)
 - Audacious
 
-![Screenshot](screenshot.png)
+But it is outdated. Now I'm using Openbox + lxpanel.
 

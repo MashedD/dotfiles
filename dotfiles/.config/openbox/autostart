@@ -22,8 +22,15 @@ fi
 
 "$HOME/.local/bin/openbox-display"
 
-tint2 -c "$HOME/.config/tint2/tint2rc" &
-snixembed &
+lxpanel --profile vax &
+# LXPanel owns the XEmbed tray.  snixembed bridges modern StatusNotifierItem
+# apps (such as Gajim) into that tray, so wait until the panel is available.
+if command -v snixembed >/dev/null 2>&1; then
+  (
+    sleep 1
+    snixembed --fork
+  ) &
+fi
 if command -v dunst >/dev/null 2>&1; then
   dunst -conf "$HOME/.config/dunst/dunstrc" &
 fi

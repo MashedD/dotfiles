@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=X-GNOME-Metatheme
+Name=VAX
+Comment=Chicago95 controls with Matrix-green selections
+
+[X-GNOME-Metatheme]
+GtkTheme=VAX
+MetacityTheme=Chicago95
+IconTheme=Chicago95

@@ -1,0 +1,27 @@
+# Keep Chicago95's GTK2 bevels while replacing its blue selection with Matrix green.
+gtk_color_scheme = "fg_color:#000000\nbg_color:#c0c0c0\nbase_color:#ffffff\ntext_color:#000000\nselected_bg_color:#001a00\nselected_fg_color:#00ff41"
+
+style "vax-panel"
+{
+    font_name = "Microsoft Sans Serif 8"
+    fg[NORMAL] = "#000000"
+    bg[NORMAL] = "#c0c0c0"
+    bg[PRELIGHT] = "#c0c0c0"
+    bg[ACTIVE] = "#001a00"
+    bg[SELECTED] = "#001a00"
+    base[NORMAL] = "#ffffff"
+    base[ACTIVE] = "#001a00"
+    base[SELECTED] = "#001a00"
+    fg[ACTIVE] = "#00ff41"
+    fg[SELECTED] = "#00ff41"
+    text[NORMAL] = "#000000"
+    text[ACTIVE] = "#00ff41"
+    text[SELECTED] = "#00ff41"
+}
+
+class "GtkWidget" style "vax-panel"
+class "GtkToggleButton" style "vax-panel"
+class "WnckPager" style "vax-panel"
+widget "*Panel*" style "vax-panel"
+widget "*taskbar*" style "vax-panel"
+widget "*pager*" style "vax-panel"

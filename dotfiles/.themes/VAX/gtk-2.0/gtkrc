@@ -1,0 +1,91 @@
+# Layer Matrix-green active states over the installed Chicago95 GTK2 controls.
+include "/home/user/.themes/Chicago95/gtk-2.0/gtkrc"
+
+gtk_color_scheme = "fg_color:#000000\nbg_color:#c0c0c0\nbase_color:#ffffff\ntext_color:#000000\nselected_bg_color:#001a00\nselected_fg_color:#00ff41"
+
+style "vax-panel-active"
+{
+    fg[NORMAL] = "#000000"
+    fg[PRELIGHT] = "#000000"
+    fg[ACTIVE] = "#00ff41"
+    fg[SELECTED] = "#00ff41"
+    fg[INSENSITIVE] = "#000000"
+    bg[NORMAL] = "#c0c0c0"
+    bg[PRELIGHT] = "#c0c0c0"
+    bg[ACTIVE] = "#001a00"
+    bg[SELECTED] = "#001a00"
+    bg[INSENSITIVE] = "#c0c0c0"
+    base[NORMAL] = "#ffffff"
+    base[ACTIVE] = "#001a00"
+    base[SELECTED] = "#001a00"
+    text[NORMAL] = "#000000"
+    text[ACTIVE] = "#00ff41"
+    text[SELECTED] = "#00ff41"
+
+    xthickness = 5
+    ythickness = 2
+    GtkWidget::focus_padding = 2
+
+    engine "pixmap"
+    {
+        image
+        {
+            function = BOX
+            recolorable = TRUE
+            state = NORMAL
+            file = "/home/user/.themes/Chicago95/gtk-2.0/panel/panel-button.png"
+            border = { 5, 5, 5, 5 }
+            stretch = TRUE
+        }
+
+        image
+        {
+            function = BOX
+            shadow = OUT
+            recolorable = TRUE
+            state = PRELIGHT
+            file = "/home/user/.themes/Chicago95/gtk-2.0/panel/panel-button.png"
+            border = { 5, 5, 5, 5 }
+            stretch = TRUE
+        }
+
+        image
+        {
+            function = BOX
+            recolorable = TRUE
+            state = ACTIVE
+            file = "/home/user/.themes/Chicago95/gtk-2.0/panel/panel-button-active.png"
+            border = { 5, 5, 5, 5 }
+            stretch = TRUE
+        }
+
+        image
+        {
+            function = BOX
+            recolorable = TRUE
+            state = SELECTED
+            file = "/home/user/.themes/Chicago95/gtk-2.0/panel/panel-button-active.png"
+            border = { 5, 5, 5, 5 }
+            stretch = TRUE
+        }
+
+        image
+        {
+            function = BOX
+            recolorable = TRUE
+            state = INSENSITIVE
+            file = "/home/user/.themes/Chicago95/gtk-2.0/panel/panel-button.png"
+            border = { 5, 5, 5, 5 }
+            stretch = TRUE
+        }
+    }
+}
+
+class "WnckPager" style "vax-panel-active"
+class "GtkToggleButton" style "vax-panel-active"
+class "*Pager*" style "vax-panel-active"
+widget_class "*Pager*" style "vax-panel-active"
+widget "*tasklist*" style "vax-panel-active"
+widget "*pager*" style "vax-panel-active"
+widget "*Pager*" style "vax-panel-active"
+widget "*wnck-pager*" style "vax-panel-active"
