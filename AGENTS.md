@@ -18,7 +18,7 @@ Hyprland, Waybar, Walker, Mako, cliphist, and hyprlock configurations remain in 
 ## Openbox rules
 
 - Configure the session through `dotfiles/.config/openbox/rc.xml` and `autostart`.
-- The session uses four desktops: **Main**, **Web**, **Chat**, and **Media**.
+- The session uses four desktops: **1**, **2**, **3**, and **4**.
   - Win+1–4 switches desktops.
   - Win+Shift+1–4 sends the focused window to a desktop and follows it.
 - Start only X11-compatible services from Openbox autostart. Do not add Wayland daemons there.
