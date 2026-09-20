@@ -1,0 +1,218 @@
+#!/usr/bin/env bash
+
+set -u
+
+readonly refresh_interval="${CODEX_USAGE_REFRESH_INTERVAL:-60}"
+readonly stale_after="${CODEX_USAGE_STALE_AFTER:-300}"
+readonly request_timeout="${CODEX_USAGE_TIMEOUT:-2}"
+readonly cache_root="${XDG_CACHE_HOME:-${HOME:?HOME must be set}/.cache}/codex"
+readonly cache_file="${CODEX_USAGE_CACHE:-$cache_root/tmux-usage.json}"
+readonly lock_dir="${cache_file}.lock"
+
+print_unavailable() {
+  printf 'C --\n'
+}
+
+cache_value() {
+  local display fetched_at
+
+  [[ -r "$cache_file" ]] || return 1
+  display="$(jq -r '.display // empty' "$cache_file" 2>/dev/null)" || return 1
+  fetched_at="$(jq -r '.fetched_at // 0' "$cache_file" 2>/dev/null)" || return 1
+  [[ -n "$display" && "$fetched_at" =~ ^[0-9]+$ && "$fetched_at" -gt 0 ]] || return 1
+
+  printf '%s\t%s\n' "$display" "$fetched_at"
+}
+
+format_reset() {
+  local epoch="$1"
+
+  if [[ -z "$epoch" || "$epoch" == "null" || ! "$epoch" =~ ^[0-9]+$ ]]; then
+    printf -- '--'
+  else
+    date -d "@$epoch" '+%a %H:%M' 2>/dev/null || printf -- '--'
+  fi
+}
+
+format_window() {
+  local label="$1"
+  local used_percent="$2"
+  local reset_epoch="$3"
+  local remaining
+
+  if [[ -z "$used_percent" || "$used_percent" == "null" || ! "$used_percent" =~ ^[0-9]+$ ]]; then
+    printf '%s --' "$label"
+    return
+  fi
+
+  remaining=$((100 - used_percent))
+  (( remaining < 0 )) && remaining=0
+  (( remaining > 100 )) && remaining=100
+  printf '%s %s%%@%s' "$label" "$remaining" "$(format_reset "$reset_epoch")"
+}
+
+format_result() {
+  local result="$1"
+  local windows
+  local five_hour_used five_hour_reset seven_day_used seven_day_reset
+  local -a window_values
+
+  windows="$(jq -r '
+    def bucket:
+      if (.rateLimitsByLimitId? // null) != null and .rateLimitsByLimitId.codex? != null
+      then .rateLimitsByLimitId.codex
+      else .rateLimits
+      end;
+    def window($minutes):
+      [bucket.primary, bucket.secondary]
+      | map(select(. != null and .windowDurationMins == $minutes))
+      | .[0] // {};
+    (window(300) | [(.usedPercent // ""), (.resetsAt // "")]) ,
+    (window(10080) | [(.usedPercent // ""), (.resetsAt // "")])
+    | @tsv
+  ' <<<"$result" 2>/dev/null)" || return 1
+
+  mapfile -t window_values < <(
+    awk -F '\t' '
+      NR == 1 { print $1; print $2; next }
+      NR == 2 { print $1; print $2 }
+    ' <<<"$windows"
+  )
+  five_hour_used="${window_values[0]:-}"
+  five_hour_reset="${window_values[1]:-}"
+  seven_day_used="${window_values[2]:-}"
+  seven_day_reset="${window_values[3]:-}"
+
+  printf 'C %s %s' \
+    "$(format_window '5h' "$five_hour_used" "$five_hour_reset")" \
+    "$(format_window '7d' "$seven_day_used" "$seven_day_reset")"
+}
+
+fetch_from_command() {
+  local command="$1"
+  local app_in app_out app_pid line result_line initialized
+
+  coproc CODEX_USAGE_APP_SERVER {
+    timeout --signal=TERM "$request_timeout" sh -c "$command" 2>/dev/null
+  }
+  app_in="${CODEX_USAGE_APP_SERVER[1]}"
+  app_out="${CODEX_USAGE_APP_SERVER[0]}"
+  app_pid="${CODEX_USAGE_APP_SERVER_PID}"
+  result_line=''
+  initialized=0
+
+  printf '%s\n' \
+    '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"tmux-codex-usage","version":"1.0"}}}' \
+    >&"$app_in"
+
+  while IFS= read -r -t "$request_timeout" line <&"$app_out"; do
+    if jq -e '.id == 1 and .result != null' >/dev/null 2>&1 <<<"$line"; then
+      initialized=1
+      break
+    fi
+    if jq -e '.id == 1 and .error != null' >/dev/null 2>&1 <<<"$line"; then
+      break
+    fi
+  done
+
+  if (( initialized )); then
+    printf '%s\n' \
+      '{"jsonrpc":"2.0","method":"initialized"}' \
+      '{"jsonrpc":"2.0","id":2,"method":"account/rateLimits/read","params":{"excludeResetCreditDetails":true}}' \
+      >&"$app_in"
+
+    while IFS= read -r -t "$request_timeout" line <&"$app_out"; do
+      if jq -e '.id == 2 and (.result.rateLimits != null or .result.rateLimitsByLimitId != null)' >/dev/null 2>&1 <<<"$line"; then
+        result_line="$line"
+        break
+      fi
+    done
+  fi
+
+  kill "$app_pid" 2>/dev/null || true
+  wait "$app_pid" 2>/dev/null || true
+  printf '%s\n' "$result_line"
+}
+
+fetch_result() {
+  local proxy_command stdio_command response
+
+  proxy_command="${CODEX_USAGE_PROXY:-codex app-server proxy}"
+  stdio_command="${CODEX_USAGE_STDIO:-codex app-server --listen stdio://}"
+
+  response="$(fetch_from_command "$proxy_command" 2>/dev/null || true)"
+  if [[ -z "$response" ]]; then
+    response="$(fetch_from_command "$stdio_command" 2>/dev/null || true)"
+  fi
+  [[ -n "$response" ]] || return 1
+  jq -c '.result' <<<"$response" 2>/dev/null
+}
+
+write_cache() {
+  local display="$1"
+  local fetched_at="$2"
+  local temporary_file
+
+  mkdir -p "$(dirname -- "$cache_file")" 2>/dev/null || return 1
+  temporary_file="${cache_file}.$$"
+  umask 077
+  printf '{"display":%s,"fetched_at":%s}\n' \
+    "$(jq -Rn --arg value "$display" '$value')" "$fetched_at" >"$temporary_file" || {
+    rm -f "$temporary_file"
+    return 1
+  }
+  mv -f "$temporary_file" "$cache_file"
+}
+
+main() {
+  local now cached cached_display cached_at age result display
+  now="$(date +%s)"
+
+  cached="$(cache_value 2>/dev/null || true)"
+  cached_display="${cached%%$'\t'*}"
+  cached_at="${cached#*$'\t'}"
+  [[ "$cached" == *$'\t'* ]] || cached_at=0
+  [[ "$cached_at" =~ ^[0-9]+$ ]] || cached_at=0
+  age=$((now - cached_at))
+
+  if (( cached_at > 0 && age < refresh_interval )); then
+    printf '%s\n' "$cached_display"
+    return 0
+  fi
+
+  mkdir -p "$(dirname -- "$cache_file")" 2>/dev/null || true
+  if ! mkdir "$lock_dir" 2>/dev/null; then
+    if (( cached_at > 0 )); then
+      if (( age >= stale_after )); then
+        printf 'C* %s\n' "${cached_display#C }"
+      else
+        printf '%s\n' "$cached_display"
+      fi
+    else
+      print_unavailable
+    fi
+    return 0
+  fi
+  trap 'rmdir "$lock_dir" 2>/dev/null || true' EXIT
+
+  result="$(fetch_result 2>/dev/null || true)"
+  if [[ -n "$result" ]] && display="$(format_result "$result" 2>/dev/null)" && [[ -n "$display" ]]; then
+    write_cache "$display" "$now" 2>/dev/null || true
+    printf '%s\n' "$display"
+  elif (( cached_at > 0 )); then
+    if (( age >= stale_after )); then
+      printf 'C* %s\n' "${cached_display#C }"
+    else
+      printf '%s\n' "$cached_display"
+    fi
+  else
+    print_unavailable
+  fi
+}
+
+if ! command -v jq >/dev/null 2>&1 || ! command -v timeout >/dev/null 2>&1; then
+  print_unavailable
+  exit 0
+fi
+
+main
