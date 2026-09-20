@@ -48,7 +48,8 @@ format_window() {
   remaining=$((100 - used_percent))
   (( remaining < 0 )) && remaining=0
   (( remaining > 100 )) && remaining=100
-  printf '%s %s%%@%s' "$label" "$remaining" "$(format_reset "$reset_epoch")"
+  printf '%s #[fg=#ffff00]%s%%#[fg=#00ff41]@%s' \
+    "$label" "$remaining" "$(format_reset "$reset_epoch")"
 }
 
 format_result() {
