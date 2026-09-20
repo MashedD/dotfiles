@@ -386,17 +386,17 @@
     </keybind>
     <keybind key="Print">
       <action name="Execute">
-        <command><![CDATA[sh -c 'mkdir -p "$HOME/Pictures/Screenshots"; file="$HOME/Pictures/Screenshots/$(date +%Y-%m-%d_%H-%M-%S).png"; maim | tee "$file" | xclip -selection clipboard -t image/png']]></command>
+        <command><![CDATA[sh -c '$HOME/.local/bin/openbox-screenshot full']]></command>
       </action>
     </keybind>
     <keybind key="A-Print">
       <action name="Execute">
-        <command><![CDATA[sh -c 'mkdir -p "$HOME/Pictures/Screenshots"; file="$HOME/Pictures/Screenshots/$(date +%Y-%m-%d_%H-%M-%S).png"; maim -i "$(xdotool getactivewindow)" | tee "$file" | xclip -selection clipboard -t image/png']]></command>
+        <command><![CDATA[sh -c '$HOME/.local/bin/openbox-screenshot window']]></command>
       </action>
     </keybind>
     <keybind key="S-Print">
       <action name="Execute">
-        <command><![CDATA[sh -c 'mkdir -p "$HOME/Pictures/Screenshots"; file="$HOME/Pictures/Screenshots/$(date +%Y-%m-%d_%H-%M-%S).png"; maim -s | tee "$file" | xclip -selection clipboard -t image/png']]></command>
+        <command><![CDATA[sh -c '$HOME/.local/bin/openbox-screenshot region']]></command>
       </action>
     </keybind>
     <keybind key="W-e">

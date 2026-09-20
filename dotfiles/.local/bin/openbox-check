@@ -1,0 +1,137 @@
+#!/usr/bin/env sh
+
+# Read-only health report for the active Openbox desktop.
+set -u
+
+required_commands='openbox xrandr xset xss-lock i3lock maim xclip xdotool lxpanel snixembed dunst dunstify clipmenu clipmenud dmenu pcmanfm xsettingsd lxqt-policykit-agent kitty xfce4-appfinder pavucontrol playerctl fc-match flock logger dbus-update-activation-environment wpctl brightnessctl'
+optional_commands='firefox audacious gajim keepassxc'
+required_failed=0
+
+check_commands() {
+  label=$1
+  commands=$2
+  for command_name in $commands; do
+    if command -v "$command_name" >/dev/null 2>&1; then
+      printf 'OK       %-9s %s\n' "$label" "$command_name"
+    else
+      printf 'MISSING  %-9s %s\n' "$label" "$command_name"
+      [ "$label" = required ] && required_failed=1
+    fi
+  done
+}
+
+check_file() {
+  label=$1
+  path=$2
+  if [ -f "$path" ]; then
+    printf 'OK       %-9s %s\n' "$label" "$path"
+  else
+    printf 'MISSING  %-9s %s\n' "$label" "$path"
+    required_failed=1
+  fi
+}
+
+check_executable() {
+  path=$1
+  if [ -x "$path" ]; then
+    printf 'OK       helper    %s\n' "$path"
+  else
+    printf 'MISSING  helper    %s\n' "$path"
+    required_failed=1
+  fi
+}
+
+printf '%s\n' 'Openbox desktop check (read-only)'
+check_commands required "$required_commands"
+check_commands optional "$optional_commands"
+
+check_file asset "$HOME/.local/share/wallpapers/lock-win98-tux.png"
+check_file asset "$HOME/.local/share/wallpapers/win98-teal.svg"
+data_home=${XDG_DATA_HOME:-$HOME/.local/share}
+check_file asset "$data_home/icons/hicolor/32x32/apps/vax-tux-start.png"
+check_file theme "$data_home/themes/VAX/gtk-2.0/gtkrc"
+check_file theme "$data_home/themes/VAX/gtk-3.0/gtk.css"
+check_file theme "$data_home/themes/VAX/index.theme"
+check_file marker "$data_home/themes/VAX/.vax-generated"
+check_file marker "$data_home/icons/hicolor/32x32/apps/vax-tux-start.png.vax-generated"
+
+chicago95=''
+generated_marker="$data_home/themes/VAX/.vax-generated"
+if [ -f "$generated_marker" ]; then
+  chicago95=$(sed -n 's/^chicago95=//p' "$generated_marker" | sed -n '1p')
+  if [ -z "$chicago95" ] || [ ! -d "$chicago95" ]; then
+    printf 'MISSING  external  recorded Chicago95 source: %s\n' "${chicago95:-<empty marker>}"
+    required_failed=1
+    chicago95=''
+  fi
+else
+  chicago95=''
+  for candidate in "$data_home/themes/Chicago95" "$HOME/.themes/Chicago95" /usr/local/share/themes/Chicago95 /usr/share/themes/Chicago95; do
+    if [ -d "$candidate" ]; then
+      chicago95=$candidate
+      break
+    fi
+  done
+fi
+if [ -n "$chicago95" ]; then
+  check_file external "$chicago95/index.theme"
+  check_file external "$chicago95/openbox-3/themerc"
+  check_file external "$chicago95/gtk-2.0/gtkrc"
+  check_file external "$chicago95/gtk-3.0/gtk.css"
+  check_file external "$chicago95/gtk-2.0/panel/panel-button.png"
+  check_file external "$chicago95/gtk-2.0/panel/panel-button-active.png"
+  check_file external "$chicago95/misc/GTK2_start_buttons/tux_30px.png"
+else
+  printf '%s\n' 'MISSING  external  Chicago95 theme directory'
+  required_failed=1
+fi
+icon_theme=''
+for candidate in "$data_home/icons/Chicago95" "$HOME/.icons/Chicago95" /usr/local/share/icons/Chicago95 /usr/share/icons/Chicago95; do
+  if [ -f "$candidate/index.theme" ]; then
+    icon_theme=$candidate
+    break
+  fi
+done
+if [ -n "$icon_theme" ]; then
+  check_file external "$icon_theme/index.theme"
+else
+  printf '%s\n' 'MISSING  external  Chicago95 icon theme'
+  required_failed=1
+fi
+cursor_theme=''
+for candidate in "$data_home/icons/Chicago95_Standard_Cursors" "$HOME/.icons/Chicago95_Standard_Cursors" /usr/local/share/icons/Chicago95_Standard_Cursors /usr/share/icons/Chicago95_Standard_Cursors; do
+  if [ -f "$candidate/index.theme" ]; then
+    cursor_theme=$candidate
+    break
+  fi
+done
+if [ -n "$cursor_theme" ]; then
+  check_file external "$cursor_theme/index.theme"
+else
+  printf '%s\n' 'MISSING  external  Chicago95_Standard_Cursors icon theme'
+  required_failed=1
+fi
+
+if fc-match -f '%{family}\n' 'Microsoft Sans Serif' 2>/dev/null | grep -Fqi 'Microsoft Sans Serif'; then
+  printf '%s\n' 'OK       font      Microsoft Sans Serif'
+else
+  printf '%s\n' 'MISSING  font      Microsoft Sans Serif (fc-match did not find it)'
+  required_failed=1
+fi
+if fc-match -f '%{family}\n' 'FiraCode Nerd Font' 2>/dev/null | grep -Fqi 'FiraCode Nerd Font'; then
+  printf '%s\n' 'OK       font      FiraCode Nerd Font'
+else
+  printf '%s\n' 'MISSING  font      FiraCode Nerd Font'
+  required_failed=1
+fi
+
+bin_root=${OPENBOX_HELPER_ROOT:-$HOME/.local/bin}
+for helper in openbox-lock openbox-display openbox-screenshot openbox-battery-watch openbox-brightness openbox-clipboard openbox-volume; do
+  check_executable "$bin_root/$helper"
+done
+
+if [ "$required_failed" -ne 0 ]; then
+  printf '%s\n' 'Required checks failed.' >&2
+  exit 1
+fi
+printf '%s\n' 'All required checks passed.'

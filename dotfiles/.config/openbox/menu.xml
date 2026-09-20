@@ -37,6 +37,11 @@
     <item label="Reconfigure Openbox">
       <action name="Reconfigure"/>
     </item>
+    <item label="Reapply Display Layout">
+      <action name="Execute">
+        <command><![CDATA[sh -c '$HOME/.local/bin/openbox-display --once']]></command>
+      </action>
+    </item>
     <item label="Log Out">
       <action name="Exit"><prompt>yes</prompt></action>
     </item>

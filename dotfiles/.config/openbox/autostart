@@ -24,7 +24,14 @@ if command -v xsettingsd >/dev/null 2>&1; then
   xsettingsd -c "$HOME/.config/xsettingsd/xsettingsd.conf" &
 fi
 
-"$HOME/.local/bin/openbox-display"
+# Keep the X11 screensaver timer explicit; xss-lock uses this idle period for
+# the same ten-minute lock policy.
+if command -v xset >/dev/null 2>&1; then
+  xset s on
+  xset s 600 600
+fi
+
+"$HOME/.local/bin/openbox-display" --watch &
 
 lxpanel --profile vax &
 # LXPanel owns the XEmbed tray.  snixembed bridges modern StatusNotifierItem

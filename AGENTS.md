@@ -44,7 +44,7 @@ Combine Windows 98 controls with Matrix-green accents.
 |------|---------|
 | `dotfiles/.config/openbox/` | Active window-manager, keybinding, autostart, and Start-menu configuration |
 | `dotfiles/.config/lxpanel/vax/` | Active panel, workspace pager, tray, battery, and status widgets |
-| `dotfiles/.themes/VAX/` | Active GTK2 VAX overlay theme |
+| `themes/VAX/` | VAX source templates; generated output is installed separately by `setup-vax-theme` |
 | `dotfiles/.config/dunst/` | Active notification theme |
 | `dotfiles/.local/bin/` | Active Openbox helpers for volume, brightness, clipboard, locking, and battery alerts |
 | `configs/` | Legacy configs, including dwm and st |

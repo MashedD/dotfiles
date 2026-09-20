@@ -1,0 +1,97 @@
+#!/usr/bin/env sh
+
+# Capture first, then publish a uniquely named image. A cancelled region
+# selection therefore cannot replace the clipboard or create a screenshot.
+
+set -u
+
+usage() {
+  printf '%s\n' 'Usage: openbox-screenshot full|window|region' >&2
+}
+
+mode=${1:-}
+case "$mode" in
+  full)
+    capture() { maim; }
+    ;;
+  window)
+    capture() {
+      window_id=$(xdotool getactivewindow) || return 1
+      maim -i "$window_id"
+    }
+    ;;
+  region)
+    capture() { maim -s; }
+    ;;
+  -h|--help)
+    usage
+    exit 0
+    ;;
+  *)
+    usage
+    exit 64
+    ;;
+esac
+
+if ! command -v maim >/dev/null 2>&1; then
+  printf '%s\n' 'Screenshot capture requires maim.' >&2
+  exit 127
+fi
+if [ "$mode" = window ] && ! command -v xdotool >/dev/null 2>&1; then
+  printf '%s\n' 'Window screenshots require xdotool.' >&2
+  exit 127
+fi
+
+destination=${OPENBOX_SCREENSHOT_DIR:-${HOME:?HOME must be set}/Pictures/Screenshots}
+mkdir -p "$destination" || {
+  printf 'Cannot create screenshot directory: %s\n' "$destination" >&2
+  exit 1
+}
+
+temporary=$(mktemp "$destination/.openbox-screenshot.XXXXXX") || exit 1
+cleanup() {
+  rm -f -- "$temporary"
+}
+on_signal() {
+  exit 130
+}
+trap cleanup EXIT
+trap on_signal HUP INT TERM
+
+if ! capture >"$temporary"; then
+  printf '%s\n' 'Screenshot capture was cancelled or failed; no file was saved.' >&2
+  exit 1
+fi
+if [ ! -s "$temporary" ]; then
+  printf '%s\n' 'Screenshot capture produced no image; no file was saved.' >&2
+  exit 1
+fi
+
+timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
+counter=0
+while :; do
+  if [ "$counter" -eq 0 ]; then
+    final="$destination/$timestamp.png"
+  else
+    final="$destination/${timestamp}_$counter.png"
+  fi
+  # A hard link publishes the already validated image atomically and refuses
+  # to overwrite a collision. The temporary file is on the same filesystem.
+  if ln -T -- "$temporary" "$final" 2>/dev/null; then
+    rm -f -- "$temporary"
+    temporary=''
+    break
+  fi
+  if [ -e "$final" ] || [ -L "$final" ]; then
+    counter=$((counter + 1))
+  else
+    printf 'Cannot publish screenshot: %s\n' "$final" >&2
+    exit 1
+  fi
+done
+
+if ! command -v xclip >/dev/null 2>&1 || ! xclip -selection clipboard -t image/png <"$final"; then
+  printf 'Saved screenshot, but clipboard copy failed: %s\n' "$final" >&2
+  exit 1
+fi
+printf '%s\n' "$final"

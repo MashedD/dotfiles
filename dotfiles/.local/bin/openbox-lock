@@ -1,3 +1,6 @@
 #!/usr/bin/env sh
 
-exec i3lock -i "$HOME/.local/share/wallpapers/lock-win98-tux.png"
+# xss-lock transfers its sleep-lock file descriptor to this command. Keep
+# i3lock in the foreground so the descriptor remains valid until the screen
+# is actually locked.
+exec i3lock --nofork -i "$HOME/.local/share/wallpapers/lock-win98-tux.png"

@@ -1,0 +1,228 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+source_dir="$repo_dir/themes/VAX"
+data_home=${XDG_DATA_HOME:-${HOME:?HOME must be set}/.local/share}
+theme_root="$data_home/themes"
+theme_dest="$theme_root/VAX"
+legacy_root="${HOME:?HOME must be set}/.themes"
+legacy_dest="$legacy_root/VAX"
+icon_root="$data_home/icons"
+icon_theme_root="$icon_root/hicolor"
+icon_dest="$icon_theme_root/32x32/apps/vax-tux-start.png"
+icon_marker="$icon_dest.vax-generated"
+chicago_override=''
+
+usage() {
+  cat <<'EOF'
+Usage: ./setup-vax-theme [--path CHICAGO95]
+
+Find an external Chicago95 installation, generate the VAX overlay under
+$XDG_DATA_HOME/themes/VAX, and install the named vax-tux-start panel icon.
+The optional --path selects a non-standard Chicago95 installation.
+EOF
+}
+
+die() {
+  printf 'setup-vax-theme: %s\n' "$*" >&2
+  exit 1
+}
+
+while (($#)); do
+  case $1 in
+    --path)
+      (($# >= 2)) || die '--path requires a directory'
+      chicago_override=$2
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      usage >&2
+      exit 64
+      ;;
+  esac
+done
+
+[[ -d $source_dir && -f $source_dir/index.theme.in && -f $source_dir/gtk-2.0/gtkrc.in &&
+   -f $source_dir/gtk-3.0/gtk.css.in ]] || die "missing VAX templates: $source_dir"
+
+canonical_dir() {
+  local path=$1
+  [[ -d $path ]] || return 1
+  (cd -- "$path" && pwd -P)
+}
+
+chicago95=''
+if [[ -n $chicago_override ]]; then
+  chicago95=$(canonical_dir "$chicago_override") || die "Chicago95 directory not found: $chicago_override"
+else
+  for candidate in \
+    "${XDG_DATA_HOME:-$HOME/.local/share}/themes/Chicago95" \
+    "$HOME/.themes/Chicago95" \
+    /usr/local/share/themes/Chicago95 \
+    /usr/share/themes/Chicago95; do
+    if chicago_candidate=$(canonical_dir "$candidate" 2>/dev/null) &&
+       [[ -f $chicago_candidate/gtk-2.0/gtkrc &&
+          -f $chicago_candidate/gtk-2.0/panel/panel-button.png &&
+          -f $chicago_candidate/gtk-2.0/panel/panel-button-active.png &&
+          -f $chicago_candidate/gtk-3.0/gtk.css &&
+          ( -f $chicago_candidate/misc/GTK2_start_buttons/tux_30px.png ||
+            -f $chicago_candidate/misc/GTK2_start_buttons/tux.png ||
+            -f $chicago_candidate/misc/tux.png ) ]]; then
+      chicago95=$chicago_candidate
+      break
+    fi
+  done
+fi
+[[ -n $chicago95 ]] || die 'Chicago95 was not found with the required GTK2 assets'
+[[ -f $chicago95/gtk-2.0/gtkrc ]] || die "missing Chicago95 GTK2 controls: $chicago95/gtk-2.0/gtkrc"
+[[ -f $chicago95/gtk-2.0/panel/panel-button.png ]] || die 'missing Chicago95 panel-button.png'
+[[ -f $chicago95/gtk-2.0/panel/panel-button-active.png ]] || die 'missing Chicago95 panel-button-active.png'
+[[ -f $chicago95/gtk-3.0/gtk.css ]] || die 'missing Chicago95 GTK3 stylesheet: gtk-3.0/gtk.css'
+if printf '%s\n' "$chicago95" | grep -q '["\\]'; then
+  die 'Chicago95 path contains a quote or backslash; use a simpler --path'
+fi
+
+tux_asset=''
+for candidate in \
+  "$chicago95/misc/GTK2_start_buttons/tux_30px.png" \
+  "$chicago95/misc/GTK2_start_buttons/tux.png" \
+  "$chicago95/misc/tux.png"; do
+  if [[ -f $candidate ]]; then
+    tux_asset=$candidate
+    break
+  fi
+done
+[[ -n $tux_asset ]] || die 'could not find a Chicago95 Tux start-button asset'
+
+# Refuse to take ownership of a user's unrelated legacy theme. The old
+# repository symlink is the one migration this helper is allowed to replace.
+legacy_kind=absent
+if [[ -L $legacy_dest ]]; then
+  legacy_target=$(readlink -m "$legacy_dest")
+  case $legacy_target in
+    "$repo_dir/dotfiles/.themes/VAX"|"$repo_dir/themes/VAX"|"$theme_dest")
+      legacy_kind=owned
+      ;;
+    *)
+      die "refusing to replace unrelated theme symlink: $legacy_dest -> $legacy_target"
+      ;;
+  esac
+elif [[ -e $legacy_dest ]]; then
+  die "refusing to replace existing user theme: $legacy_dest"
+fi
+
+marker_value='generated-by=setup-vax-theme'
+if [[ -e $theme_dest && ! -d $theme_dest ]]; then
+  die "refusing to replace non-directory theme path: $theme_dest"
+fi
+if [[ -L $theme_dest ]]; then
+  die "refusing to replace symlinked theme path: $theme_dest"
+fi
+if [[ -d $theme_dest && ! -f $theme_dest/.vax-generated ]]; then
+  die "refusing to replace unmarked theme directory: $theme_dest"
+fi
+if [[ -d $theme_dest ]] && {
+  ! grep -Fxq "$marker_value" "$theme_dest/.vax-generated" ||
+  ! grep -Fxq "source=$source_dir" "$theme_dest/.vax-generated"
+}; then
+  die "refusing to replace theme with an invalid ownership marker: $theme_dest"
+fi
+if [[ -L $icon_dest ]]; then
+  die "refusing to replace symlinked user icon: $icon_dest"
+fi
+if [[ -e $icon_dest && ! -f $icon_marker ]]; then
+  die "refusing to replace unmarked user icon: $icon_dest"
+fi
+if [[ -f $icon_dest ]] && ! grep -Fxq "$marker_value" "$icon_marker"; then
+  die "refusing to replace icon with an invalid ownership marker: $icon_dest"
+fi
+
+mkdir -p "$theme_root" "$(dirname -- "$icon_dest")"
+stage=$(mktemp -d "$theme_root/.VAX-stage.XXXXXX")
+icon_stage=$(mktemp "$icon_root/.vax-tux-start.XXXXXX")
+backup=''
+cleanup() {
+  [[ -n ${stage:-} ]] && rm -rf -- "$stage"
+  [[ -n ${icon_stage:-} ]] && rm -f -- "$icon_stage"
+  if [[ -n ${backup:-} && ! -e $theme_dest && ! -L $theme_dest ]]; then
+    mv -- "$backup" "$theme_dest" || :
+  fi
+}
+trap cleanup EXIT
+
+render() {
+  local input=$1 output=$2 gtk3=$3
+  awk -v chicago="$chicago95" -v gtk3="$gtk3" '
+    function substitute(line, token, value, p) {
+      while ((p = index(line, token)) != 0)
+        line = substr(line, 1, p - 1) value substr(line, p + length(token))
+      return line
+    }
+    {
+      line = substitute($0, "@CHICAGO95@", chicago)
+      line = substitute(line, "@CHICAGO95_GTK3@", gtk3)
+      print line
+    }
+  ' "$input" >"$output"
+}
+
+gtk3_asset=$chicago95/gtk-3.0/gtk.css
+render "$source_dir/index.theme.in" "$stage/index.theme" "$gtk3_asset"
+mkdir -p "$stage/gtk-2.0" "$stage/gtk-3.0"
+render "$source_dir/gtk-2.0/gtkrc.in" "$stage/gtk-2.0/gtkrc" "$gtk3_asset"
+render "$source_dir/gtk-3.0/gtk.css.in" "$stage/gtk-3.0/gtk.css" "$gtk3_asset"
+cat >"$stage/.vax-generated" <<EOF
+$marker_value
+source=$source_dir
+chicago95=$chicago95
+EOF
+
+[[ -s $stage/index.theme && -s $stage/gtk-2.0/gtkrc && -s $stage/gtk-3.0/gtk.css ]] ||
+  die 'generated VAX theme failed validation'
+cp -- "$tux_asset" "$icon_stage"
+[[ -s $icon_stage ]] || die 'failed to stage the Tux start icon'
+
+if [[ -d $theme_dest ]]; then
+  backup=$(mktemp -d "$theme_root/.VAX-backup.XXXXXX")
+  rmdir -- "$backup"
+  mv -- "$theme_dest" "$backup"
+fi
+if ! mv -- "$stage" "$theme_dest"; then
+  [[ -n $backup ]] && mv -- "$backup" "$theme_dest"
+  backup=''
+  die 'could not publish generated VAX theme'
+fi
+stage=''
+
+if [[ -f $icon_dest ]]; then
+  rm -f -- "$icon_dest"
+fi
+mv -- "$icon_stage" "$icon_dest"
+icon_stage=''
+printf '%s\n' "$marker_value" >"$icon_marker"
+if [[ -n $backup ]]; then
+  rm -rf -- "$backup"
+  backup=''
+fi
+
+mkdir -p "$legacy_root"
+if [[ $legacy_kind == owned ]]; then
+  rm -f -- "$legacy_dest"
+fi
+if [[ ! -e $legacy_dest && ! -L $legacy_dest ]]; then
+  ln -s "$theme_dest" "$legacy_dest"
+fi
+
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+  gtk-update-icon-cache -f -t "$icon_theme_root" >/dev/null 2>&1 || :
+fi
+
+printf 'Generated VAX theme: %s\n' "$theme_dest"
+printf 'Chicago95 source: %s\n' "$chicago95"
+printf 'Start icon: %s\n' "$icon_dest"

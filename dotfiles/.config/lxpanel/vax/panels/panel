@@ -20,7 +20,7 @@ Global {
 Plugin {
   type=menu
   Config {
-    image=/home/user/.themes/Chicago95/misc/GTK2_start_buttons/tux_30px.png
+    image=vax-tux-start
     system {
     }
     separator {
