@@ -88,7 +88,7 @@ format_result() {
   ltc="$(jq -r '.litecoin.usd // empty' <<<"$result" 2>/dev/null)" || return 1
   [[ -n "$btc" && -n "$eth" && -n "$ltc" ]] || return 1
 
-  printf '#[fg=#c0c0c0]BTC #[fg=#00ff41,bold]%s #[fg=#c0c0c0]ETH #[fg=#00ff41,bold]%s #[fg=#c0c0c0]LTC #[fg=#00ff41,bold]%s' \
+  printf '#[fg=#006400]BTC #[fg=#00ff41,bold]%s #[fg=#006400]ETH #[fg=#00ff41,bold]%s #[fg=#006400]LTC #[fg=#00ff41,bold]%s' \
     "$(format_usd "$btc" 0)" \
     "$(format_usd "$eth" 0)" \
     "$(format_usd "$ltc" 2)"
