@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+
+# BTC/ETH/LTC USD prices for the tmux status bar.
+# Cached and lock-guarded so the 5s status refresh never stacks requests.
+
+set -u
+
+readonly refresh_interval="${CRYPTO_REFRESH_INTERVAL:-60}"
+readonly request_timeout="${CRYPTO_TIMEOUT:-5}"
+readonly cache_root="${XDG_CACHE_HOME:-${HOME:?HOME must be set}/.cache}/crypto"
+readonly cache_file="${CRYPTO_CACHE:-$cache_root/prices.json}"
+readonly lock_dir="${cache_file}.lock"
+readonly api_url='https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,litecoin&vs_currencies=usd'
+
+print_unavailable() {
+  printf 'BTC -- ETH -- LTC --\n'
+}
+
+# Insert '.' thousands separators into an integer string (locale-independent).
+group_thousands() {
+  local value="$1" grouped="" chunk
+
+  while [[ "$value" =~ ^[0-9]+([0-9]{3})$ ]]; do
+    chunk="${BASH_REMATCH[1]}"
+    grouped=".$chunk$grouped"
+    value="${value%$chunk}"
+  done
+  printf '%s%s' "$value" "$grouped"
+}
+
+# price, decimals -> $97.123 (0) or $63,28 (2); dot thousands, comma decimal.
+format_usd() {
+  local price="$1" decimals="$2" whole frac=""
+
+  [[ "$price" =~ ^[0-9]+(\.[0-9]+)?$ ]] || return 1
+  if [[ "$price" == *.* ]]; then
+    whole="${price%%.*}"
+    frac="${price#*.}"
+  else
+    whole="$price"
+  fi
+
+  if (( decimals == 0 )); then
+    printf '$%s' "$(group_thousands "$whole")"
+  else
+    frac="${frac}00"
+    printf '$%s,%s' "$(group_thousands "$whole")" "${frac:0:2}"
+  fi
+}
+
+cache_value() {
+  local display fetched_at
+
+  [[ -r "$cache_file" ]] || return 1
+  display="$(jq -r '.display // empty' "$cache_file" 2>/dev/null)" || return 1
+  fetched_at="$(jq -r '.fetched_at // 0' "$cache_file" 2>/dev/null)" || return 1
+  [[ -n "$display" && "$fetched_at" =~ ^[0-9]+$ && "$fetched_at" -gt 0 ]] || return 1
+
+  printf '%s\t%s\n' "$display" "$fetched_at"
+}
+
+write_cache() {
+  local display="$1"
+  local fetched_at="$2"
+  local temporary_file
+
+  mkdir -p "$(dirname -- "$cache_file")" 2>/dev/null || return 1
+  temporary_file="${cache_file}.$$"
+  umask 077
+  printf '{"display":%s,"fetched_at":%s}\n' \
+    "$(jq -Rn --arg value "$display" '$value')" "$fetched_at" >"$temporary_file" || {
+    rm -f "$temporary_file"
+    return 1
+  }
+  mv -f "$temporary_file" "$cache_file"
+}
+
+fetch_result() {
+  curl -fsS --max-time "$request_timeout" "$api_url" 2>/dev/null || return 1
+}
+
+format_result() {
+  local result="$1"
+  local btc eth ltc
+
+  btc="$(jq -r '.bitcoin.usd // empty' <<<"$result" 2>/dev/null)" || return 1
+  eth="$(jq -r '.ethereum.usd // empty' <<<"$result" 2>/dev/null)" || return 1
+  ltc="$(jq -r '.litecoin.usd // empty' <<<"$result" 2>/dev/null)" || return 1
+  [[ -n "$btc" && -n "$eth" && -n "$ltc" ]] || return 1
+
+  printf '#[fg=#c0c0c0]BTC #[fg=#00ff41,bold]%s #[fg=#c0c0c0]ETH #[fg=#00ff41,bold]%s #[fg=#c0c0c0]LTC #[fg=#00ff41,bold]%s' \
+    "$(format_usd "$btc" 0)" \
+    "$(format_usd "$eth" 0)" \
+    "$(format_usd "$ltc" 2)"
+}
+
+main() {
+  local now cached cached_display cached_at age result display
+  now="$(date +%s)"
+
+  cached="$(cache_value 2>/dev/null || true)"
+  cached_display="${cached%%$'\t'*}"
+  cached_at="${cached#*$'\t'}"
+  [[ "$cached" == *$'\t'* ]] || cached_at=0
+  [[ "$cached_at" =~ ^[0-9]+$ ]] || cached_at=0
+  age=$((now - cached_at))
+
+  if (( cached_at > 0 && age < refresh_interval )); then
+    printf '%s\n' "$cached_display"
+    return 0
+  fi
+
+  mkdir -p "$(dirname -- "$cache_file")" 2>/dev/null || true
+  if ! mkdir "$lock_dir" 2>/dev/null; then
+    if (( cached_at > 0 )); then
+      printf '%s\n' "$cached_display"
+    else
+      print_unavailable
+    fi
+    return 0
+  fi
+  trap 'rmdir "$lock_dir" 2>/dev/null || true' EXIT
+
+  result="$(fetch_result 2>/dev/null || true)"
+  if [[ -n "$result" ]] && display="$(format_result "$result" 2>/dev/null)" && [[ -n "$display" ]]; then
+    write_cache "$display" "$now" 2>/dev/null || true
+    printf '%s\n' "$display"
+  elif (( cached_at > 0 )); then
+    printf '%s\n' "$cached_display"
+  else
+    print_unavailable
+  fi
+}
+
+if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+  print_unavailable
+  exit 0
+fi
+
+main
