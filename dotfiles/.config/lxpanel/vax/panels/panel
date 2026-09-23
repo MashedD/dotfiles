@@ -16,6 +16,7 @@ Global {
   usefontcolor=1
   fontcolor=#000000
   background=0
+  autohide=0
 }
 Plugin {
   type=menu
@@ -81,12 +82,6 @@ Plugin {
     BatteryNumber=1
     BatteryNumberHide=0
     ShowExtendedInformation=1
-  }
-}
-Plugin {
-  type=volume
-  Config {
-    MixerCommand=pavucontrol
   }
 }
 Plugin {
