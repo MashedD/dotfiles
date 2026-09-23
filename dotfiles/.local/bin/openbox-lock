@@ -3,4 +3,6 @@
 # xss-lock transfers its sleep-lock file descriptor to this command. Keep
 # i3lock in the foreground so the descriptor remains valid until the screen
 # is actually locked.
-exec i3lock --nofork -i "$HOME/.local/share/wallpapers/lock-win98-tux.png"
+#exec i3lock --nofork -i "$HOME/.local/share/wallpapers/lock-win98-tux.png"
+exec sh -c 'res=$(xdpyinfo | awk "/dimensions/{print \$2}"); magick "$HOME/.local/share/wallpapers/lock-win98-tux.png" -resize "${res}^" -gravity center -extent "$res" /tmp/i3lock-bg.png && i3lock --nofork -i /tmp/i3lock-bg.png'
+
