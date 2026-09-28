@@ -57,4 +57,5 @@ fi
 "$HOME/.local/bin/openbox-battery-watch" &
 #pcmanfm --desktop --set-wallpaper "$HOME/.local/share/wallpapers/win98-teal.svg" --wallpaper-mode=stretch &
 pcmanfm --set-wallpaper "$HOME/.local/share/wallpapers/win98-teal.svg" --wallpaper-mode=stretch &
-picom &
+#picom &
+
