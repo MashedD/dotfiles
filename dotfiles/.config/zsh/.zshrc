@@ -140,6 +140,9 @@ zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza $realpath'
 export FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:+${FZF_DEFAULT_OPTS} }--color=fg:${VAX_SILVER},bg:${VAX_BLACK},hl:${VAX_YELLOW},fg+:#ffffff,bg+:${VAX_GRAY},hl+:${VAX_YELLOW},info:${VAX_GREEN},prompt:${VAX_GREEN},pointer:${VAX_GREEN},marker:${VAX_YELLOW},spinner:${VAX_GREEN},header:${VAX_DIM_GREEN},border:${VAX_BLUE}"
 eval "$(fzf --zsh)"
 
+# Treat comments as comments
+setopt interactivecomments
+
 man() {
   LESS_TERMCAP_md=$'\e[01;33m' \
   LESS_TERMCAP_me=$'\e[0m' \

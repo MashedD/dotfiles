@@ -33,7 +33,13 @@ fi
 
 "$HOME/.local/bin/openbox-display" --watch &
 
-lxpanel --profile vax &
+# GTK's calendar follows LC_TIME; use a user-local Monday-first locale for LXPanel.
+if command -v localedef >/dev/null 2>&1; then
+  "$HOME/.local/bin/openbox-locale-setup"
+  LOCPATH="$HOME/.local/share/locale" LC_TIME=en_GB.UTF-8 lxpanel --profile vax &
+else
+  lxpanel --profile vax &
+fi
 # LXPanel owns the XEmbed tray.  snixembed bridges modern StatusNotifierItem
 # apps (such as Gajim) into that tray, so wait until the panel is available.
 if command -v snixembed >/dev/null 2>&1; then

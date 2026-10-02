@@ -1,0 +1,14 @@
+#!/bin/sh
+# Prepare user-local locales so LXPanel's GTK calendar can use Monday-first
+# en_GB week conventions without changing the rest of the session's locale.
+set -eu
+
+locale_dir="$HOME/.local/share/locale"
+mkdir -p "$locale_dir"
+
+if [ ! -f "$locale_dir/en_US.UTF-8/LC_TIME" ]; then
+  localedef --no-archive -i en_US -f UTF-8 "$locale_dir/en_US.UTF-8"
+fi
+if [ ! -f "$locale_dir/en_GB.UTF-8/LC_TIME" ]; then
+  localedef --no-archive -i en_GB -f UTF-8 "$locale_dir/en_GB.UTF-8"
+fi
