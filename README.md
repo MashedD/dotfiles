@@ -69,6 +69,56 @@ installs packages, starts services, or changes settings.
 The checker expects Microsoft Sans Serif (for the Win98 UI) and the bundled
 FiraCode Nerd Font to be visible to fontconfig after Stow deployment.
 
+## AMD Xorg crash workaround (this laptop)
+
+The October 6, 2026 10:10 crash was an AMD iGPU GPU-memory fault followed by
+`gfx_0.0.0` timeout and Xorg SIGABRT in Mesa (`libgallium`) through Glamor.
+The October 1 crash had the same fault/timeout on the dGPU. This is not an
+Openbox crash; the exact underlying Mesa/kernel defect is not yet identified.
+
+Disabling Glamor was tested and **broke HDMI**: both RandR providers advertised
+`cap: 0x0`, preventing the dGPU output provider from attaching to the iGPU.
+Do not use `AccelMethod "none"` on this hybrid-GPU setup.
+`system/X11/xorg.conf.d/10-amdgpu.conf` now preserves acceleration and the
+original working layout; it is hardware-specific and not Stowed. It does not
+claim to fix the underlying GPU fault.
+
+From the repository root, with the X session stopped:
+
+```sh
+sudo cp -a /etc/X11/xorg.conf.d/10-amdgpu.conf \
+  /etc/X11/xorg.conf.d/10-amdgpu.conf.bak-$(date +%Y%m%d-%H%M%S)
+sudo install -m 644 system/X11/xorg.conf.d/10-amdgpu.conf /etc/X11/xorg.conf.d/10-amdgpu.conf
+startx
+```
+
+After starting X, verify nonzero provider capabilities and HDMI visibility,
+then test kitty, HDMI hotplug, internal-panel fallback and locking:
+
+```sh
+xrandr --listproviders
+xrandr --current
+journalctl -k -b --since today | grep -E 'page fault|ring .*timeout|Process Xorg'
+```
+
+To undo the failed October 6 workaround, restore the known working backup:
+
+```sh
+sudo cp -a /etc/X11/xorg.conf.d/10-amdgpu.conf.bak-20261006-101509 /etc/X11/xorg.conf.d/10-amdgpu.conf
+```
+
+Save work and log out before restarting X. `openbox --reconfigure` cannot
+apply Xorg driver options. The installed `linux-cachyos-lts` kernel is the
+next stability test: select it in the boot menu after restoring this config.
+Its effect on the intermittent crash still needs observation.
+
+The display helper now uses `xrandr --current` to read hotplug-updated server
+state without hardware/EDID probing on every poll (the previous Xorg log
+had grown to 47 MB). This reduces unnecessary driver activity; it is not
+proof that polling caused the GPU faults. If faults persist, preserve fresh
+journal/core evidence and test a supported LTS kernel with an up-to-date,
+matched Mesa/firmware stack; avoid partial Arch package upgrades.
+
 ## Shortcuts
 
 - Win+1–4: switch desktop; Win+Shift+1–4: move focused window and follow

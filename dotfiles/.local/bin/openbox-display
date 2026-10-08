@@ -3,6 +3,8 @@
 # Apply the preferred external-monitor layout and watch for hotplug changes.
 # The watcher is intentionally polling: xrandr is available on every X11
 # session we support and does not require another daemon or D-Bus service.
+# --current reads the server's cached RandR state (updated by hotplug events)
+# instead of forcing hardware/EDID probes every three seconds.
 
 set -u
 
@@ -14,6 +16,7 @@ poll_seconds="${OPENBOX_DISPLAY_POLL_SECONDS:-3}"
 retry_count="${OPENBOX_DISPLAY_RETRY_COUNT:-3}"
 retry_delay="${OPENBOX_DISPLAY_RETRY_DELAY:-1}"
 upgrade_delay="${OPENBOX_DISPLAY_UPGRADE_DELAY:-30}"
+wallpaper_path="${OPENBOX_WALLPAPER:-$HOME/.local/share/wallpapers/lock-win98-tux.png}"
 lock_root="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
 watcher_lock_file="$lock_root/openbox-display-watcher.lock"
 apply_lock_file="$lock_root/openbox-display-apply.lock"
@@ -22,13 +25,25 @@ log_message() {
   logger -t openbox-display -- "$*" 2>/dev/null || :
 }
 
+apply_wallpaper() {
+  # RandR mode changes can leave the root pixmap at the old screen size, which
+  # makes the wallpaper appear tiled on larger external monitors. Recreate it
+  # after every layout change so it matches the current root dimensions.
+  if command -v feh >/dev/null 2>&1 && [ -f "$wallpaper_path" ]; then
+    feh --no-fehbg --bg-scale "$wallpaper_path" >/dev/null 2>&1 ||
+      log_message "Could not apply wallpaper: $wallpaper_path"
+  elif command -v hsetroot >/dev/null 2>&1; then
+    hsetroot -solid '#008080' >/dev/null 2>&1 || :
+  fi
+}
+
 usage() {
   printf '%s\n' 'Usage: openbox-display [--once|--watch]' >&2
 }
 
 output_connected() {
   output=$1
-  xrandr --query | awk -v output="$output" '$1 == output && $2 == "connected" { found=1 } END { exit(found ? 0 : 1) }'
+  xrandr --current | awk -v output="$output" '$1 == output && $2 == "connected" { found=1 } END { exit(found ? 0 : 1) }'
 }
 
 display_state() {
@@ -43,7 +58,7 @@ display_state() {
 confirm_enabled() {
   output=$1
   expected=${2:-}
-  xrandr --query | awk -v output="$output" -v expected="$expected" '
+  xrandr --current | awk -v output="$output" -v expected="$expected" '
     $1 == output && $2 == "connected" { in_output=1; next }
     in_output && /^[^[:space:]]/ { exit }
     in_output && /\*/ && (expected == "" || $0 ~ expected) { found=1; exit }
@@ -54,7 +69,7 @@ confirm_enabled() {
 disable_output() {
   output=$1
   # Avoid an extra mode change when xrandr reports that the output is not active.
-  if output_connected "$output" && xrandr --query | awk -v output="$output" '
+  if output_connected "$output" && xrandr --current | awk -v output="$output" '
       $1 == output && $2 == "connected" { in_output=1; next }
       in_output && /^[^[:space:]]/ { exit }
       in_output && /\*/ { active=1 }
@@ -142,7 +157,7 @@ read_display_state() (
   exec 7>"$apply_lock_file" || return 1
   flock -w 5 7 || return 1
   [ "${1:-}" = attach ] && attach_provider
-  query=$(xrandr --query) || return 1
+  query=$(xrandr --current) || return 1
   display_state "$query"
 )
 
@@ -155,6 +170,7 @@ run_once() {
     log_message "Could not configure display state: $state"
     return 1
   }
+  apply_wallpaper
   log_message "Applied display layout: $(printf '%s\n' "$result" | awk -F '\t' '{print $2}')"
 }
 
@@ -217,6 +233,7 @@ run_watch() {
         next_upgrade=$((now + upgrade_delay))
         [ "$should_upgrade" -eq 1 ] && upgrade_attempts=$((upgrade_attempts + 1))
         if [ "$layout" != "$old_layout" ] || [ "$state" != "$previous_state" ]; then
+          apply_wallpaper
           log_message "Applied display layout: $layout"
         fi
       else

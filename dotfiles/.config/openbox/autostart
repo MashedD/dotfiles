@@ -62,7 +62,7 @@ if command -v xss-lock >/dev/null 2>&1 && command -v i3lock >/dev/null 2>&1; the
 fi
 "$HOME/.local/bin/openbox-battery-watch" &
 if command -v feh >/dev/null 2>&1; then
-  feh --no-fehbg --bg-scale "$HOME/.local/share/wallpapers/win98-teal.svg" &
+  feh --no-fehbg --bg-scale "$HOME/.local/share/wallpapers/lock-win98-tux.png" &
 fi
 #picom &
 
