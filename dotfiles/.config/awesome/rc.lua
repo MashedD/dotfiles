@@ -24,7 +24,7 @@ beautiful.init({
     bg_normal = "#c0c0c0", fg_normal = "#000000",
     bg_focus = "#001a00", fg_focus = "#00ff41",
     bg_urgent = "#001a00", fg_urgent = "#00ff41",
-    border_width = 2, border_normal = "#808080", border_focus = "#c0c0c0",
+    border_width = 2, border_normal = "#808080", border_focus = "#70c5bd",
     titlebar_bg_normal = "#808080", titlebar_fg_normal = "#c0c0c0",
     titlebar_bg_focus = "#001a00", titlebar_fg_focus = "#00ff41",
     menu_height = 24, menu_width = 230,
