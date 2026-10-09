@@ -51,12 +51,19 @@ augroup vimrc_tmux_home_end
     autocmd VimEnter,TermResponse * call s:configure_tmux_home_end()
 augroup END
 
-"colorscheme torte
-"colorscheme matrix
-highlight Normal guibg=black guifg=green
-highlight Comment guifg=lightgreen
-highlight Constant guifg=green
-highlight Identifier guifg=lightgreen
+" Aurora palette to match Kitty and the Neovim setup.
+highlight Normal guibg=NONE guifg=#c7d5cb
+highlight Comment guifg=#63736a gui=italic
+highlight Constant guifg=#d6bd72
+highlight Identifier guifg=#70c5bd
+highlight Function guifg=#70c98b gui=bold
+highlight StatusLine guifg=#07110d guibg=#70c5bd
+highlight StatusLineNC guifg=#63736a guibg=#101a15
+highlight CursorLine guibg=#101a15
+highlight LineNr guifg=#63736a
+highlight CursorLineNr guifg=#00ff41 gui=bold
+highlight Search guifg=#07110d guibg=#d6bd72 gui=bold
+set cursorline
 
 let g:lightline = {'colorscheme': 'default'}
 
