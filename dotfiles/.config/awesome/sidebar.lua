@@ -3,6 +3,7 @@ local awful = require("awful")
 local gears = require("gears")
 local wibox = require("wibox")
 local Gio = require("lgi").Gio
+local gstring = require("gears.string")
 local sidebar = {}
 
 local palette = {
@@ -41,8 +42,12 @@ local function read(path)
     return value
 end
 
+local function open_document(filename)
+    return io.open((os.getenv("HOME") or "") .. "/Documents/" .. filename, "r")
+end
+
 local function read_sidebar_todo()
-    local file = io.open((os.getenv("HOME") or "") .. "/Documents/todo.md", "r")
+    local file = open_document("todo.md")
     if not file then return {} end
     local in_section, items = false, {}
     for line in file:lines() do
@@ -60,6 +65,67 @@ local function read_sidebar_todo()
     end
     file:close()
     return items
+end
+
+local function read_calendar_entries()
+    local file = open_document("calendar.md")
+    if not file then return {} end
+    local today = os.date("%Y-%m-%d")
+    local entries, previous, current, future = {}, {}, {}, {}
+
+    for line in file:lines() do
+        local year, month, day, description = line:match("^%s*(%d%d%d%d)%-(%d%d)%-(%d%d)%s+(.+)%s*$")
+        if year then
+            year, month, day = tonumber(year), tonumber(month), tonumber(day)
+            if day > 0 and month > 0 and month <= 12 then
+                local timestamp = os.time({year = year, month = month, day = day, hour = 12})
+                if os.date("%Y-%m-%d", timestamp) == string.format("%04d-%02d-%02d", year, month, day) then
+                    local range_start, range_end = description:find("%d%d:%d%d%s*%-%s*%d%d:%d%d")
+                    local time_start, time_end
+                    if range_start then
+                        time_start, time_end = range_start, range_end
+                    else
+                        time_start, time_end = description:find("%d%d:%d%d")
+                    end
+                    local time_text = time_start and description:sub(time_start, time_end):gsub("%s+", "") or nil
+                    local event_text = description
+                    if time_start then
+                        event_text = description:sub(1, time_start - 1) .. description:sub(time_end + 1)
+                        event_text = event_text:gsub(":%s*,", ":", 1):gsub("^%s*[,;:]%s*", "")
+                    end
+                    event_text = event_text:gsub("%s+", " "):gsub("^%s+", "")
+                        :gsub("^%s*[,;:]%s*", ""):gsub("%s*[,;:]%s*$", "")
+                    local entry = {
+                        date = string.format("%04d-%02d-%02d", year, month, day),
+                        timestamp = timestamp, time = time_text, text = event_text,
+                    }
+                    if entry.date < today then
+                        entry.day = "past"
+                        previous[#previous + 1] = entry
+                    elseif entry.date == today then
+                        entry.day = "today"
+                        current[#current + 1] = entry
+                    elseif entry.date > today then
+                        entry.day = "future"
+                        future[#future + 1] = entry
+                    end
+                end
+            end
+        end
+    end
+    file:close()
+
+    local function sort_entries(a, b)
+        if a.date ~= b.date then return a.date < b.date end
+        return (a.time or "") < (b.time or "")
+    end
+    table.sort(previous, sort_entries)
+    table.sort(current, sort_entries)
+    table.sort(future, sort_entries)
+    if #previous > 0 then entries[#entries + 1] = previous[#previous] end
+    for _, entry in ipairs(current) do entries[#entries + 1] = entry end
+    for i = 1, math.min(3, #future) do entries[#entries + 1] = future[i] end
+    return entries
 end
 
 local function label(text, color, size, bold, align)
@@ -438,23 +504,71 @@ function sidebar.create(s)
         spacing = 4, layout = wibox.layout.fixed.vertical,
     }, 80)
 
-    local todo_entries = read_sidebar_todo()
-    local todo_rows = {}
-    if #todo_entries == 0 then
-        todo_rows[1] = label("No items in ~/Documents/todo.md · ## Sidebar", palette.muted, 9, false)
-    else
-        for _, entry in ipairs(todo_entries) do
-            local row = label("•  " .. entry, palette.text, 9, false)
-            row.wrap, row.valign = "word_char", "top"
-            todo_rows[#todo_rows + 1] = row
+    local todo_entries = {}
+    local todo_list = wibox.layout.fixed.vertical()
+    todo_list.spacing = 4
+    local function refresh_todo()
+        todo_list:reset()
+        todo_entries = read_sidebar_todo()
+        if #todo_entries == 0 then
+            local row = label("No items in ~/Documents/todo.md · ## Sidebar", palette.muted, 9, false)
+            todo_list:add(row)
+        else
+            for _, entry in ipairs(todo_entries) do
+                local row = label("•  " .. entry, palette.text, 9, false)
+                row.wrap, row.valign = "word_char", "top"
+                todo_list:add(row)
+            end
         end
+        s.sidebar_todo_entries = todo_entries
     end
-    local todo_layout = {spacing = 4, layout = wibox.layout.fixed.vertical}
-    for _, row in ipairs(todo_rows) do todo_layout[#todo_layout + 1] = row end
-    local todo_list = wibox.widget(todo_layout)
+    refresh_todo()
     local todo_card = card({
         label("TODO", palette.teal, 10, true, "center"),
         todo_list, spacing = 5, layout = wibox.layout.fixed.vertical,
+    }, nil, 7)
+
+    local calendar_entries = {}
+    local calendar_list = wibox.layout.fixed.vertical()
+    calendar_list.spacing = 4
+    local function calendar_row(entry)
+        local now = os.date("*t")
+        local yesterday = os.date("%Y-%m-%d", os.time({year = now.year, month = now.month, day = now.day - 1, hour = 12}))
+        local date_color, time_color, event_color, weight
+        if entry.day == "today" then
+            date_color, time_color, event_color, weight = palette.neon, "#ffe08a", "#ffffff", "bold"
+        elseif entry.day == "future" then
+            date_color, time_color, event_color, weight = palette.teal, palette.green, palette.text, "normal"
+        else
+            date_color, time_color, event_color, weight = palette.muted, palette.muted, palette.muted, "normal"
+        end
+        local short_date = os.date("%d.%m", entry.timestamp)
+        local date_text = entry.day == "today" and ("TODAY " .. short_date)
+            or (entry.date == yesterday and ("YESTERDAY " .. short_date)
+                or os.date("%a %d.%m", entry.timestamp))
+        local time_markup = entry.time and string.format(
+            " <span foreground='%s'>%s</span>", time_color, gstring.xml_escape(entry.time)) or ""
+        local row = wibox.widget {
+            markup = string.format("<span foreground='%s' weight='bold'>%s</span>%s <span foreground='%s' weight='%s'>%s</span>",
+                date_color, date_text, time_markup, event_color, weight, gstring.xml_escape(entry.text)),
+            wrap = "word_char", valign = "top", widget = wibox.widget.textbox,
+        }
+        return row
+    end
+    local function refresh_calendar()
+        calendar_list:reset()
+        calendar_entries = read_calendar_entries()
+        if #calendar_entries == 0 then
+            calendar_list:add(label("No nearby events", palette.muted, 9, false))
+        else
+            for _, entry in ipairs(calendar_entries) do calendar_list:add(calendar_row(entry)) end
+        end
+        s.sidebar_calendar_entries = calendar_entries
+    end
+    refresh_calendar()
+    local calendar_card = card({
+        label("CALENDAR", palette.teal, 10, true, "center"),
+        calendar_list, spacing = 5, layout = wibox.layout.fixed.vertical,
     }, nil, 7)
 
     local quick_card = card({
@@ -488,7 +602,7 @@ function sidebar.create(s)
         {
             {forced_width = 2, bg = palette.teal, widget = wibox.container.background},
             {
-                header, clock_card, wallpaper_card, weather_card, stats_card, volume_card, media_card, quick_card, todo_card,
+                header, clock_card, wallpaper_card, weather_card, stats_card, volume_card, media_card, quick_card, todo_card, calendar_card,
                 spacing = 6, layout = wibox.layout.fixed.vertical,
             },
             layout = wibox.layout.fixed.horizontal,
@@ -502,6 +616,7 @@ function sidebar.create(s)
     s.sidebar_volume, s.sidebar_volume_text = volume_control, volume_text
     s.sidebar_audio_header = audio_header
     s.sidebar_todo_entries, s.sidebar_todo_card = todo_entries, todo_card
+    s.sidebar_calendar_card = calendar_card
     s.sidebar_media_text = media_text
     s.sidebar_root_text = root_text
     s.sidebar_weather_text = weather_main
@@ -599,6 +714,14 @@ function sidebar.create(s)
     s.sidebar_media_timer = gears.timer {
         timeout = 5, autostart = true, call_now = true, callback = update_media,
     }
+    s.sidebar_todo_refresh = refresh_todo
+    s.sidebar_todo_timer = gears.timer {
+        timeout = 60, autostart = true, call_now = false, callback = refresh_todo,
+    }
+    s.sidebar_calendar_refresh = refresh_calendar
+    s.sidebar_calendar_timer = gears.timer {
+        timeout = 60, autostart = true, call_now = false, callback = refresh_calendar,
+    }
     if os.getenv("AWESOME_TEST_MODE") ~= "1" then
         s.sidebar_weather_timer = gears.timer {
             timeout = 1800, autostart = true, call_now = true, callback = update_weather,
@@ -610,6 +733,8 @@ function sidebar.create(s)
         s.sidebar_stats_timer:stop()
         s.sidebar_volume_timer:stop()
         s.sidebar_media_timer:stop()
+        s.sidebar_todo_timer:stop()
+        s.sidebar_calendar_timer:stop()
         if s.sidebar_weather_timer then s.sidebar_weather_timer:stop() end
         panel.visible = false
     end)

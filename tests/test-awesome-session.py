@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import date, timedelta
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "dotfiles/.config/awesome/rc.lua"
@@ -30,9 +31,19 @@ def main():
         helpers.mkdir(parents=True)
         (testhome / ".local/share/wallpapers").mkdir(parents=True)
         (testhome / "Documents").mkdir()
-        (testhome / "Documents/todo.md").write_text(
+        todo_path = testhome / "Documents/todo.md"
+        todo_path.write_text(
             "# TODO\n## Sidebar\n- First item\n- Second item\n- Third item\n"
             "- Fourth item\n- Fifth item\n- Ignore this sixth item\n## Other\n- Outside section\n")
+        today = date.today()
+        (testhome / "Documents/calendar.md").write_text(
+            f"{today - timedelta(days=1)} 17:30 Yesterday event\n"
+            f"{today} 08:15-09:00 Today event\n"
+            f"{today} visit: 12:30, Today appointment\n"
+            f"{today + timedelta(days=1)} 07:30 First future event\n"
+            f"{today + timedelta(days=1)} 12:00 Second future event\n"
+            f"{today + timedelta(days=2)} 19:00 Third future event\n"
+            f"{today + timedelta(days=3)} 09:00 Omit fourth future event\n")
         shutil.copy2(ROOT / "dotfiles/.local/bin/openbox-lock", helpers / "openbox-lock")
         shutil.copy2(ROOT / "dotfiles/.local/share/wallpapers/lock-win98-tux.png",
                      testhome / ".local/share/wallpapers/lock-win98-tux.png")
@@ -103,7 +114,11 @@ def main():
                 assert 'floating' in lua('return require("awful").layout.getname(require("awful").layout.get(screen[1]))')
                 wait('return screen[1].workarea.y', '30')
                 assert 'true' in lua('local p=screen[1].panel; return p.visible and p.height == 30 and p.position == "top"')
-                assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and not b.visible and s.sidebar_mode == 0 and not b.ontop and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_weather_text and s.sidebar_audio_header and s.sidebar_wallpaper_preview and s.sidebar_todo_card and #s.sidebar_todo_entries == 5 and s.sidebar_todo_entries[5] == "Fifth item" and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
+                assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and not b.visible and s.sidebar_mode == 0 and not b.ontop and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_weather_text and s.sidebar_audio_header and s.sidebar_wallpaper_preview and s.sidebar_todo_card and #s.sidebar_todo_entries == 5 and s.sidebar_todo_entries[5] == "Fifth item" and s.sidebar_calendar_card and #s.sidebar_calendar_entries == 6 and s.sidebar_calendar_entries[1].day == "past" and s.sidebar_calendar_entries[2].time == "08:15-09:00" and s.sidebar_calendar_entries[3].text == "visit: Today appointment" and s.sidebar_calendar_entries[6].text == "Third future event" and s.sidebar_todo_timer.timeout == 60 and s.sidebar_calendar_timer.timeout == 60 and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
+                todo_path.write_text("# TODO\n## Sidebar\n- Refreshed item\n")
+                lua('screen[1].sidebar_todo_refresh()')
+                todo_refresh_result = lua('return tostring(#screen[1].sidebar_todo_entries)..":"..tostring(screen[1].sidebar_todo_entries[1])')
+                assert '1:Refreshed item' in todo_refresh_result, todo_refresh_result
                 press('super+shift+s')
                 assert 'true' in lua('local s=screen[1]; return s.sidebar_mode == 1 and s.sidebar.visible and not s.sidebar.ontop and s.sidebar:struts().right == 0 and s.workarea.width == s.geometry.width')
                 press('super+shift+s')
