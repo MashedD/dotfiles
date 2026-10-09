@@ -19,11 +19,11 @@ local function read(path)
     return value
 end
 
-local function label(text, color, size, bold)
+local function label(text, color, size, bold, align)
     return wibox.widget {
         markup = string.format("<span foreground='%s' size='%dpt'%s>%s</span>",
             color, size, bold and " weight='bold'" or "", text),
-        align = "left", valign = "center", widget = wibox.widget.textbox,
+        align = align or "left", valign = "center", widget = wibox.widget.textbox,
     }
 end
 
@@ -77,6 +77,34 @@ local function battery_stats()
     return math.floor(sum / #capacities + 0.5), table.concat(states, ", ")
 end
 
+local function filesystem_stats()
+    local ok, info = pcall(function()
+        return Gio.File.new_for_path("/"):query_filesystem_info("filesystem::size,filesystem::free", nil)
+    end)
+    if not ok or not info then return nil end
+    local total = info:get_attribute_uint64("filesystem::size")
+    local free = info:get_attribute_uint64("filesystem::free")
+    if not total or not free or total <= 0 then return nil end
+    return total, free
+end
+
+local function wallpaper_paths()
+    local root = (os.getenv("XDG_DATA_HOME") or os.getenv("HOME") .. "/.local/share") .. "/wallpapers"
+    local enumerator = Gio.File.new_for_path(root):enumerate_children("standard::name", 0)
+    local paths = {}
+    if enumerator then
+        while true do
+            local entry = enumerator:next_file()
+            if not entry then break end
+            local name = entry:get_name()
+            if name:match("%.png$") then paths[#paths + 1] = root .. "/" .. name end
+        end
+        enumerator:close()
+    end
+    table.sort(paths)
+    return paths
+end
+
 local function network_stats()
     local data = read("/proc/net/dev")
     if not data then return nil end
@@ -94,8 +122,8 @@ end
 
 local function launcher(text, command)
     local button = wibox.widget {
-        label(text, palette.teal, 9, true),
-        forced_width = 94, forced_height = 30,
+        label(text, palette.teal, 10, true, "center"),
+        forced_width = 112, forced_height = 34,
         bg = palette.bg, border_width = 1, border_color = palette.line,
         widget = wibox.container.background,
     }
@@ -106,8 +134,8 @@ end
 
 local function action_button(text, callback)
     local button = wibox.widget {
-        label(text, palette.teal, 12, true),
-        forced_width = 42, forced_height = 24,
+        label(text, palette.teal, 14, true, "center"),
+        forced_width = 46, forced_height = 28,
         bg = palette.bg, border_width = 1, border_color = palette.line,
         widget = wibox.container.background,
     }
@@ -116,35 +144,107 @@ local function action_button(text, callback)
 end
 
 function sidebar.create(s)
-    local time = label("00:00:00", palette.neon, 22, true)
-    local date = label("", palette.muted, 9, false)
-    local cpu_text = label("CPU  measuring…", palette.text, 9, false)
-    local memory_text = label("Memory  reading…", palette.text, 9, false)
-    local battery_text = label("Battery  --", palette.text, 9, false)
-    local network_text = label("Network  measuring…", palette.text, 9, false)
-    local cpu_bar, memory_bar, battery_bar = progress(palette.neon), progress(palette.green), progress(palette.amber)
-    local volume_text = label("Volume  --", palette.text, 9, false)
+    local time = label("00:00:00", palette.neon, 26, true, "center")
+    local date = label("", palette.muted, 11, false, "center")
+    local cpu_text = label("CPU  measuring…", palette.text, 10, false)
+    local memory_text = label("Memory  reading…", palette.text, 10, false)
+    local battery_text = label("Battery  --", palette.text, 10, false)
+    local root_text = label("Free /  reading…", palette.text, 10, false)
+    local network_text = label("Network  measuring…", palette.text, 10, false)
+    local cpu_bar, memory_bar = progress(palette.neon), progress(palette.green)
+    local battery_bar, root_bar = progress(palette.amber), progress(palette.teal)
+    local volume_text = label("Volume  --", palette.text, 10, false)
     local volume_bar = progress(palette.teal)
-    local media_text = label("Checking player…", palette.text, 9, false)
+    local media_text = label("Checking player…", palette.text, 11, false, "center")
     media_text.wrap = "word_char"
     media_text.ellipsize = "end"
     local volume_tip = awful.tooltip {objects = {volume_text}, text = "Volume"}
 
     local header = wibox.widget {
-        label("AURORA  /  SIDEBAR", palette.teal, 10, true),
-        forced_height = 24, widget = wibox.container.background,
+        label("MashedD's AwesomeBar", palette.teal, 12, true),
+        forced_height = 30, widget = wibox.container.background,
     }
     local clock_card = card({
-        time, date, spacing = 3, layout = wibox.layout.fixed.vertical,
-    }, 72)
+        date, time, spacing = 4, layout = wibox.layout.fixed.vertical,
+    }, 82)
+
+    local wallpapers = wallpaper_paths()
+    local wallpaper_state = (os.getenv("XDG_STATE_HOME") or os.getenv("HOME") .. "/.local/state")
+        .. "/awesome/wallpaper"
+    local selected_wallpaper = read(wallpaper_state)
+    if selected_wallpaper then selected_wallpaper = selected_wallpaper:gsub("%s+$", "") end
+    local wallpaper_index = 1
+    for index, path in ipairs(wallpapers) do
+        if path == selected_wallpaper then wallpaper_index = index; break end
+    end
+    local preview = wibox.widget.imagebox()
+    preview.resize = true
+    preview.forced_height = 112
+    local wallpaper_name = label("No PNG wallpapers found", palette.muted, 9, false, "center")
+    wallpaper_name.forced_width = 190
+    local function update_wallpaper_preview()
+        local path = wallpapers[wallpaper_index]
+        if not path then return end
+        preview.image = path
+        wallpaper_name.text = path:match("([^/]+)$") or path
+        s.sidebar_wallpaper_index, s.sidebar_wallpaper_path = wallpaper_index, path
+    end
+    local function apply_wallpaper()
+        local path = wallpapers[wallpaper_index]
+        if not path then return end
+        gears.wallpaper.maximized(path, s, false)
+        local directory = wallpaper_state:match("^(.*)/")
+        if directory then gears.filesystem.make_directories(directory) end
+        local file = io.open(wallpaper_state, "w")
+        if file then file:write(path, "\n"); file:close() end
+    end
+    local function small_button(text, callback)
+        local button = wibox.widget {
+            label(text, palette.muted, 11, true, "center"),
+            forced_width = 26, forced_height = 20,
+            bg = palette.bg, border_width = 1, border_color = palette.line,
+            widget = wibox.container.background,
+        }
+        button:buttons(gears.table.join(awful.button({}, 1, callback)))
+        return button
+    end
+    local function show_previous_wallpaper()
+        if #wallpapers > 0 then
+            wallpaper_index = ((wallpaper_index - 2) % #wallpapers) + 1
+            update_wallpaper_preview()
+        end
+    end
+    local function show_next_wallpaper()
+        if #wallpapers > 0 then
+            wallpaper_index = (wallpaper_index % #wallpapers) + 1
+            update_wallpaper_preview()
+        end
+    end
+    local previous_wallpaper = small_button("‹", show_previous_wallpaper)
+    local next_wallpaper = small_button("›", show_next_wallpaper)
+    local wallpaper_controls = wibox.widget {
+        previous_wallpaper, wallpaper_name, next_wallpaper,
+        spacing = 8, layout = wibox.layout.fixed.horizontal,
+    }
+    update_wallpaper_preview()
+    preview:buttons(gears.table.join(awful.button({}, 1, apply_wallpaper)))
+    awful.tooltip {objects = {preview}, text = "Click to use this wallpaper"}
+    local wallpaper_card = card({
+        label("WALLPAPER", palette.teal, 10, true, "center"),
+        preview,
+        {wallpaper_controls, halign = "center", widget = wibox.container.place},
+        spacing = 5, layout = wibox.layout.fixed.vertical,
+    }, 180)
+
     local stats_card = card({
-        label("SYSTEM STATUS", palette.teal, 9, true),
+        label("SYSTEM STATUS", palette.teal, 10, true),
         cpu_text, cpu_bar,
         memory_text, memory_bar,
         battery_text, battery_bar,
+        root_text, root_bar,
         network_text,
         spacing = 4, layout = wibox.layout.fixed.vertical,
-    }, 142)
+    }, 172)
 
     local media_controls = wibox.widget {
         action_button("«", function() awful.spawn.easy_async({"playerctl", "previous"}, function() end) end),
@@ -152,11 +252,14 @@ function sidebar.create(s)
         action_button("»", function() awful.spawn.easy_async({"playerctl", "next"}, function() end) end),
         spacing = 8, layout = wibox.layout.fixed.horizontal,
     }
+    local media_controls_centered = {
+        media_controls, halign = "center", valign = "center", widget = wibox.container.place,
+    }
     local media_card = card({
-        label("NOW PLAYING", palette.teal, 9, true),
-        media_text, media_controls,
+        label("NOW PLAYING", palette.teal, 10, true, "center"),
+        media_text, media_controls_centered,
         spacing = 4, layout = wibox.layout.fixed.vertical,
-    }, 86)
+    }, 100)
 
     local volume_control = wibox.widget {
         volume_text, volume_bar, spacing = 4,
@@ -171,7 +274,7 @@ function sidebar.create(s)
             local value = code == 0 and tonumber(stdout:match("Volume:%s*([%d.]+)")) or nil
             local muted = stdout:find("MUTED", 1, true) ~= nil
             volume_text.markup = string.format(
-                "<span foreground='%s' size='9pt'>Volume  %s</span>",
+                "<span foreground='%s' size='10pt'>Volume  %s</span>",
                 muted and palette.amber or palette.text,
                 value and (muted and "Mute" or string.format("%.0f%%", value * 100)) or "--")
             volume_bar.value = value and math.floor(value * 100 + 0.5) or 0
@@ -191,50 +294,66 @@ function sidebar.create(s)
         awful.button({}, 5, function() change_volume("down") end)
     ))
     local volume_card = card({
-        label("AUDIO", palette.teal, 9, true), volume_control,
+        label("AUDIO", palette.teal, 10, true), volume_control,
         spacing = 4, layout = wibox.layout.fixed.vertical,
     }, 64)
 
     local quick_card = card({
-        label("QUICK LAUNCH", palette.teal, 9, true),
+        label("QUICK LAUNCH", palette.teal, 10, true, "center"),
         {
-            launcher("Terminal", {"kitty"}), launcher("Files", {"pcmanfm"}),
-            spacing = 8, layout = wibox.layout.fixed.horizontal,
+            {
+                launcher("Terminal", {"kitty"}), launcher("Files", {"pcmanfm"}),
+                spacing = 8, layout = wibox.layout.fixed.horizontal,
+            }, halign = "center", widget = wibox.container.place,
         },
         {
-            launcher("Monitor", {"kitty", "--title", "System Monitor", "btop"}),
-            launcher("Finder", {"xfce4-appfinder"}),
-            spacing = 8, layout = wibox.layout.fixed.horizontal,
+            {
+                launcher("Monitor", {"kitty", "--title", "System Monitor", "btop"}),
+                launcher("Finder", {"xfce4-appfinder"}),
+                spacing = 8, layout = wibox.layout.fixed.horizontal,
+            }, halign = "center", widget = wibox.container.place,
         },
         spacing = 6, layout = wibox.layout.fixed.vertical,
-    }, 110)
-    local footer = label("LOCAL  •  LIVE", palette.muted, 8, false)
+    }, 124)
 
+    local sidebar_width = 300
     local panel = wibox {
         screen = s, type = "dock", visible = false, ontop = true,
-        width = 232, height = math.max(1, s.geometry.height - 34),
-        x = s.geometry.x + s.geometry.width - 234, y = s.geometry.y + 32,
+        width = sidebar_width, height = math.max(1, s.geometry.height - 30),
+        x = s.geometry.x + s.geometry.width - sidebar_width, y = s.geometry.y + 30,
         bg = palette.bg, fg = palette.text,
-        border_width = 1, border_color = palette.teal,
+        border_width = 0,
         shape = gears.shape.rectangle, restrict_workarea = false,
     }
     panel:setup {
         {
-            header, clock_card, stats_card, media_card, volume_card, quick_card, footer,
-            spacing = 6, layout = wibox.layout.fixed.vertical,
+            {forced_width = 2, bg = palette.teal, widget = wibox.container.background},
+            {
+                header, clock_card, wallpaper_card, stats_card, media_card, volume_card, quick_card,
+                spacing = 6, layout = wibox.layout.fixed.vertical,
+            },
+            layout = wibox.layout.fixed.horizontal,
         },
-        margins = 10, widget = wibox.container.margin,
+        bg = palette.bg, widget = wibox.container.background,
     }
     s.sidebar = panel
     s.sidebar_clock, s.sidebar_date = time, date
     s.sidebar_cpu, s.sidebar_battery = cpu_text, battery_text
     s.sidebar_volume, s.sidebar_volume_text = volume_control, volume_text
     s.sidebar_media_text = media_text
+    s.sidebar_root_text = root_text
+    s.sidebar_wallpaper_preview, s.sidebar_wallpaper_name = preview, wallpaper_name
+    s.sidebar_wallpaper_controls = wallpaper_controls
+    s.sidebar_wallpaper_previous, s.sidebar_wallpaper_next = previous_wallpaper, next_wallpaper
+    s.sidebar_wallpaper_previous_action, s.sidebar_wallpaper_next_action =
+        show_previous_wallpaper, show_next_wallpaper
+    s.sidebar_wallpaper_apply = apply_wallpaper
+    s.sidebar_wallpaper_count = #wallpapers
     s:connect_signal("property::geometry", function()
         if not s.valid then return end
-        panel.x = s.geometry.x + s.geometry.width - 234
-        panel.y = s.geometry.y + 32
-        panel.height = math.max(1, s.geometry.height - 34)
+        panel.x = s.geometry.x + s.geometry.width - sidebar_width
+        panel.y = s.geometry.y + 30
+        panel.height = math.max(1, s.geometry.height - 30)
     end)
 
     local previous_total, previous_idle, previous_rx, previous_tx, previous_net_time
@@ -265,6 +384,12 @@ function sidebar.create(s)
             local used = mem_total - mem_available
             memory_text.text = string.format("Memory  %.1f / %.1f GiB", used / 1048576, mem_total / 1048576)
             memory_bar.value = math.floor(used * 100 / mem_total + 0.5)
+        end
+
+        local root_total, root_free = filesystem_stats()
+        if root_total and root_free then
+            root_text.text = string.format("Free /  %.1f GiB", root_free / 1073741824)
+            root_bar.value = math.floor((root_total - root_free) * 100 / root_total + 0.5)
         end
 
         local capacity, state = battery_stats()

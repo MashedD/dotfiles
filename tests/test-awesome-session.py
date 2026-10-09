@@ -52,7 +52,8 @@ def main():
         volume_helper.chmod(0o755)
         env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}", TEST_ACTIONS=str(directory / "actions"), AWESOME_TEST_MODE="1", NO_AT_BRIDGE="1", GIO_USE_VFS="local",
                    HOME=str(testhome), XDG_CONFIG_HOME=str(testhome / ".config"),
-                   XDG_DATA_HOME=str(testhome / ".local/share"), XDG_RUNTIME_DIR=str(directory))
+                   XDG_DATA_HOME=str(testhome / ".local/share"),
+                   XDG_STATE_HOME=str(testhome / ".local/state"), XDG_RUNTIME_DIR=str(directory))
         lock_pids = []
         env.pop("XAUTHORITY", None)
         server = subprocess.Popen(["Xvfb", "-displayfd", "1", "-screen", "0", "1280x800x24",
@@ -98,7 +99,7 @@ def main():
                 assert 'floating' in lua('return require("awful").layout.getname(require("awful").layout.get(screen[1]))')
                 wait('return screen[1].workarea.y', '30')
                 assert 'true' in lua('local p=screen[1].panel; return p.visible and p.height == 30 and p.position == "top"')
-                assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and not b.visible and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_media_text and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width and b.x+b.width == s.geometry.x+s.geometry.width-2 and b.y == s.geometry.y+32 and b.height == s.geometry.height-34')
+                assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and not b.visible and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_wallpaper_preview and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
                 press('super+shift+s')
                 wait('return tostring(screen[1].sidebar.visible)', '"true"')
                 press('super+shift+s')
@@ -106,6 +107,15 @@ def main():
                 wallpaper = subprocess.run(["xprop", "-root", "_XROOTPMAP_ID"], env=env,
                                            capture_output=True, text=True, check=True, timeout=3).stdout
                 assert "PIXMAP" in wallpaper, wallpaper
+                wait('return screen[1].sidebar_root_text.text', 'Free /')
+                assert 'aurora-longhorn.png' in lua('return screen[1].sidebar_wallpaper_name.text')
+                next_buttons = lua('return tostring(screen[1].sidebar_wallpaper_count)..":"..#screen[1].sidebar_wallpaper_next:buttons()')
+                assert '2:4' in next_buttons, next_buttons
+                lua('screen[1].sidebar_wallpaper_next_action()')
+                wallpaper_name = lua('return tostring(screen[1].sidebar_wallpaper_index)..":"..screen[1].sidebar_wallpaper_name.text')
+                assert '2:lock-win98-tux.png' in wallpaper_name, wallpaper_name
+                lua('screen[1].sidebar_wallpaper_previous_action(); screen[1].sidebar_wallpaper_apply()')
+                assert (testhome / ".local/state/awesome/wallpaper").read_text().strip().endswith("aurora-longhorn.png")
                 wait('return tostring(screen[1].sidebar_volume_text.markup):find("42%", 1, true) and "42%" or "pending"', '"42%"')
                 assert 'true' in lua('local p=screen[1].panel_clock; local s=screen[1].sidebar_clock; return p.text:match("%d%d:%d%d") ~= nil and p.forced_width == 58 and s.text:match("%d%d:%d%d:%d%d") ~= nil and screen[1].sidebar_date.text:find(os.date("%a"), 1, true) ~= nil')
                 lua('for _,b in ipairs(screen[1].sidebar_volume:buttons()) do if b.button == 4 then b:emit_signal("press") end end')
