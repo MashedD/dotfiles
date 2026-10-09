@@ -421,6 +421,7 @@ end
 
 function sidebar.create(s)
     local clock = make_analog_clock()
+    local digital_time = label("00:00:00", palette.neon, 24, true, "center")
     local date = label("", palette.teal, 12, true, "center")
     local cpu_text = label("CPU  measuring…", palette.text, 10, false)
     local memory_text = label("Memory  reading…", palette.text, 10, false)
@@ -444,10 +445,36 @@ function sidebar.create(s)
         border_width = 1, border_color = palette.bevel_light,
         widget = wibox.container.background,
     }
-    local clock_centered = {clock, halign = "center", valign = "center", widget = wibox.container.place}
-    local clock_card = card({
-        clock_centered, date, spacing = 2, layout = wibox.layout.fixed.vertical,
-    }, 154, 4)
+    local clock_centered = wibox.widget {
+        clock, halign = "center", valign = "center", widget = wibox.container.place,
+    }
+    local clock_content = wibox.layout.fixed.vertical()
+    clock_content.spacing = 3
+    clock_content:add(clock_centered)
+    clock_content:add(date)
+    clock_content:add(digital_time)
+    digital_time.visible = false
+    local clock_card = card(clock_content, 154, 4)
+    local clock_mode = "analog"
+    local function set_clock_mode(mode)
+        clock_mode = mode
+        clock.visible = mode == "analog"
+        clock_centered.visible = mode == "analog"
+        digital_time.visible = mode == "text"
+        clock_card.forced_height = mode == "analog" and 154 or 66
+        s.sidebar_clock_mode = mode
+    end
+    local function toggle_clock_mode()
+        set_clock_mode(clock_mode == "analog" and "text" or "analog")
+    end
+    local function bind_clock_toggle(widget)
+        widget:buttons(gears.table.join(awful.button({}, 1, toggle_clock_mode)))
+    end
+    bind_clock_toggle(clock)
+    bind_clock_toggle(digital_time)
+    bind_clock_toggle(date)
+    s.sidebar_clock_toggle = toggle_clock_mode
+    set_clock_mode("analog")
 
     local wallpapers = wallpaper_paths()
     local wallpaper_state = (os.getenv("XDG_STATE_HOME") or os.getenv("HOME") .. "/.local/state")
@@ -733,7 +760,8 @@ function sidebar.create(s)
     }
     s.sidebar = panel
     s.sidebar_mode = 0
-    s.sidebar_clock, s.sidebar_date = clock, date
+    s.sidebar_clock, s.sidebar_digital_time, s.sidebar_date = clock, digital_time, date
+    s.sidebar_clock_card = clock_card
     s.sidebar_cpu, s.sidebar_battery = cpu_text, battery_text
     s.sidebar_volume, s.sidebar_volume_text = volume_control, volume_text
     s.sidebar_audio_header = audio_header
@@ -760,6 +788,8 @@ function sidebar.create(s)
     local function update_stats()
         clock.current_time = os.date("*t")
         clock:emit_signal("widget::redraw_needed")
+        digital_time.markup = string.format("<span foreground='%s' size='24pt' weight='bold'>%s</span>",
+            palette.neon, os.date("%H:%M:%S"))
         date.markup = string.format("<span foreground='%s' size='12pt' weight='bold'>%s</span>",
             palette.teal, os.date("%A  •  %d %B %Y"))
 
