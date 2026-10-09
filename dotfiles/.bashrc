@@ -39,10 +39,11 @@ man() {
   command man "$@"
 }
 
-alias l="ls --color=auto"
-alias la='ls --color=auto -A'
-alias ls="ls --color=auto"
-alias ll="ls --color=auto -lA"
+export EZA_COLORS='di=38;2;120;169;196:ex=38;2;112;201;139:ln=38;2;112;197;189:or=38;2;217;121;121'
+alias l="eza --icons=auto --group-directories-first"
+alias la='eza --icons=auto --group-directories-first -A'
+alias ls="eza --icons=auto --group-directories-first"
+alias ll="eza --icons=auto --group-directories-first -lA --git"
 alias cp="cp -i" # confirm before overwriting something
 alias df="df -h"
 alias free="free -m"
