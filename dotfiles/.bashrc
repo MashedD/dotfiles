@@ -46,6 +46,9 @@ alias l="eza --icons=auto --group-directories-first"
 alias la='eza --icons=auto --group-directories-first -A'
 alias ls="eza --icons=auto --group-directories-first"
 alias ll="eza --icons=auto --group-directories-first -lA --git"
+if command -v bat >/dev/null 2>&1; then
+  alias cat='bat --paging=never --style=plain'
+fi
 alias cp="cp -i" # confirm before overwriting something
 alias df="df -h"
 alias free="free -m"
