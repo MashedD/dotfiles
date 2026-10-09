@@ -16,7 +16,6 @@ poll_seconds="${OPENBOX_DISPLAY_POLL_SECONDS:-3}"
 retry_count="${OPENBOX_DISPLAY_RETRY_COUNT:-3}"
 retry_delay="${OPENBOX_DISPLAY_RETRY_DELAY:-1}"
 upgrade_delay="${OPENBOX_DISPLAY_UPGRADE_DELAY:-30}"
-wallpaper_path="${OPENBOX_WALLPAPER:-$HOME/.local/share/wallpapers/lock-win98-tux.png}"
 lock_root="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
 watcher_lock_file="$lock_root/openbox-display-watcher.lock"
 apply_lock_file="$lock_root/openbox-display-apply.lock"
@@ -25,20 +24,8 @@ log_message() {
   logger -t openbox-display -- "$*" 2>/dev/null || :
 }
 
-apply_wallpaper() {
-  # RandR mode changes can leave the root pixmap at the old screen size, which
-  # makes the wallpaper appear tiled on larger external monitors. Recreate it
-  # after every layout change so it matches the current root dimensions.
-  if command -v feh >/dev/null 2>&1 && [ -f "$wallpaper_path" ]; then
-    feh --no-fehbg --bg-scale "$wallpaper_path" >/dev/null 2>&1 ||
-      log_message "Could not apply wallpaper: $wallpaper_path"
-  elif command -v hsetroot >/dev/null 2>&1; then
-    hsetroot -solid '#008080' >/dev/null 2>&1 || :
-  fi
-}
-
 usage() {
-  printf '%s\n' 'Usage: openbox-display [--once|--watch]' >&2
+  printf '%s\n' 'Usage: openbox-display [--once|--watch|--internal|--hdmi|--extend]' >&2
 }
 
 output_connected() {
@@ -170,8 +157,52 @@ run_once() {
     log_message "Could not configure display state: $state"
     return 1
   }
-  apply_wallpaper
   log_message "Applied display layout: $(printf '%s\n' "$result" | awk -F '\t' '{print $2}')"
+}
+
+run_profile() {
+  profile=$1
+  exec 8>"$apply_lock_file" || return 1
+  flock -w 5 8 || {
+    log_message 'Could not acquire display-layout lock'
+    return 1
+  }
+  attach_provider
+  case "$profile" in
+    --internal)
+      layout=$(apply_internal) || return 1
+      ;;
+    --hdmi)
+      if output_connected "$hdmi_output"; then
+        layout=$(apply_hdmi) || {
+          log_message 'External HDMI layout failed; preserving/falling back to internal display'
+          apply_internal || return 1
+          return 1
+        }
+      else
+        log_message 'External HDMI is disconnected; preserving internal display'
+        return 1
+      fi
+      ;;
+    --extend)
+      # Enable the laptop first. If the external mode fails, the internal panel
+      # remains usable; do not turn it off during an unsuccessful transition.
+      apply_internal >/dev/null || return 1
+      if ! output_connected "$hdmi_output" ||
+         ! xrandr --output "$hdmi_output" --mode 2560x1440 --rate 144 --pos 1920x0 >/dev/null 2>&1 ||
+         ! confirm_enabled "$hdmi_output" '2560x1440' ||
+         ! confirm_enabled "$internal_output" '1920x1080'; then
+        log_message 'Extended HDMI layout failed; restoring internal-only display'
+        apply_internal >/dev/null || :
+        return 1
+      fi
+      layout=extended
+      ;;
+    *)
+      return 64
+      ;;
+  esac
+  log_message "Applied requested display layout: $layout"
 }
 
 run_watch() {
@@ -233,7 +264,6 @@ run_watch() {
         next_upgrade=$((now + upgrade_delay))
         [ "$should_upgrade" -eq 1 ] && upgrade_attempts=$((upgrade_attempts + 1))
         if [ "$layout" != "$old_layout" ] || [ "$state" != "$previous_state" ]; then
-          apply_wallpaper
           log_message "Applied display layout: $layout"
         fi
       else
@@ -254,6 +284,9 @@ case "${1:---once}" in
     ;;
   --watch)
     run_watch
+    ;;
+  --internal|--hdmi|--extend)
+    run_profile "$1"
     ;;
   -h|--help)
     usage

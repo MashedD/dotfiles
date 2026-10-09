@@ -2,29 +2,35 @@
 
 ## Active desktop
 
-- WM: **Openbox** (X11)
-- Panel and systray: lxpanel (VAX profile) with snixembed as the StatusNotifierItem bridge
+- WM: **AwesomeWM** (X11), all normal/dialog windows floating by default
+- Panel and systray: native Awesome wibar/widgets (30px top, Win98/Matrix), with snixembed as the StatusNotifierItem bridge
 - Terminal: kitty
 - Launcher: xfce4-appfinder
 - File manager and desktop: pcmanfm
-- Wallpaper: pcmanfm (`win98-teal.svg`)
+- Wallpaper: Awesome (`lock-win98-tux.png`, same Tux wallpaper as the previous session)
 - Notifications: dunst
-- Clipboard history: clipmenu (`clipmenud` service, Win+V)
+- Clipboard history: clipmenu only when installed; Win+V. Clipman is explicitly disabled; do not add it as a fallback.
 - Authentication agent: lxqt-policykit
 - Screen lock: xss-lock + i3lock (Win+L; locks after 10 minutes idle and before suspend)
 
-Hyprland, Waybar, Walker, Mako, cliphist, and hyprlock configurations remain in the repository but are not part of the active Openbox session. `configs/dwm/` is legacy.
+Openbox, Hyprland, Waybar, Walker, Mako, cliphist, and hyprlock configurations remain in the repository but are not part of the active Awesome session. `configs/dwm/` is legacy.
 
-## Openbox rules
+## Awesome rules
 
-- Configure the session through `dotfiles/.config/openbox/rc.xml` and `autostart`.
+- Configure the WM through `dotfiles/.config/awesome/rc.lua` and `autostart`.
+- `startx` uses `dotfiles/.config/X11/xinitrc`, with `dotfiles/.xinitrc` as a forwarding entry point.
+- Keep only the floating layout. The native panel is in `dotfiles/.config/awesome/panel.lua`; do not start LXPanel or another tray manager.
+- Click-to-focus; square Win98/Matrix titlebars. Normal windows have a bottom-right left-drag resize grip; maximized/fullscreen windows have no borders or bottom strip. Retain `openbox-*` helpers for compatibility.
 - The session uses four desktops: **1**, **2**, **3**, and **4**.
   - Win+1–4 switches desktops.
   - Win+Shift+1–4 sends the focused window to a desktop and follows it.
-- Start only X11-compatible services from Openbox autostart. Do not add Wayland daemons there.
-- LXPanel is the sole XEmbed tray owner. Start `snixembed --fork` after LXPanel only to bridge modern StatusNotifierItem applications (such as Gajim); do not add another panel or tray manager.
-- LXPanel's Logout action runs `openbox --exit`; in a `startx` session this cleanly returns to the console.
-- The `startx` session must use the existing systemd user D-Bus bus; do not wrap Openbox in `dbus-run-session`, which splits Gajim from GNOME Keyring.
+  - Win+P opens display outputs; Win+Shift+Q requires quit confirmation.
+- Start only X11-compatible services from Awesome autostart. Do not add Wayland daemons there.
+- Autostart must tolerate Awesome reloads without duplicate services. Start Solaar with `--window=hide` after the SNI bridge when installed.
+- Awesome's built-in systray is the sole XEmbed tray owner, displayed on the primary monitor. Start `snixembed --fork` after Awesome initializes it to bridge modern StatusNotifierItem applications (such as Gajim).
+- Win+Shift+Q and Start-menu Logout quit Awesome; in a `startx` session this cleanly returns to the console.
+- The `startx` session must use the existing systemd user D-Bus bus; do not wrap Awesome in `dbus-run-session`, which splits Gajim from GNOME Keyring.
+- Private Xvfb tests may use an isolated D-Bus bus; never use it for the real desktop.
 - The existing NetworkManager applet is started externally; do not start a second `nm-applet` from this configuration.
 - Removable-drive handling is intentionally unchanged: do not add udiskie unless requested.
 
@@ -32,8 +38,8 @@ Hyprland, Waybar, Walker, Mako, cliphist, and hyprlock configurations remain in 
 
 Combine Windows 98 controls with Matrix-green accents.
 
-- Openbox theme: Chicago95. GTK theme: VAX (Chicago95 controls with Matrix-green selections), Microsoft Sans Serif 8.
-- LXPanel: top, 30px Win98 panel; active elements use the dark-green `#001a00` / neon `#00ff41` pairing.
+- Awesome: square Win98 titlebars, Matrix-green active titles, Microsoft Sans Serif 8. GTK theme: VAX (Chicago95 controls with Matrix-green selections). Prefer Microsoft Sans Serif 8, with Liberation Sans fallback when unavailable.
+- Awesome panel: top, 30px Win98 panel, Start/application menu, workspace buttons, taskbar, CPU, battery, native volume control, tray, weekday/DD.MM.YY/HH:MM:SS clock (fixed width, bold 9pt) and Monday-first calendar. Render the complete 65×25 Start asset at native size without extra label text. Active elements use the dark-green `#001a00` / neon `#00ff41` pairing.
 - Dunst: classic Win98 tooltip background `#ffffe1`, black text, square black border.
 - Lock screen: Win98 teal with centered Tux, without blur, animation, or transparency.
 - Keep effects minimal: no rounding, blur, or shadows that conflict with the pixel-era style.
@@ -42,17 +48,21 @@ Combine Windows 98 controls with Matrix-green accents.
 
 | Path | Purpose |
 |------|---------|
-| `dotfiles/.config/openbox/` | Active window-manager, keybinding, autostart, and Start-menu configuration |
-| `dotfiles/.config/lxpanel/vax/` | Active panel, workspace pager, tray, battery, and status widgets |
+| `dotfiles/.config/awesome/` | Active floating window-manager, keybinding, titlebar, menu and autostart configuration |
+| `dotfiles/.config/X11/` | Active startx entry point and X resources |
+| `dotfiles/.config/openbox/` | Previous window-manager configuration, retained for reference |
+| `dotfiles/.config/lxpanel/vax/` | Previous panel configuration, retained for reference |
 | `themes/VAX/` | VAX source templates; generated output is installed separately by `setup-vax-theme` |
 | `dotfiles/.config/dunst/` | Active notification theme |
-| `dotfiles/.local/bin/` | Active Openbox helpers for volume, brightness, clipboard, locking, and battery alerts |
+| `dotfiles/.local/bin/` | Active shared helpers (openbox-* names retained) for volume, brightness, clipboard, locking, and battery alerts |
 | `configs/` | Legacy configs, including dwm and st |
 | `_old/` | Abandoned experiments |
 
 ## Validation and reload
 
-- Reload Openbox: `openbox --reconfigure`
-- Restart LXPanel: `lxpanelctl restart`
+- Validate Awesome: `awesome -k -c ~/.config/awesome/rc.lua`
+- Isolated runtime test: `python3 tests/test-awesome-session.py`
+- Reload Awesome: `awesome-client 'awesome.restart()'`
+- Lock-helper unit test: `python3 tests/test-screen-lock.py`
 - Reload dunst: `dunstctl reload`
 - A new login starts the autostart services; do not launch duplicate panel, notification, clipboard, or lock daemons manually.

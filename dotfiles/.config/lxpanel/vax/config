@@ -1,2 +1,2 @@
 [Command]
-Logout=openbox --exit
+Logout=awesome-client 'awesome.quit()'

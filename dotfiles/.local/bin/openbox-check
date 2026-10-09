@@ -1,10 +1,11 @@
 #!/usr/bin/env sh
 
-# Read-only health report for the active Openbox desktop.
+# Read-only health report for the active Awesome desktop.
+# Keep the helper filename for compatibility with existing deployments.
 set -u
 
-required_commands='openbox xrandr xset xss-lock i3lock maim xclip xdotool lxpanel snixembed dunst dunstify clipmenu clipmenud dmenu pcmanfm xsettingsd lxqt-policykit-agent kitty xfce4-appfinder pavucontrol playerctl fc-match flock logger dbus-update-activation-environment wpctl brightnessctl'
-optional_commands='firefox audacious gajim keepassxc'
+required_commands='awesome awesome-client pgrep xrandr xset xss-lock i3lock maim xclip xdotool snixembed dunst dunstify dmenu pcmanfm xsettingsd lxqt-policykit-agent kitty xfce4-appfinder pavucontrol playerctl fc-match flock logger dbus-update-activation-environment wpctl brightnessctl'
+optional_commands='firefox audacious gajim keepassxc xdpyinfo magick'
 required_failed=0
 
 check_commands() {
@@ -41,10 +42,23 @@ check_executable() {
   fi
 }
 
-printf '%s\n' 'Openbox desktop check (read-only)'
+printf '%s\n' 'Awesome desktop check (read-only)'
 check_commands required "$required_commands"
 check_commands optional "$optional_commands"
+if command -v clipmenu >/dev/null 2>&1 && command -v clipmenud >/dev/null 2>&1; then
+  printf '%s\n' 'OK       clipboard clipmenu + clipmenud'
+else
+  printf '%s\n' 'DISABLED clipboard history: clipmenu is absent; Clipman is deliberately disabled'
+fi
 
+config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+check_file config "$config_home/awesome/rc.lua"
+check_file config "$config_home/awesome/panel.lua"
+check_file config "$config_home/awesome/autostart"
+check_file config "$config_home/X11/xinitrc"
+if command -v awesome >/dev/null 2>&1; then
+  awesome -k -c "$config_home/awesome/rc.lua" || required_failed=1
+fi
 check_file asset "$HOME/.local/share/wallpapers/lock-win98-tux.png"
 check_file asset "$HOME/.local/share/wallpapers/win98-teal.svg"
 data_home=${XDG_DATA_HOME:-$HOME/.local/share}
@@ -75,7 +89,6 @@ else
 fi
 if [ -n "$chicago95" ]; then
   check_file external "$chicago95/index.theme"
-  check_file external "$chicago95/openbox-3/themerc"
   check_file external "$chicago95/gtk-2.0/gtkrc"
   check_file external "$chicago95/gtk-3.0/gtk.css"
   check_file external "$chicago95/gtk-2.0/panel/panel-button.png"
@@ -115,8 +128,13 @@ fi
 if fc-match -f '%{family}\n' 'Microsoft Sans Serif' 2>/dev/null | grep -Fqi 'Microsoft Sans Serif'; then
   printf '%s\n' 'OK       font      Microsoft Sans Serif'
 else
-  printf '%s\n' 'MISSING  font      Microsoft Sans Serif (fc-match did not find it)'
-  required_failed=1
+  fallback_font=$(fc-match -f '%{family}\n' 'Microsoft Sans Serif' 2>/dev/null)
+  if printf '%s\n' "$fallback_font" | grep -Fqi 'Liberation Sans'; then
+    printf '%s\n' 'FALLBACK font      Liberation Sans (Microsoft Sans Serif is not installed)'
+  else
+    printf 'MISSING  font      Microsoft Sans Serif or Liberation Sans (matched %s)\n' "$fallback_font"
+    required_failed=1
+  fi
 fi
 if fc-match -f '%{family}\n' 'FiraCode Nerd Font' 2>/dev/null | grep -Fqi 'FiraCode Nerd Font'; then
   printf '%s\n' 'OK       font      FiraCode Nerd Font'

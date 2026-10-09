@@ -1,4 +1,11 @@
 #!/usr/bin/env sh
 
 export CM_LAUNCHER='dmenu -i -fn "Microsoft Sans Serif:size=8" -nb "#c0c0c0" -nf "#000000" -sb "#001a00" -sf "#00ff41"'
-exec clipmenu
+if command -v clipmenu >/dev/null 2>&1 && command -v clipmenud >/dev/null 2>&1; then
+  exec clipmenu
+fi
+if command -v dunstify >/dev/null 2>&1; then
+  dunstify -a clipboard 'Clipboard history unavailable' 'Install clipmenu to enable Win+V. Clipman is disabled.'
+fi
+printf '%s\n' 'Clipboard history requires clipmenu; Clipman is disabled.' >&2
+exit 1

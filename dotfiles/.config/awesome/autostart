@@ -1,0 +1,56 @@
+#!/bin/sh
+# Re-runnable on Awesome reload: never launch duplicate session services.
+# Reuse the systemd user bus; never start Wayland daemons or a second tray.
+set -u
+uid=$(id -u)
+once() {
+    pattern=$1
+    shift
+    command -v "$1" >/dev/null 2>&1 || return 0
+    pgrep -u "$uid" -f "$pattern" >/dev/null 2>&1 || "$@" &
+}
+
+if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+    dbus-update-activation-environment --systemd DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE
+fi
+once '(^|/)xsettingsd( |$)' xsettingsd -c "$HOME/.config/xsettingsd/xsettingsd.conf"
+xset s on
+xset s 600 600
+# Helpers enforce their own single-instance locks.
+"$HOME/.local/bin/openbox-display" --watch &
+"$HOME/.local/bin/openbox-battery-watch" &
+
+if command -v localedef >/dev/null 2>&1; then
+    "$HOME/.local/bin/openbox-locale-setup"
+    export LOCPATH="$HOME/.local/share/locale" LC_TIME=en_GB.UTF-8
+fi
+# The panel, tray, clock/calendar and wallpaper are native Awesome widgets.
+if command -v snixembed >/dev/null 2>&1; then
+    (
+        # Awesome's built-in systray must own XEmbed before the SNI bridge starts.
+        sleep 2
+        once '(^|/)snixembed( |$)' snixembed --fork
+        # Solaar's status icon is an SNI and needs snixembed/LXPanel bridge up first.
+        once '(^|/)solaar( |$)' solaar --window=hide
+    ) &
+fi
+once '(^|/)dunst( |$)' dunst -conf "$HOME/.config/dunst/dunstrc"
+once '(^|/)lxqt-policykit-agent( |$)' lxqt-policykit-agent
+if command -v clipmenud >/dev/null 2>&1 && command -v clipmenu >/dev/null 2>&1; then
+    once '(^|/)clipmenud( |$)' clipmenud
+fi
+# Clipman is deliberately disabled; no automatic clipboard-manager fallback.
+if command -v i3lock >/dev/null 2>&1; then
+    once '(^|/)xss-lock( |$)' xss-lock --transfer-sleep-lock -- "$HOME/.local/bin/openbox-lock"
+fi
+# Preserve the non-desktop services from the previous xinitrc.
+once '(^|/)syncthing( |$)' syncthing --no-browser
+once '(^|/)mpd( |$)' mpd
+if [ -d "$HOME/Documents/notes/html" ]; then
+    (
+        cd "$HOME/Documents/notes/html" || exit
+        once '(^|/)python3 -m http.server( |$)' python3 -m http.server
+    ) &
+fi
+# nm-applet is externally managed. No pcmanfm desktop, compositor or second tray.
+# Wallpaper is rendered by Awesome from the existing lock-win98-tux.png.

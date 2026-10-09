@@ -1,8 +1,45 @@
-#!/usr/bin/env sh
-
-# xss-lock transfers its sleep-lock file descriptor to this command. Keep
-# i3lock in the foreground so the descriptor remains valid until the screen
-# is actually locked.
-#exec i3lock --nofork -i "$HOME/.local/share/wallpapers/lock-win98-tux.png"
-exec sh -c 'res=$(xdpyinfo | awk "/dimensions/{print \$2}"); magick "$HOME/.local/share/wallpapers/lock-win98-tux.png" -resize "${res}^" -gravity center -extent "$res" /tmp/i3lock-bg.png && i3lock --nofork -i /tmp/i3lock-bg.png'
-
+#!/bin/sh
+# Shared X11 lock helper. Pass xss-lock's sleep descriptor to i3lock, which
+# releases it once the screen is locked. This wrapper waits until unlock.
+set -u
+umask 077
+runtime=${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}
+mkdir -p "$runtime" || exit 1
+# Do not overwrite xss-lock's inherited descriptor if it happens to be FD 9.
+if [ "${XSS_SLEEP_LOCK_FD:-}" = 9 ]; then
+    exec 8>"$runtime/desktop-screen-lock.lock" || exit 1
+    flock -n 8 || exit 0
+else
+    exec 9>"$runtime/desktop-screen-lock.lock" || exit 1
+    flock -n 9 || exit 0
+fi
+run_locker() {
+    i3lock --nofork "$@" &
+    locker=$!
+    # The child inherited the FD. Drop only the wrapper's copy, otherwise it
+    # would keep the suspend inhibitor open even after i3lock reports ready.
+    case "${XSS_SLEEP_LOCK_FD:-}" in
+        ''|*[!0-9]*) ;;
+        *) if [ "$XSS_SLEEP_LOCK_FD" -gt 2 ]; then
+               eval "exec ${XSS_SLEEP_LOCK_FD}>&-"
+           fi ;;
+    esac
+    wait "$locker"
+}
+image=''
+cleanup() {
+    [ -z "$image" ] || rm -f -- "$image"
+}
+trap cleanup EXIT
+wallpaper="$HOME/.local/share/wallpapers/lock-win98-tux.png"
+resolution=$(xdpyinfo 2>/dev/null | awk '/dimensions:/{print $2; exit}')
+if command -v magick >/dev/null 2>&1 && [ -r "$wallpaper" ] && [ -n "$resolution" ]; then
+    image=$(mktemp "$runtime/i3lock-bg.XXXXXX.png") || image=''
+    if [ -n "$image" ] && magick "$wallpaper" -resize "${resolution}^" \
+        -gravity center -extent "$resolution" "$image"; then
+        run_locker -i "$image"
+        exit $?
+    fi
+fi
+# Image/conversion failure must not disable locking.
+run_locker --color=008080
