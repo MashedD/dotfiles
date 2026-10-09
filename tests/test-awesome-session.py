@@ -32,8 +32,8 @@ def main():
         shutil.copy2(ROOT / "dotfiles/.local/bin/openbox-lock", helpers / "openbox-lock")
         shutil.copy2(ROOT / "dotfiles/.local/share/wallpapers/lock-win98-tux.png",
                      testhome / ".local/share/wallpapers/lock-win98-tux.png")
-        shutil.copy2(ROOT / "dotfiles/.local/share/wallpapers/aurora-longhorn-tux.png",
-                     testhome / ".local/share/wallpapers/aurora-longhorn-tux.png")
+        shutil.copy2(ROOT / "dotfiles/.local/share/wallpapers/aurora-longhorn.png",
+                     testhome / ".local/share/wallpapers/aurora-longhorn.png")
         icon_source = Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share"))) / "icons/hicolor/32x32/apps/vax-tux-start.png"
         icon_target = testhome / ".local/share/icons/hicolor/32x32/apps/vax-tux-start.png"
         icon_target.parent.mkdir(parents=True)

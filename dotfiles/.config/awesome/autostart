@@ -53,4 +53,4 @@ if [ -d "$HOME/Documents/notes/html" ]; then
     ) &
 fi
 # nm-applet is externally managed. No pcmanfm desktop, compositor or second tray.
-# Desktop wallpaper is rendered by Awesome from aurora-longhorn-tux.png.
+# Desktop wallpaper is rendered by Awesome from aurora-longhorn.png.
