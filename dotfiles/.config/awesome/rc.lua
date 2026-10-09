@@ -274,6 +274,27 @@ local function update_decorations(c)
 end
 client.connect_signal("property::maximized", update_decorations)
 client.connect_signal("property::fullscreen", update_decorations)
+local function update_panel_for_fullscreen(s)
+    if not s or not s.valid or not s.panel then return end
+    local fullscreen = false
+    for _, c in ipairs(client.get(s)) do
+        if c.valid and c.fullscreen and not c.minimized then
+            fullscreen = true
+            break
+        end
+    end
+    s.panel.visible = not fullscreen
+end
+client.connect_signal("property::fullscreen", function(c)
+    update_panel_for_fullscreen(c.screen)
+end)
+client.connect_signal("property::minimized", function(c)
+    if c.fullscreen then update_panel_for_fullscreen(c.screen) end
+end)
+client.connect_signal("property::screen", function(c, old_screen)
+    update_panel_for_fullscreen(old_screen)
+    update_panel_for_fullscreen(c.screen)
+end)
 
 -- Square, bevelled Win98 buttons; no modern icon set or compositing required.
 local function control(label, callback)
