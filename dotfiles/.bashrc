@@ -71,7 +71,14 @@ export PATH="$HOME/.local/bin/dotnet:$PATH"
 export DOTNET_ROOT="$HOME/.local/bin/dotnet"
 
 # Match the Aurora two-line prompt used by the interactive Zsh setup.
-export PS1="\[\033[38;2;99;115;106m\]┌─\[\033[38;2;112;197;189m\]\W\n\[\033[38;2;0;255;65m\]└─❯\[\033[0m\] "
+if [ -r /usr/share/git/completion/git-prompt.sh ]; then
+  . /usr/share/git/completion/git-prompt.sh
+  GIT_PS1_SHOWDIRTYSTATE=1
+  GIT_PS1_SHOWSTASHSTATE=1
+  export PS1="\[\033[38;2;99;115;106m\]┌─\[\033[38;2;112;197;189m\]\W\[\033[38;2;99;115;106m\]\$(__git_ps1 ' [%s]')\n\[\033[38;2;0;255;65m\]└─❯\[\033[0m\] "
+else
+  export PS1="\[\033[38;2;99;115;106m\]┌─\[\033[38;2;112;197;189m\]\W\n\[\033[38;2;0;255;65m\]└─❯\[\033[0m\] "
+fi
 export _JAVA_AWT_WM_NONREPARENTING=1 # Fix for JDownloader 2
 
 export MPD_HOST="$XDG_RUNTIME_DIR/mpd/socket"
