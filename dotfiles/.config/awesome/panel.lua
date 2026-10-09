@@ -33,7 +33,6 @@ function panel.create(s, menu, activate, window_menu)
     -- Render at native size, without a second label or shrinking it to 22px.
     icon.forced_width, icon.forced_height, icon.resize = 65, 25, false
     local start = icon
-    awful.tooltip {objects = {start}, text = "Start"}
     start:buttons(gears.table.join(awful.button({}, 1, function() menu:toggle() end)))
     s.start_button, s.start_menu = start, menu
 
@@ -100,7 +99,6 @@ function panel.create(s, menu, activate, window_menu)
     clock.font = "Microsoft Sans Serif bold 9"
     clock.forced_width = 58
     clock.align = "center"
-    awful.tooltip {objects = {clock}, timer_function = function() return os.date("%A, %d %B %Y") end}
     local calendar = awful.widget.calendar_popup.month {
         font = beautiful.font, start_sunday = false, week_numbers = false,
         bg = "#c0c0c0", fg = "#000000", border_width = 2, border_color = "#000000",

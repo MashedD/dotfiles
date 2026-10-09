@@ -163,6 +163,30 @@ awful.screen.connect_for_each_screen(function(s)
 end)
 screen.connect_signal("property::geometry", wallpaper)
 
+local function screen_has_fullscreen(s)
+    for _, c in ipairs(client.get(s)) do
+        if c.valid and c.fullscreen and not c.minimized then return true end
+    end
+    return false
+end
+
+local function update_sidebar_mode(s)
+    if not s or not s.valid or not s.sidebar then return end
+    local mode = s.sidebar_mode or 0
+    local fullscreen = screen_has_fullscreen(s)
+    local reserve = mode == 3 and not fullscreen
+    s.sidebar.visible = mode > 0 and not (mode == 3 and fullscreen)
+    s.sidebar.ontop = mode == 2 or mode == 3
+    s.sidebar:struts(reserve and {right = s.sidebar.width}
+        or {left = 0, right = 0, top = 0, bottom = 0})
+end
+
+local function cycle_sidebar_mode(s)
+    if not s or not s.sidebar then return end
+    s.sidebar_mode = ((s.sidebar_mode or 0) + 1) % 4
+    update_sidebar_mode(s)
+end
+
 local globalkeys = {}
 local function key(modifiers, name, callback)
     globalkeys = gears.table.join(globalkeys, awful.key(modifiers, name, callback))
@@ -176,8 +200,7 @@ key({mod}, "e", function() run("pcmanfm") end)
 key({mod}, "l", function() helper("lock") end)
 key({mod}, "d", toggle_desktop)
 key({mod, "Shift"}, "s", function()
-    local s = awful.screen.focused()
-    if s.sidebar then s.sidebar.visible = not s.sidebar.visible end
+    cycle_sidebar_mode(awful.screen.focused())
 end)
 key({"Mod1"}, "Tab", function() cycle(1) end)
 key({"Mod1", "Shift"}, "Tab", function() cycle(-1) end)
@@ -302,7 +325,7 @@ local function update_panel_for_fullscreen(s)
         end
     end
     s.panel.visible = not fullscreen
-    if fullscreen and s.sidebar then s.sidebar.visible = false end
+    if s.sidebar_mode == 3 then update_sidebar_mode(s) end
 end
 client.connect_signal("property::fullscreen", function(c)
     update_panel_for_fullscreen(c.screen)

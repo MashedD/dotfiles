@@ -197,7 +197,6 @@ local function launcher(text, command)
         widget = wibox.container.background,
     })
     button:buttons(gears.table.join(awful.button({}, 1, function() awful.spawn(command) end)))
-    awful.tooltip {objects = {button}, text = text}
     return button
 end
 
@@ -227,7 +226,6 @@ function sidebar.create(s)
     local media_text = label("Checking player…", palette.text, 11, false, "center")
     media_text.wrap = "word_char"
     media_text.ellipsize = "end"
-    local volume_tip = awful.tooltip {objects = {volume_text}, text = "Volume"}
 
     local header = wibox.widget {
         {
@@ -302,7 +300,6 @@ function sidebar.create(s)
     }
     update_wallpaper_preview()
     preview:buttons(gears.table.join(awful.button({}, 1, apply_wallpaper)))
-    awful.tooltip {objects = {preview}, text = "Click to use this wallpaper"}
     local preview_centered = {preview, halign = "center", valign = "center", widget = wibox.container.place}
     local wallpaper_card = card({
         label("WALLPAPER", palette.teal, 10, true, "center"),
@@ -360,7 +357,6 @@ function sidebar.create(s)
         spacing = 3, layout = wibox.layout.fixed.vertical,
     }, 72, 5))
     weather_card:buttons(gears.table.join(awful.button({}, 1, update_weather)))
-    awful.tooltip {objects = {weather_card}, text = "Current weather for Bydgoszcz, Poland · click to refresh"}
 
     local stats_card = card({
         label("SYSTEM STATUS", palette.teal, 10, true, "center"),
@@ -404,9 +400,6 @@ function sidebar.create(s)
                 muted and palette.amber or palette.text,
                 value and (muted and "Mute" or string.format("%.0f%%", value * 100)) or "--")
             volume_bar.value = value and math.floor(value * 100 + 0.5) or 0
-            volume_tip.text = value and ("Volume: " .. (muted and "Mute" or string.format("%.0f%%", value * 100))
-                .. "\nClick: mixer; right-click: mute; wheel: volume")
-                or "No default audio output\nClick to open Volume Control"
         end)
     end
     local function change_volume(action)
@@ -419,8 +412,9 @@ function sidebar.create(s)
         awful.button({}, 4, function() change_volume("up") end),
         awful.button({}, 5, function() change_volume("down") end)
     ))
+    local audio_header = label("AUDIO", palette.teal, 10, true, "center")
     local volume_card = card({
-        label("AUDIO", palette.teal, 10, true), volume_control,
+        audio_header, volume_control,
         spacing = 4, layout = wibox.layout.fixed.vertical,
     }, 80)
 
@@ -444,7 +438,7 @@ function sidebar.create(s)
 
     local sidebar_width = 300
     local panel = wibox {
-        screen = s, type = "dock", visible = false, ontop = true,
+        screen = s, type = "dock", visible = false, ontop = false,
         width = sidebar_width, height = math.max(1, s.geometry.height - 30),
         x = s.geometry.x + s.geometry.width - sidebar_width, y = s.geometry.y + 30,
         bg = sidebar_gradient, fg = palette.text,
@@ -463,9 +457,11 @@ function sidebar.create(s)
         bg = sidebar_gradient, widget = wibox.container.background,
     }
     s.sidebar = panel
+    s.sidebar_mode = 0
     s.sidebar_clock, s.sidebar_date = time, date
     s.sidebar_cpu, s.sidebar_battery = cpu_text, battery_text
     s.sidebar_volume, s.sidebar_volume_text = volume_control, volume_text
+    s.sidebar_audio_header = audio_header
     s.sidebar_media_text = media_text
     s.sidebar_root_text = root_text
     s.sidebar_weather_text = weather_main
