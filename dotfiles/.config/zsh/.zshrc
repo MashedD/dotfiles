@@ -186,8 +186,12 @@ export MPD_HOST="$XDG_RUNTIME_DIR/mpd/socket"
 
 # Two-line Aurora prompt: location and Git branch above, Matrix-green input below.
 autoload -Uz add-zsh-hook vcs_info
-zstyle ':vcs_info:git:*' formats ' %F{#63736a}[%b]%f'
-zstyle ':vcs_info:git:*' actionformats ' %F{#63736a}[%b|%a]%f'
+zstyle ':vcs_info:git:*' check-for-changes true
+zstyle ':vcs_info:git:*' check-for-staged-changes true
+zstyle ':vcs_info:git:*' stagedstr '+'
+zstyle ':vcs_info:git:*' unstagedstr '*'
+zstyle ':vcs_info:git:*' formats ' %F{#63736a}[%b%u%c]%f'
+zstyle ':vcs_info:git:*' actionformats ' %F{#63736a}[%b%u%c|%a]%f'
 add-zsh-hook precmd vcs_info
 setopt prompt_subst
 PROMPT='%F{#63736a}┌─%f %F{#70c5bd}%~%f${vcs_info_msg_0_}%(?.. %F{#d87979}✘ %?%f)
