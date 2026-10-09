@@ -26,26 +26,26 @@ fi
 # Source/Load zinit
 source "$ZINIT_HOME/zinit.zsh"
 
-# DOS Navigator VAX palette
-typeset -gr VAX_BLACK='#000000'
-typeset -gr VAX_GREEN='#00ff41'
-typeset -gr VAX_DIM_GREEN='#00aa33'
-typeset -gr VAX_SILVER='#c0c0c0'
-typeset -gr VAX_GRAY='#666666'
-typeset -gr VAX_YELLOW='#ffff00'
-typeset -gr VAX_CYAN='#00ffff'
-typeset -gr VAX_BLUE='#5555ff'
-typeset -gr VAX_MAGENTA='#ff55ff'
-typeset -gr VAX_RED='#ff3333'
+# Aurora terminal palette; bright Matrix green is reserved for the prompt marker.
+typeset -gr VAX_BLACK='#07110d'
+typeset -gr VAX_GREEN='#70c98b'
+typeset -gr VAX_DIM_GREEN='#63736a'
+typeset -gr VAX_SILVER='#c7d5cb'
+typeset -gr VAX_GRAY='#63736a'
+typeset -gr VAX_YELLOW='#d6bd72'
+typeset -gr VAX_CYAN='#70c5bd'
+typeset -gr VAX_BLUE='#78a9c4'
+typeset -gr VAX_MAGENTA='#b18bbd'
+typeset -gr VAX_RED='#d87979'
 
 # Settings for `less`
 export LESS=-R
-export LESS_TERMCAP_mb=$'\e[1;31m'
-export LESS_TERMCAP_md=$'\e[1;33m'
+export LESS_TERMCAP_mb=$'\e[38;2;217;121;121;1m'
+export LESS_TERMCAP_md=$'\e[38;2;214;189;114;1m'
 export LESS_TERMCAP_me=$'\e[0m'
 export LESS_TERMCAP_so=$'\e[30;47m'
 export LESS_TERMCAP_se=$'\e[0m'
-export LESS_TERMCAP_us=$'\e[1;36m'
+export LESS_TERMCAP_us=$'\e[38;2;112;197;189;1m'
 export LESS_TERMCAP_ue=$'\e[0m'
 export LESSOPEN="| /usr/bin/highlight -O ansi %s 2>/dev/null"
 
@@ -132,7 +132,7 @@ setopt auto_cd
 
 # Completion styling
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
-zstyle ':completion:*' list-colors 'fi=38;2;192;192;192:di=38;2;192;192;192:ex=38;2;0;255;65:ln=38;2;0;255;255:or=38;2;255;51;51:mi=38;2;255;51;51:pi=38;2;255;255;0:so=38;2;85;85;255:bd=38;2;255;255;0:cd=38;2;255;255;0:ma=30;47'
+zstyle ':completion:*' list-colors 'fi=38;2;199;213;203:di=38;2;120;169;196:ex=38;2;112;201;139:ln=38;2;112;197;189:or=38;2;217;121;121:mi=38;2;217;121;121:pi=38;2;214;189;114:so=38;2;177;139;189:bd=38;2;214;189;114:cd=38;2;214;189;114:ma=30;47'
 zstyle ':completion:*' menu no
 zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza $realpath'
 
@@ -144,12 +144,12 @@ eval "$(fzf --zsh)"
 setopt interactivecomments
 
 man() {
-  LESS_TERMCAP_md=$'\e[01;33m' \
+  LESS_TERMCAP_md=$'\e[38;2;214;189;114;1m' \
   LESS_TERMCAP_me=$'\e[0m' \
   LESS_TERMCAP_se=$'\e[0m' \
   LESS_TERMCAP_so=$'\e[30;47m' \
   LESS_TERMCAP_ue=$'\e[0m' \
-  LESS_TERMCAP_us=$'\e[1;36m' \
+  LESS_TERMCAP_us=$'\e[38;2;112;197;189;1m' \
   command man "$@"
 }
 
