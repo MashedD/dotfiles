@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1440" viewBox="0 0 2560 1440">
+  <defs>
+    <linearGradient id="night" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#050b12"/>
+      <stop offset="0.48" stop-color="#07110d"/>
+      <stop offset="1" stop-color="#030a0a"/>
+    </linearGradient>
+    <radialGradient id="horizon" cx="58%" cy="76%" r="68%">
+      <stop offset="0" stop-color="#123b35" stop-opacity="0.62"/>
+      <stop offset="0.5" stop-color="#0b2625" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#07110d" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ribbon-a" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#00ff41" stop-opacity="0.03"/>
+      <stop offset="0.38" stop-color="#00ff41" stop-opacity="0.20"/>
+      <stop offset="0.72" stop-color="#70c5bd" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#78a9c4" stop-opacity="0.05"/>
+    </linearGradient>
+    <linearGradient id="ribbon-b" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#70c98b" stop-opacity="0"/>
+      <stop offset="0.42" stop-color="#70c98b" stop-opacity="0.17"/>
+      <stop offset="0.78" stop-color="#70c5bd" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#78a9c4" stop-opacity="0.01"/>
+    </linearGradient>
+    <linearGradient id="edge-light" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00ff41" stop-opacity="0"/>
+      <stop offset="0.48" stop-color="#70c98b" stop-opacity="0.62"/>
+      <stop offset="0.76" stop-color="#8ce0d5" stop-opacity="0.54"/>
+      <stop offset="1" stop-color="#78a9c4" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="pixel-grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" fill="none" stroke="#8ce0d5" stroke-opacity="0.035" stroke-width="1"/>
+    </pattern>
+    <linearGradient id="shade-right" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#030a0a" stop-opacity="0"/>
+      <stop offset="1" stop-color="#030a0a" stop-opacity="0.48"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="2560" height="1440" fill="url(#night)"/>
+  <rect width="2560" height="1440" fill="url(#horizon)"/>
+  <rect width="2560" height="1440" fill="url(#pixel-grid)"/>
+
+  <!-- Longhorn-era Aurora ribbons: smooth, subdued, and kept low for desktop readability. -->
+  <path d="M-120 1060 C260 850 430 1240 830 1030 C1220 825 1570 755 1960 880 C2220 965 2390 1040 2700 900 L2700 1160 C2340 1300 2190 1190 1930 1090 C1570 950 1260 1030 880 1250 C470 1490 220 1110 -120 1280 Z"
+        fill="url(#ribbon-a)"/>
+  <path d="M-100 1200 C250 1010 455 1370 815 1190 C1170 1010 1530 930 1885 1045 C2180 1140 2375 1230 2660 1100 L2660 1190 C2370 1320 2160 1235 1860 1155 C1510 1060 1190 1145 850 1330 C450 1510 210 1190 -100 1330 Z"
+        fill="url(#ribbon-b)"/>
+
+  <!-- Fine glass-like edge highlights, without blur or transparency effects. -->
+  <path d="M-80 1060 C270 870 440 1220 830 1012 C1210 810 1570 740 1960 864 C2220 946 2400 1024 2670 886"
+        fill="none" stroke="url(#edge-light)" stroke-width="3" stroke-opacity="0.8"/>
+  <path d="M-80 1205 C250 1018 460 1360 815 1180 C1170 1000 1530 922 1885 1037 C2170 1130 2380 1220 2660 1090"
+        fill="none" stroke="#8ce0d5" stroke-width="1" stroke-opacity="0.18"/>
+  <path d="M0 1392 H2560" fill="none" stroke="#70c5bd" stroke-opacity="0.11" stroke-width="1"/>
+  <rect width="2560" height="1440" fill="url(#shade-right)"/>
+</svg>

@@ -7,7 +7,7 @@
 - Terminal: kitty
 - Launcher: xfce4-appfinder
 - File manager and desktop: pcmanfm
-- Wallpaper: Awesome (`lock-win98-tux.png`, same Tux wallpaper as the previous session)
+- Wallpaper: Awesome (`aurora-longhorn-tux.png`, centered mint/Matrix Tux); the lock screen keeps `lock-win98-tux.png`.
 - Notifications: dunst
 - Clipboard history: clipmenu only when installed; Win+V. Clipman is explicitly disabled; do not add it as a fallback.
 - Authentication agent: lxqt-policykit

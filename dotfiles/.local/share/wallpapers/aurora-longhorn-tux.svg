@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1440" viewBox="0 0 2560 1440">
+  <defs>
+    <linearGradient id="night" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#050b12"/>
+      <stop offset="0.48" stop-color="#07110d"/>
+      <stop offset="1" stop-color="#030a0a"/>
+    </linearGradient>
+    <radialGradient id="horizon" cx="58%" cy="76%" r="68%">
+      <stop offset="0" stop-color="#123b35" stop-opacity="0.62"/>
+      <stop offset="0.5" stop-color="#0b2625" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#07110d" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ribbon-a" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#00ff41" stop-opacity="0.03"/>
+      <stop offset="0.38" stop-color="#00ff41" stop-opacity="0.20"/>
+      <stop offset="0.72" stop-color="#70c5bd" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#78a9c4" stop-opacity="0.05"/>
+    </linearGradient>
+    <linearGradient id="ribbon-b" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#70c98b" stop-opacity="0"/>
+      <stop offset="0.42" stop-color="#70c98b" stop-opacity="0.17"/>
+      <stop offset="0.78" stop-color="#70c5bd" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#78a9c4" stop-opacity="0.01"/>
+    </linearGradient>
+    <linearGradient id="edge-light" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00ff41" stop-opacity="0"/>
+      <stop offset="0.48" stop-color="#70c98b" stop-opacity="0.62"/>
+      <stop offset="0.76" stop-color="#8ce0d5" stop-opacity="0.54"/>
+      <stop offset="1" stop-color="#78a9c4" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="tux-body" x1="0" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#162821"/>
+      <stop offset="1" stop-color="#07110d"/>
+    </linearGradient>
+    <linearGradient id="tux-belly" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e0fff2"/>
+      <stop offset="1" stop-color="#8ce0d5"/>
+    </linearGradient>
+    <linearGradient id="tux-amber" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ead28a"/>
+      <stop offset="1" stop-color="#bd8d37"/>
+    </linearGradient>
+    <pattern id="pixel-grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" fill="none" stroke="#8ce0d5" stroke-opacity="0.035" stroke-width="1"/>
+    </pattern>
+    <linearGradient id="shade-right" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#030a0a" stop-opacity="0"/>
+      <stop offset="1" stop-color="#030a0a" stop-opacity="0.48"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="2560" height="1440" fill="url(#night)"/>
+  <rect width="2560" height="1440" fill="url(#horizon)"/>
+  <rect width="2560" height="1440" fill="url(#pixel-grid)"/>
+
+  <!-- Longhorn-era Aurora ribbons: smooth, subdued, and kept low for desktop readability. -->
+  <path d="M-120 1060 C260 850 430 1240 830 1030 C1220 825 1570 755 1960 880 C2220 965 2390 1040 2700 900 L2700 1160 C2340 1300 2190 1190 1930 1090 C1570 950 1260 1030 880 1250 C470 1490 220 1110 -120 1280 Z"
+        fill="url(#ribbon-a)"/>
+  <path d="M-100 1200 C250 1010 455 1370 815 1190 C1170 1010 1530 930 1885 1045 C2180 1140 2375 1230 2660 1100 L2660 1190 C2370 1320 2160 1235 1860 1155 C1510 1060 1190 1145 850 1330 C450 1510 210 1190 -100 1330 Z"
+        fill="url(#ribbon-b)"/>
+  <path d="M-80 1060 C270 870 440 1220 830 1012 C1210 810 1570 740 1960 864 C2220 946 2400 1024 2670 886"
+        fill="none" stroke="url(#edge-light)" stroke-width="3" stroke-opacity="0.8"/>
+  <path d="M-80 1205 C250 1018 460 1360 815 1180 C1170 1000 1530 922 1885 1037 C2170 1130 2380 1220 2660 1090"
+        fill="none" stroke="#8ce0d5" stroke-width="1" stroke-opacity="0.18"/>
+  <path d="M0 1392 H2560" fill="none" stroke="#70c5bd" stroke-opacity="0.11" stroke-width="1"/>
+  <rect width="2560" height="1440" fill="url(#shade-right)"/>
+
+  <!-- A clean, high-resolution Tux silhouette, recolored for the Aurora palette. -->
+  <g transform="translate(1060 445)">
+    <!-- seated body and head -->
+    <path d="M220 28 C151 28 116 77 116 137 C116 158 123 177 136 193 C91 218 66 276 69 347 C72 430 128 486 220 493 C312 486 368 430 371 347 C374 276 349 218 304 193 C317 177 324 158 324 137 C324 77 289 28 220 28 Z"
+          fill="url(#tux-body)" stroke="#263b30" stroke-width="4"/>
+    <!-- flippers -->
+    <path d="M133 198 C97 224 82 276 83 333 C84 367 100 385 121 378 C145 369 155 327 160 282 C164 245 153 214 133 198 Z"
+          fill="#10221b" stroke="#263b30" stroke-width="3"/>
+    <path d="M307 198 C343 224 358 276 357 333 C356 367 340 385 319 378 C295 369 285 327 280 282 C276 245 287 214 307 198 Z"
+          fill="#10221b" stroke="#263b30" stroke-width="3"/>
+    <!-- mint face and belly -->
+    <path d="M163 105 C177 85 199 77 220 77 C241 77 263 85 277 105 C291 125 285 152 265 169 C251 181 235 185 220 185 C205 185 189 181 175 169 C155 152 149 125 163 105 Z"
+          fill="url(#tux-belly)"/>
+    <path d="M220 170 C168 170 139 212 136 278 C132 354 158 414 220 437 C282 414 308 354 304 278 C301 212 272 170 220 170 Z"
+          fill="url(#tux-belly)"/>
+    <!-- eyes -->
+    <ellipse cx="190" cy="128" rx="13" ry="19" fill="#f0fff8"/>
+    <ellipse cx="250" cy="128" rx="13" ry="19" fill="#f0fff8"/>
+    <ellipse cx="194" cy="132" rx="6" ry="11" fill="#07110d"/>
+    <ellipse cx="246" cy="132" rx="6" ry="11" fill="#07110d"/>
+    <circle cx="196" cy="128" r="2.5" fill="#ffffff"/>
+    <circle cx="248" cy="128" r="2.5" fill="#ffffff"/>
+    <!-- beak and feet -->
+    <path d="M196 151 C207 145 233 145 244 151 C239 167 229 175 220 175 C211 175 201 167 196 151 Z"
+          fill="url(#tux-amber)" stroke="#9a702c" stroke-width="2"/>
+    <path d="M151 416 C130 412 105 423 94 442 C83 461 102 477 137 477 C166 477 190 467 204 450 L197 432 Z"
+          fill="url(#tux-amber)" stroke="#9a702c" stroke-width="3"/>
+    <path d="M289 416 C310 412 335 423 346 442 C357 461 338 477 303 477 C274 477 250 467 236 450 L243 432 Z"
+          fill="url(#tux-amber)" stroke="#9a702c" stroke-width="3"/>
+  </g>
+</svg>

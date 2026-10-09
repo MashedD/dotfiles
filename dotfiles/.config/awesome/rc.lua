@@ -140,7 +140,10 @@ local main_menu = awful.menu({items = {
 }})
 
 local function wallpaper(s)
-    local path = home .. "/.local/share/wallpapers/lock-win98-tux.png"
+    local path = home .. "/.local/share/wallpapers/aurora-longhorn.png"
+    if not gears.filesystem.file_readable(path) then
+        path = home .. "/.local/share/wallpapers/lock-win98-tux.png"
+    end
     if gears.filesystem.file_readable(path) then
         gears.wallpaper.maximized(path, s, false)
     else
