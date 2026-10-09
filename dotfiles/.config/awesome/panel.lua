@@ -4,10 +4,10 @@ local gears = require("gears")
 local wibox = require("wibox")
 local beautiful = require("beautiful")
 local panel = {}
-local function bevel(widget, inset)
+local function bevel(widget, inset, padding)
     return wibox.widget {
         {
-            {widget, margins = 2, widget = wibox.container.margin},
+            {widget, margins = padding or 2, widget = wibox.container.margin},
             bg = "#c0c0c0", fg = "#000000",
             border_width = 1, border_color = inset and "#808080" or "#ffffff",
             widget = wibox.container.background,
@@ -53,10 +53,15 @@ function panel.create(s, menu, activate, window_menu)
         layout = {spacing = 2, layout = wibox.layout.fixed.horizontal},
         widget_template = {
             {
-                {id = "text_role", align = "center", widget = wibox.widget.textbox},
-                left = 6, right = 6, widget = wibox.container.margin,
+                {
+                    {id = "text_role", align = "center", widget = wibox.widget.textbox},
+                    left = 6, right = 6, top = 1, bottom = 1,
+                    widget = wibox.container.margin,
+                },
+                id = "background_role", border_width = 1, border_color = "#ffffff",
+                widget = wibox.container.background,
             },
-            id = "background_role", border_width = 1, border_color = "#808080",
+            bg = "#c0c0c0", border_width = 1, border_color = "#404040",
             widget = wibox.container.background,
         },
     }
@@ -78,13 +83,18 @@ function panel.create(s, menu, activate, window_menu)
             {
                 {
                     {
-                        {id = "icon_role", forced_width = 18, widget = wibox.widget.imagebox},
-                        {id = "text_role", widget = wibox.widget.textbox},
-                        spacing = 4, layout = wibox.layout.fixed.horizontal,
+                        {
+                            {id = "icon_role", forced_width = 16, forced_height = 16, widget = wibox.widget.imagebox},
+                            {id = "text_role", widget = wibox.widget.textbox},
+                            spacing = 4, layout = wibox.layout.fixed.horizontal,
+                        },
+                        left = 3, right = 4, top = 1, bottom = 1,
+                        widget = wibox.container.margin,
                     },
-                    margins = 3, widget = wibox.container.margin,
+                    id = "background_role", border_width = 1, border_color = "#ffffff",
+                    widget = wibox.container.background,
                 },
-                id = "background_role", border_width = 1, border_color = "#808080",
+                bg = "#c0c0c0", border_width = 1, border_color = "#404040",
                 widget = wibox.container.background,
             },
             width = 180, strategy = "max", widget = wibox.container.constraint,
@@ -112,18 +122,22 @@ function panel.create(s, menu, activate, window_menu)
     }
     s.panel:setup {
         {
+            {forced_height = 1, bg = "#ffffff", widget = wibox.container.background},
             {
                 {
-                    {start, separator(), s.taglist, separator(), spacing = 4,
-                        layout = wibox.layout.fixed.horizontal},
-                    s.tasklist,
-                    {tray, bevel(clock, true), spacing = 4, layout = wibox.layout.fixed.horizontal},
-                    layout = wibox.layout.align.horizontal,
+                    {
+                        {start, separator(), s.taglist, separator(), spacing = 4,
+                            layout = wibox.layout.fixed.horizontal},
+                        s.tasklist,
+                        {tray, bevel(clock, true), spacing = 4, layout = wibox.layout.fixed.horizontal},
+                        layout = wibox.layout.align.horizontal,
+                    },
+                    left = 2, right = 2, top = 1, bottom = 2,
+                    widget = wibox.container.margin,
                 },
-                left = 2, right = 2, top = 2, bottom = 2,
-                widget = wibox.container.margin,
+                {forced_height = 1, bg = "#70c5bd", widget = wibox.container.background},
+                layout = wibox.layout.fixed.vertical,
             },
-            {forced_height = 1, bg = "#70c5bd", widget = wibox.container.background},
             layout = wibox.layout.fixed.vertical,
         },
         widget = wibox.container.margin,

@@ -29,6 +29,10 @@ def main():
         helpers = testhome / ".local/bin"
         helpers.mkdir(parents=True)
         (testhome / ".local/share/wallpapers").mkdir(parents=True)
+        (testhome / "Documents").mkdir()
+        (testhome / "Documents/todo.md").write_text(
+            "# TODO\n## Sidebar\n- First item\n- Second item\n- Third item\n"
+            "- Fourth item\n- Fifth item\n- Ignore this sixth item\n## Other\n- Outside section\n")
         shutil.copy2(ROOT / "dotfiles/.local/bin/openbox-lock", helpers / "openbox-lock")
         shutil.copy2(ROOT / "dotfiles/.local/share/wallpapers/lock-win98-tux.png",
                      testhome / ".local/share/wallpapers/lock-win98-tux.png")
@@ -99,7 +103,7 @@ def main():
                 assert 'floating' in lua('return require("awful").layout.getname(require("awful").layout.get(screen[1]))')
                 wait('return screen[1].workarea.y', '30')
                 assert 'true' in lua('local p=screen[1].panel; return p.visible and p.height == 30 and p.position == "top"')
-                assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and not b.visible and s.sidebar_mode == 0 and not b.ontop and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_weather_text and s.sidebar_audio_header and s.sidebar_wallpaper_preview and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
+                assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and not b.visible and s.sidebar_mode == 0 and not b.ontop and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_weather_text and s.sidebar_audio_header and s.sidebar_wallpaper_preview and s.sidebar_todo_card and #s.sidebar_todo_entries == 5 and s.sidebar_todo_entries[5] == "Fifth item" and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
                 press('super+shift+s')
                 assert 'true' in lua('local s=screen[1]; return s.sidebar_mode == 1 and s.sidebar.visible and not s.sidebar.ontop and s.sidebar:struts().right == 0 and s.workarea.width == s.geometry.width')
                 press('super+shift+s')

@@ -41,6 +41,27 @@ local function read(path)
     return value
 end
 
+local function read_sidebar_todo()
+    local file = io.open((os.getenv("HOME") or "") .. "/Documents/todo.md", "r")
+    if not file then return {} end
+    local in_section, items = false, {}
+    for line in file:lines() do
+        local hashes = line:match("^(#+)%s+")
+        if hashes then
+            if in_section and #hashes <= 2 then break end
+            if #hashes == 2 and line:match("^##%s+Sidebar%s*$") then in_section = true end
+        elseif in_section and not line:match("^%s+") then
+            local item = line:match("^[-*+]%s+(.+)$") or line:match("^%d+[.)]%s+(.+)$")
+            if item then
+                items[#items + 1] = item:gsub("%s+$", "")
+                if #items == 5 then break end
+            end
+        end
+    end
+    file:close()
+    return items
+end
+
 local function label(text, color, size, bold, align)
     return wibox.widget {
         markup = string.format("<span foreground='%s' size='%dpt'%s>%s</span>",
@@ -351,12 +372,11 @@ function sidebar.create(s)
                 weather_detail.text = string.format("Feels %.0f°C  •  Wind %.0f km/h", apparent or temperature, wind or 0)
             end)
     end
-    local weather_card = style_button(card({
+    local weather_card = card({
         label("BYDGOSZCZ · WEATHER", palette.teal, 10, true, "center"),
         {weather_line, halign = "center", valign = "center", widget = wibox.container.place},
         spacing = 3, layout = wibox.layout.fixed.vertical,
-    }, 72, 5))
-    weather_card:buttons(gears.table.join(awful.button({}, 1, update_weather)))
+    }, 72, 5)
 
     local stats_card = card({
         label("SYSTEM STATUS", palette.teal, 10, true, "center"),
@@ -418,6 +438,25 @@ function sidebar.create(s)
         spacing = 4, layout = wibox.layout.fixed.vertical,
     }, 80)
 
+    local todo_entries = read_sidebar_todo()
+    local todo_rows = {}
+    if #todo_entries == 0 then
+        todo_rows[1] = label("No items in ~/Documents/todo.md · ## Sidebar", palette.muted, 9, false)
+    else
+        for _, entry in ipairs(todo_entries) do
+            local row = label("•  " .. entry, palette.text, 9, false)
+            row.wrap, row.valign = "word_char", "top"
+            todo_rows[#todo_rows + 1] = row
+        end
+    end
+    local todo_layout = {spacing = 4, layout = wibox.layout.fixed.vertical}
+    for _, row in ipairs(todo_rows) do todo_layout[#todo_layout + 1] = row end
+    local todo_list = wibox.widget(todo_layout)
+    local todo_card = card({
+        label("TODO", palette.teal, 10, true, "center"),
+        todo_list, spacing = 5, layout = wibox.layout.fixed.vertical,
+    }, nil, 7)
+
     local quick_card = card({
         label("QUICK LAUNCH", palette.teal, 10, true, "center"),
         {
@@ -449,7 +488,7 @@ function sidebar.create(s)
         {
             {forced_width = 2, bg = palette.teal, widget = wibox.container.background},
             {
-                header, clock_card, wallpaper_card, weather_card, stats_card, volume_card, media_card, quick_card,
+                header, clock_card, wallpaper_card, weather_card, stats_card, volume_card, media_card, quick_card, todo_card,
                 spacing = 6, layout = wibox.layout.fixed.vertical,
             },
             layout = wibox.layout.fixed.horizontal,
@@ -462,6 +501,7 @@ function sidebar.create(s)
     s.sidebar_cpu, s.sidebar_battery = cpu_text, battery_text
     s.sidebar_volume, s.sidebar_volume_text = volume_control, volume_text
     s.sidebar_audio_header = audio_header
+    s.sidebar_todo_entries, s.sidebar_todo_card = todo_entries, todo_card
     s.sidebar_media_text = media_text
     s.sidebar_root_text = root_text
     s.sidebar_weather_text = weather_main
