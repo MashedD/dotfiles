@@ -6,7 +6,9 @@ local wibox = require("wibox")
 local beautiful = require("beautiful")
 local menubar = require("menubar")
 menubar.utils.terminal = "kitty"
-local panel = dofile((awesome.conffile:match("^(.*)/") or ".") .. "/panel.lua")
+local config_dir = awesome.conffile:match("^(.*)/") or "."
+local panel = dofile(config_dir .. "/panel.lua")
+local sidebar = dofile(config_dir .. "/sidebar.lua")
 local home = assert(os.getenv("HOME"))
 local mod = "Mod4"
 local test_mode = os.getenv("AWESOME_TEST_MODE") == "1"
@@ -149,6 +151,7 @@ awful.screen.connect_for_each_screen(function(s)
     awful.tag({"1", "2", "3", "4"}, s, awful.layout.suit.floating)
     wallpaper(s)
     panel.create(s, main_menu, activate, window_menu)
+    sidebar.create(s)
 end)
 screen.connect_signal("property::geometry", wallpaper)
 
@@ -164,6 +167,10 @@ key({mod}, "r", function() run("xfce4-appfinder") end)
 key({mod}, "e", function() run("pcmanfm") end)
 key({mod}, "l", function() helper("lock") end)
 key({mod}, "d", toggle_desktop)
+key({mod, "Shift"}, "s", function()
+    local s = awful.screen.focused()
+    if s.sidebar then s.sidebar.visible = not s.sidebar.visible end
+end)
 key({"Mod1"}, "Tab", function() cycle(1) end)
 key({"Mod1", "Shift"}, "Tab", function() cycle(-1) end)
 key({"Control", "Mod1"}, "Tab", function() cycle(1) end)
@@ -287,6 +294,7 @@ local function update_panel_for_fullscreen(s)
         end
     end
     s.panel.visible = not fullscreen
+    if fullscreen and s.sidebar then s.sidebar.visible = false end
 end
 client.connect_signal("property::fullscreen", function(c)
     update_panel_for_fullscreen(c.screen)

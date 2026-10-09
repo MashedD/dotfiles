@@ -96,6 +96,11 @@ def main():
                 assert 'floating' in lua('return require("awful").layout.getname(require("awful").layout.get(screen[1]))')
                 wait('return screen[1].workarea.y', '30')
                 assert 'true' in lua('local p=screen[1].panel; return p.visible and p.height == 30 and p.position == "top"')
+                assert 'true' in lua('local s=screen[1]; return s.sidebar and not s.sidebar.visible and s.workarea.width == s.geometry.width')
+                press('super+shift+s')
+                wait('return tostring(screen[1].sidebar.visible)', '"true"')
+                press('super+shift+s')
+                wait('return tostring(screen[1].sidebar.visible)', '"false"')
                 wallpaper = subprocess.run(["xprop", "-root", "_XROOTPMAP_ID"], env=env,
                                            capture_output=True, text=True, check=True, timeout=3).stdout
                 assert "PIXMAP" in wallpaper, wallpaper
