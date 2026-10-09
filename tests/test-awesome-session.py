@@ -141,7 +141,7 @@ def main():
                 lua('screen[1].sidebar_wallpaper_previous_action(); screen[1].sidebar_wallpaper_apply()')
                 assert (testhome / ".local/state/awesome/wallpaper").read_text().strip().endswith("aurora-longhorn.png")
                 wait('return tostring(screen[1].sidebar_volume_text.markup):find("42%", 1, true) and "42%" or "pending"', '"42%"')
-                assert 'true' in lua('local p=screen[1].panel_clock; local s=screen[1].sidebar_clock; return p.text:match("%d%d:%d%d") ~= nil and p.forced_width == 58 and s.text:match("%d%d:%d%d:%d%d") ~= nil and screen[1].sidebar_date.text:find(os.date("%a"), 1, true) ~= nil')
+                assert 'true' in lua('local p=screen[1].panel_clock; local s=screen[1].sidebar_clock; return p.text:match("%d%d:%d%d") ~= nil and p.forced_width == 58 and type(s.draw) == "function" and s.current_time.hour ~= nil and s.current_time.min ~= nil and s.current_time.sec ~= nil and screen[1].sidebar_date.text:find(os.date("%a"), 1, true) ~= nil')
                 lua('for _,b in ipairs(screen[1].sidebar_volume:buttons()) do if b.button == 4 then b:emit_signal("press") end end')
                 lua('for _,b in ipairs(screen[1].sidebar_volume:buttons()) do if b.button == 3 then b:emit_signal("press") end end')
                 lua('for _,b in ipairs(screen[1].sidebar_volume:buttons()) do if b.button == 1 then b:emit_signal("press") end end')
