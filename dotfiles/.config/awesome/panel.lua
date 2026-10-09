@@ -56,10 +56,9 @@ function panel.create(s, menu, activate, window_menu)
             awful.button({"Mod4"}, 1, function(t)
                 if client.focus then client.focus:move_to_tag(t) end
             end),
-            -- Wheel directions intentionally follow natural pager scrolling:
-            -- up moves to the previous desktop, down to the next one.
-            awful.button({}, 4, function(t) awful.tag.viewnext(t.screen) end),
-            awful.button({}, 5, function(t) awful.tag.viewprev(t.screen) end)
+            -- Up returns to the previous desktop; down advances to the next.
+            awful.button({}, 4, function(t) awful.tag.viewprev(t.screen) end),
+            awful.button({}, 5, function(t) awful.tag.viewnext(t.screen) end)
         ),
         layout = {spacing = 2, layout = wibox.layout.fixed.horizontal},
         widget_template = {

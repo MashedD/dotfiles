@@ -102,7 +102,7 @@ not replace or kill a live WM.
 
 Awesome's built-in wibar replaces LXPanel **at the top, 30px high**, with
 Win98-style square/bevelled controls, Matrix-green active elements, Start menu,
-four-workspace buttons (scroll up = next workspace; scroll down = previous),
+four-workspace buttons (scroll up = previous workspace; scroll down = next),
 current-workspace taskbar (including minimized windows),
 CPU graph, battery status, volume, tray and `Fri  DD.MM.YY  HH:MM:SS` clock
 (localized abbreviated weekday, fixed width, bold 9pt text, one-second updates). Click the
