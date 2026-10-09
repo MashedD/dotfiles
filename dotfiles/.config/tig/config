@@ -1,9 +1,8 @@
 # ===========================================================================
-# tigrc -- Win98 + Matrix theme (256-color palette)
+# tigrc -- Win98 + Aurora theme using Kitty's ANSI palette
 # ===========================================================================
-# Default terminal: black bg, silver text (Win98)
-# Highlights: Matrix green (color10)
-# Status/UI: dark green backgrounds
+# Default terminal: deep forest background, soft text
+# Highlights: Matrix green, with teal/amber supporting accents
 # ===========================================================================
 
 # ===========================================================================
@@ -21,30 +20,30 @@ set tab-size = 4
 # ===========================================================================
 # General UI colors
 # ===========================================================================
-color default           color250 color0
+color default           color7   color0
 color cursor            color10  color22        bold
 color cursor-blur       color10  color22
-color status            color10  color232
+color status            color10  color0
 color title-focus       color15  color22        bold
-color title-blur        color244 color232
-color search-result     color0   color226
-color delimiter         color22  default
-color overflow          color196 default        bold
+color title-blur        color8   color0
+color search-result     color0   color3
+color delimiter         color8   default
+color overflow          color1  default        bold
 
 # Line numbers
-color line-number       color22  color0
+color line-number       color8   color0
 
 # Commit metadata
 color id                color10  default
-color date              color244 default
-color author            color50  default
-color committer         color63  default
-color mode              color244 default
+color date              color8   default
+color author            color2   default
+color committer         color4   default
+color mode              color8   default
 
 # File info
-color directory         color50  default        bold
-color file              color250 default
-color file-size         color244 default
+color directory         color4   default        bold
+color file              color7   default
+color file-size         color8   default
 
 # ===========================================================================
 # Main view -- revision graph
@@ -52,106 +51,106 @@ color file-size         color244 default
 color graph-commit      color10  default        bold
 
 # Palette for branch colors in graph
-color palette-0         color196 default
-color palette-1         color46  default
-color palette-2         color63  default
-color palette-3         color226 default
-color palette-4         color201 default
-color palette-5         color51  default
-color palette-6         color208 default
-color palette-7         color111 default
-color palette-8         color84  default
-color palette-9         color203 default
-color palette-10        color87  default
-color palette-11        color213 default
-color palette-12        color46  default
-color palette-13        color227 default
+color palette-0         color1  default
+color palette-1         color2  default
+color palette-2         color4  default
+color palette-3         color3  default
+color palette-4         color5  default
+color palette-5         color6  default
+color palette-6         color11 default
+color palette-7         color12 default
+color palette-8         color10 default
+color palette-9         color9  default
+color palette-10        color14 default
+color palette-11        color13 default
+color palette-12        color2  default
+color palette-13        color11 default
 
 # Main view -- commit messages and ref labels
 color main-commit       color10  default
-color main-annotated    color226 default        bold
+color main-annotated    color3   default        bold
 color main-head         color15  color22        bold
-color main-remote       color244 color232
-color main-tracked      color244 color22
-color main-tag          color226 color22        bold
-color main-local-tag    color226 color232
+color main-remote       color8   color0
+color main-tracked      color8   color22
+color main-tag          color3   color22        bold
+color main-local-tag    color3   color0
 color main-ref          color15  color22        bold
-color main-replace      color196 default        bold
-color main-stash        color201 default
-color main-note         color87  default
-color main-prefetch     color244 default
-color main-other        color244 default
+color main-replace      color1   default        bold
+color main-stash        color5   default
+color main-note         color14  default
+color main-prefetch     color8   default
+color main-other        color8   default
 
 # ===========================================================================
 # Diff view
 # ===========================================================================
-color diff-header       color63  color0
-color diff-index        color111 color0
-color diff-chunk        color51  color0         bold
+color diff-header       color4   color0
+color diff-index        color12  color0
+color diff-chunk        color6   color0         bold
 color diff-stat         color10  color0
-color diff-add          color46  color232
-color diff-add2         color46  color22
-color diff-del          color196 color52
-color diff-del2         color196 color52
+color diff-add          color2   color0
+color diff-add2         color2   color22
+color diff-del          color1   color0
+color diff-del2         color1   color0
 
 # Diff metadata (mode changes, renames, etc.)
-color diff-oldmode      color196 default
-color diff-newmode      color46  default
-color "copy from "      color244 default
-color "copy to "        color244 default
-color diff-similarity   color244 default
+color diff-oldmode      color1   default
+color diff-newmode      color2   default
+color "copy from "      color8   default
+color "copy to "        color8   default
+color diff-similarity   color8   default
 
 # ===========================================================================
 # Pretty-print commit headers
 # ===========================================================================
 color pp-refs           color10  default        bold
 color pp-reflog         color10  default
-color pp-reflogmsg      color250 default
-color pp-merge          color63  default
+color pp-reflogmsg      color7   default
+color pp-merge          color4   default
 
 # ===========================================================================
 # Raw commit headers
 # ===========================================================================
-color commit            color226 default        bold
-color parent            color244 default
-color tree              color244 default
+color commit            color3   default        bold
+color parent            color8   default
+color tree              color8   default
 
 # ===========================================================================
 # Status view
 # ===========================================================================
-color stat-none         color244 default
-color stat-staged       color46  color232       bold
-color stat-unstaged     color196 color52        bold
-color stat-untracked    color244 color0
+color stat-none         color8   default
+color stat-staged       color2   color0         bold
+color stat-unstaged     color1   color0         bold
+color stat-untracked    color8   color0
 
 # ===========================================================================
 # Tree view
 # ===========================================================================
-color tree.directory    color50  color0         bold
-color tree.file         color250 color0
+color tree.directory    color4   color0         bold
+color tree.file         color7   color0
 
 # ===========================================================================
 # Help view
 # ===========================================================================
 color help-group        color10  color0         bold
-color help-action       color250 color0
+color help-action       color7   color0
 
 # ===========================================================================
 # View header
 # ===========================================================================
-color header            color250 color0         bold
+color header            color7   color0         bold
 
 # ===========================================================================
 # Commit message trailers (subtle gray)
 # ===========================================================================
-color "^(signed-off-by|Signed-off-by):"  color244 default
-color "^(acked-by|Acked-by):"            color244 default
-color "^(co-authored-by|Co-authored-by):" color244 default
-color "^(reviewed-by|Reviewed-by):"      color244 default
-color "^(tested-by|Tested-by):"          color244 default
-color "^(reported-by|Reported-by):"      color244 default
-color "^(suggested-by|Suggested-by):"    color244 default
-color "^Fixes:"                          color196 default bold
+color "^(signed-off-by|Signed-off-by):"  color8 default
+color "^(acked-by|Acked-by):"            color8 default
+color "^(co-authored-by|Co-authored-by):" color8 default
+color "^(reviewed-by|Reviewed-by):"      color8 default
+color "^(tested-by|Tested-by):"          color8 default
+color "^(reported-by|Reported-by):"      color8 default
+color "^(suggested-by|Suggested-by):"    color8 default
+color "^Fixes:"                          color1 default bold
 
 # ===========================================================================
 # Key bindings (minimal, sensible defaults)
