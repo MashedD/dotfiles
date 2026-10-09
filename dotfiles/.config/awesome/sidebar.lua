@@ -24,6 +24,14 @@ local button_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
     stops = {{0, "#263a2c"}, {0.5, "#1a2a1f"}, {1, "#0d1811"}},
 }
+local button_hover_gradient = gears.color {
+    type = "linear", from = {0, 0}, to = {0, 30},
+    stops = {{0, "#3b6246"}, {0.5, "#294432"}, {1, "#17291d"}},
+}
+local button_pressed_gradient = gears.color {
+    type = "linear", from = {0, 0}, to = {0, 30},
+    stops = {{0, "#0a140d"}, {0.5, "#17271c"}, {1, "#233a2a"}},
+}
 
 local function read(path)
     local file = io.open(path, "r")
@@ -41,9 +49,9 @@ local function label(text, color, size, bold, align)
     }
 end
 
-local function card(widget, height)
+local function card(widget, height, padding)
     local surface = wibox.widget {
-        {widget, margins = 9, widget = wibox.container.margin},
+        {widget, margins = padding or 9, widget = wibox.container.margin},
         bg = card_gradient, border_width = 1, border_color = palette.line,
         widget = wibox.container.background,
     }
@@ -55,9 +63,24 @@ local function card(widget, height)
     }
 end
 
+local function style_button(button)
+    local hovered, pressed = false, false
+    local function update()
+        button.bg = pressed and button_pressed_gradient
+            or (hovered and button_hover_gradient or button_gradient)
+        button.border_color = pressed and palette.neon
+            or (hovered and palette.teal or palette.bevel_light)
+    end
+    button:connect_signal("mouse::enter", function() hovered = true; update() end)
+    button:connect_signal("mouse::leave", function() hovered = false; pressed = false; update() end)
+    button:connect_signal("button::press", function() pressed = true; update() end)
+    button:connect_signal("button::release", function() pressed = false; update() end)
+    return button
+end
+
 local function progress(color)
     return wibox.widget {
-        max_value = 100, value = 0, forced_height = 8,
+        max_value = 100, value = 0, forced_height = 10,
         background_color = palette.bg, color = color,
         border_color = palette.line, border_width = 1,
         widget = wibox.widget.progressbar,
@@ -124,6 +147,19 @@ local function wallpaper_paths()
     return paths
 end
 
+local function weather_icon_for(code)
+    if code == 0 then return "☀" end
+    if code == 1 or code == 2 then return "⛅" end
+    if code == 3 then return "☁" end
+    if code == 45 or code == 48 then return "≋" end
+    if code and code >= 51 and code <= 67 then return "☂" end
+    if code and code >= 71 and code <= 77 then return "❄" end
+    if code and code >= 80 and code <= 82 then return "☂" end
+    if code and code >= 85 and code <= 86 then return "❄" end
+    if code and code >= 95 then return "⚡" end
+    return "·"
+end
+
 local function weather_description(code)
     if code == 0 then return "Clear" end
     if code == 1 then return "Mostly clear" end
@@ -154,31 +190,31 @@ local function network_stats()
 end
 
 local function launcher(text, command)
-    local button = wibox.widget {
+    local button = style_button(wibox.widget {
         label(text, palette.teal, 10, true, "center"),
         forced_width = 112, forced_height = 34,
         bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
         widget = wibox.container.background,
-    }
+    })
     button:buttons(gears.table.join(awful.button({}, 1, function() awful.spawn(command) end)))
     awful.tooltip {objects = {button}, text = text}
     return button
 end
 
 local function action_button(text, callback)
-    local button = wibox.widget {
+    local button = style_button(wibox.widget {
         label(text, palette.teal, 14, true, "center"),
         forced_width = 46, forced_height = 28,
         bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
         widget = wibox.container.background,
-    }
+    })
     button:buttons(gears.table.join(awful.button({}, 1, callback)))
     return button
 end
 
 function sidebar.create(s)
-    local time = label("00:00:00", palette.neon, 26, true, "center")
-    local date = label("", palette.muted, 11, false, "center")
+    local time = label("00:00:00", palette.neon, 24, true, "center")
+    local date = label("", palette.teal, 12, true, "center")
     local cpu_text = label("CPU  measuring…", palette.text, 10, false)
     local memory_text = label("Memory  reading…", palette.text, 10, false)
     local battery_text = label("Battery  --", palette.text, 10, false)
@@ -203,8 +239,8 @@ function sidebar.create(s)
         widget = wibox.container.background,
     }
     local clock_card = card({
-        date, time, spacing = 4, layout = wibox.layout.fixed.vertical,
-    }, 74)
+        date, time, spacing = 3, layout = wibox.layout.fixed.vertical,
+    }, 66, 4)
 
     local wallpapers = wallpaper_paths()
     local wallpaper_state = (os.getenv("XDG_STATE_HOME") or os.getenv("HOME") .. "/.local/state")
@@ -237,12 +273,12 @@ function sidebar.create(s)
         if file then file:write(path, "\n"); file:close() end
     end
     local function small_button(text, callback)
-        local button = wibox.widget {
+        local button = style_button(wibox.widget {
             label(text, palette.muted, 11, true, "center"),
             forced_width = 26, forced_height = 20,
             bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
             widget = wibox.container.background,
-        }
+        })
         button:buttons(gears.table.join(awful.button({}, 1, callback)))
         return button
     end
@@ -275,11 +311,26 @@ function sidebar.create(s)
         spacing = 5, layout = wibox.layout.fixed.vertical,
     }, 180)
 
+    local weather_icon = label("☁", palette.teal, 22, true, "center")
+    weather_icon.font = "Noto Sans Symbols 2 20"
+    weather_icon.forced_width = 32
     local weather_main = label("Weather loading…", palette.text, 14, true, "center")
     local weather_detail = label("Bydgoszcz, Poland", palette.muted, 10, false, "center")
+    weather_main.forced_width, weather_detail.forced_width = 190, 190
+    local weather_text_stack = wibox.widget {
+        weather_main, weather_detail, spacing = 2,
+        layout = wibox.layout.fixed.vertical,
+    }
+    local weather_line = wibox.widget {
+        weather_icon, weather_text_stack, spacing = 8,
+        layout = wibox.layout.fixed.horizontal,
+    }
     local weather_pending = false
     local weather_url = "https://api.open-meteo.com/v1/forecast?latitude=53.1235&longitude=17.9871"
         .. "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=Europe%2FWarsaw"
+    local function set_weather_icon(icon)
+        weather_icon.markup = string.format("<span foreground='%s' size='22pt'>%s</span>", palette.teal, icon)
+    end
     local function update_weather()
         if weather_pending then return end
         weather_pending = true
@@ -293,19 +344,21 @@ function sidebar.create(s)
                 local temperature, apparent = field("temperature_2m"), field("apparent_temperature")
                 local condition, wind = field("weather_code"), field("wind_speed_10m")
                 if not temperature then
+                    set_weather_icon("·")
                     weather_main.text = "Weather unavailable"
                     weather_detail.text = "Click to try again"
                     return
                 end
+                set_weather_icon(weather_icon_for(condition))
                 weather_main.text = string.format("%.0f°C  •  %s", temperature, weather_description(condition))
                 weather_detail.text = string.format("Feels %.0f°C  •  Wind %.0f km/h", apparent or temperature, wind or 0)
             end)
     end
-    local weather_card = card({
+    local weather_card = style_button(card({
         label("BYDGOSZCZ · WEATHER", palette.teal, 10, true, "center"),
-        weather_main, weather_detail,
-        spacing = 4, layout = wibox.layout.fixed.vertical,
-    }, 86)
+        {weather_line, halign = "center", valign = "center", widget = wibox.container.place},
+        spacing = 3, layout = wibox.layout.fixed.vertical,
+    }, 72, 5))
     weather_card:buttons(gears.table.join(awful.button({}, 1, update_weather)))
     awful.tooltip {objects = {weather_card}, text = "Current weather for Bydgoszcz, Poland · click to refresh"}
 
@@ -369,7 +422,7 @@ function sidebar.create(s)
     local volume_card = card({
         label("AUDIO", palette.teal, 10, true), volume_control,
         spacing = 4, layout = wibox.layout.fixed.vertical,
-    }, 64)
+    }, 80)
 
     local quick_card = card({
         label("QUICK LAUNCH", palette.teal, 10, true, "center"),
@@ -432,8 +485,10 @@ function sidebar.create(s)
 
     local previous_total, previous_idle, previous_rx, previous_tx, previous_net_time
     local function update_stats()
-        time.text = os.date("%H:%M:%S")
-        date.text = os.date("%A  •  %d %B %Y")
+        time.markup = string.format("<span foreground='%s' size='24pt' weight='bold'>%s</span>",
+            palette.neon, os.date("%H:%M:%S"))
+        date.markup = string.format("<span foreground='%s' size='12pt' weight='bold'>%s</span>",
+            palette.teal, os.date("%A  •  %d %B %Y"))
 
         local stat = read("/proc/stat")
         local first_line = stat and stat:match("^([^\n]+)")
