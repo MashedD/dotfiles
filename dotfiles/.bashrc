@@ -64,6 +64,12 @@ alias rg="rg --no-ignore"
 alias fd="fd --no-ignore"
 alias q="cd $HOME/Games/quake2"
 
+# Keep Bash's fuzzy finder styled like the Zsh/Kitty Aurora setup.
+if command -v fzf >/dev/null 2>&1; then
+  export FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:+${FZF_DEFAULT_OPTS} }--border=sharp --color=fg:#c7d5cb,bg:#07110d,hl:#d6bd72,fg+:#f0f4f1,bg+:#1b2b22,hl+:#00ff41,info:#70c5bd,prompt:#70c98b,pointer:#00ff41,marker:#d6bd72,spinner:#70c5bd,header:#63736a,border:#263b30"
+  eval "$(fzf --bash)"
+fi
+
 export EDITOR="vim"
 export VIEWER="vim -R"
 export TERMINAL="kitty"
