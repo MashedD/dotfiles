@@ -1,4 +1,4 @@
--- Optional Longhorn-inspired gadget rail: opaque, square, and easy to dismiss.
+-- Optional Longhorn-inspired gadget rail with a restrained wavy workspace edge.
 local awful = require("awful")
 local gears = require("gears")
 local wibox = require("wibox")
@@ -69,6 +69,23 @@ local function network_stats()
     return rx, tx
 end
 
+local function wavy_edge(cr, width, height)
+    local edge, amplitude = 16, 9
+    local segments = math.max(4, math.floor(height / 120))
+    local step = height / segments
+    cr:move_to(edge, 0)
+    cr:line_to(width, 0)
+    cr:line_to(width, height)
+    cr:line_to(edge, height)
+    for i = segments, 1, -1 do
+        local y0, y1 = i * step, (i - 1) * step
+        local bulge = i % 2 == 0 and amplitude or -amplitude
+        cr:curve_to(edge + bulge, y0 - step * 0.25,
+            edge + bulge, y0 - step * 0.75, edge, y1)
+    end
+    cr:close_path()
+end
+
 local function launcher(text, command)
     local button = wibox.widget {
         label(text, palette.teal, 9, true),
@@ -126,25 +143,26 @@ function sidebar.create(s)
 
     local panel = wibox {
         screen = s, type = "dock", visible = false, ontop = true,
-        width = 232, height = math.max(1, s.geometry.height - 46),
-        x = s.geometry.x + s.geometry.width - 244, y = s.geometry.y + 36,
+        width = 232, height = math.max(1, s.geometry.height - 34),
+        x = s.geometry.x + s.geometry.width - 234, y = s.geometry.y + 32,
         bg = palette.bg, fg = palette.text,
         border_width = 1, border_color = palette.teal,
-        shape = gears.shape.rectangle, restrict_workarea = false,
+        shape = wavy_edge, restrict_workarea = false,
     }
     panel:setup {
         {
             header, clock_card, stats_card, quick_card, footer,
             spacing = 10, layout = wibox.layout.fixed.vertical,
         },
-        margins = 12, widget = wibox.container.margin,
+        left = 27, right = 10, top = 12, bottom = 12,
+        widget = wibox.container.margin,
     }
     s.sidebar = panel
     s:connect_signal("property::geometry", function()
         if not s.valid then return end
-        panel.x = s.geometry.x + s.geometry.width - 244
-        panel.y = s.geometry.y + 36
-        panel.height = math.max(1, s.geometry.height - 46)
+        panel.x = s.geometry.x + s.geometry.width - 234
+        panel.y = s.geometry.y + 32
+        panel.height = math.max(1, s.geometry.height - 34)
     end)
 
     local previous_rx, previous_tx

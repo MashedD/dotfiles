@@ -96,7 +96,7 @@ def main():
                 assert 'floating' in lua('return require("awful").layout.getname(require("awful").layout.get(screen[1]))')
                 wait('return screen[1].workarea.y', '30')
                 assert 'true' in lua('local p=screen[1].panel; return p.visible and p.height == 30 and p.position == "top"')
-                assert 'true' in lua('local s=screen[1]; return s.sidebar and not s.sidebar.visible and s.workarea.width == s.geometry.width')
+                assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and not b.visible and s.workarea.width == s.geometry.width and b.x+b.width == s.geometry.x+s.geometry.width-2 and b.y == s.geometry.y+32 and b.height == s.geometry.height-34')
                 press('super+shift+s')
                 wait('return tostring(screen[1].sidebar.visible)', '"true"')
                 press('super+shift+s')
