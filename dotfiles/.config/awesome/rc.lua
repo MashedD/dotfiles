@@ -295,6 +295,14 @@ client.connect_signal("property::screen", function(c, old_screen)
     update_panel_for_fullscreen(old_screen)
     update_panel_for_fullscreen(c.screen)
 end)
+client.connect_signal("unmanage", function(c)
+    local s = c.screen
+    if s then
+        -- A fullscreen client may disappear without a final fullscreen=false
+        -- event (for example, closing mpv), so recompute after removal.
+        gears.timer.delayed_call(function() update_panel_for_fullscreen(s) end)
+    end
+end)
 
 -- Square, bevelled Win98 buttons; no modern icon set or compositing required.
 local function control(label, callback)

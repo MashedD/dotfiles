@@ -136,7 +136,8 @@ opens xfce4-appfinder. Openbox-specific edge-resize/shade controls are not emula
 use Win+right-drag anywhere or plain left-drag on the bottom-right grip for
 resizing. Maximized/fullscreen windows hide the resize strip and borders;
 unmaximizing restores them. The top panel hides while any window on that
-monitor is fullscreen (e.g. YouTube video) and reappears on exit.
+monitor is fullscreen (e.g. YouTube/mpv) and reappears on exit or when the
+fullscreen window closes.
 
 ## AMD Xorg crash investigation (this laptop)
 
