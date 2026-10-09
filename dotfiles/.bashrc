@@ -8,6 +8,8 @@ HISTFILESIZE=100000
 HISTCONTROL="erasedups:ignoreboth"
 export HISTIGNORE="&:[ ]*:exit:ls:bg:fg:history:clear"
 HISTTIMEFORMAT='%F %T '
+# Use Kitty's ANSI palette for syntax highlighting in bat.
+export BAT_THEME=ansi
 CDPATH="."
 set -o noclobber
 shopt -s checkwinsize

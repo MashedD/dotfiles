@@ -40,6 +40,8 @@ typeset -gr VAX_RED='#d87979'
 
 # Settings for `less`
 export LESS=-R
+# Use Kitty's ANSI palette for syntax highlighting in bat.
+export BAT_THEME=ansi
 export LESS_TERMCAP_mb=$'\e[38;2;217;121;121;1m'
 export LESS_TERMCAP_md=$'\e[38;2;214;189;114;1m'
 export LESS_TERMCAP_me=$'\e[0m'
