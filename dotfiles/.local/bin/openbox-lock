@@ -31,7 +31,14 @@ cleanup() {
     [ -z "$image" ] || rm -f -- "$image"
 }
 trap cleanup EXIT
-wallpaper="$HOME/.local/share/wallpapers/lock-win98-tux.png"
+wallpaper_state="${XDG_STATE_HOME:-$HOME/.local/state}/awesome/wallpaper"
+wallpaper=''
+if [ -r "$wallpaper_state" ]; then
+    IFS= read -r wallpaper < "$wallpaper_state" || true
+fi
+if [ -z "$wallpaper" ] || [ ! -r "$wallpaper" ]; then
+    wallpaper="$HOME/.local/share/wallpapers/aurora-longhorn.png"
+fi
 resolution=$(xdpyinfo 2>/dev/null | awk '/dimensions:/{print $2; exit}')
 if command -v magick >/dev/null 2>&1 && [ -r "$wallpaper" ] && [ -n "$resolution" ]; then
     image=$(mktemp "$runtime/i3lock-bg.XXXXXX.png") || image=''

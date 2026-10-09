@@ -34,6 +34,7 @@ if command -v snixembed >/dev/null 2>&1; then
         once '(^|/)solaar( |$)' solaar --window=hide
     ) &
 fi
+once '(^|/)picom( |$)' picom --config "$HOME/.config/picom/picom.conf"
 once '(^|/)dunst( |$)' dunst -conf "$HOME/.config/dunst/dunstrc"
 once '(^|/)lxqt-policykit-agent( |$)' lxqt-policykit-agent
 if command -v clipmenud >/dev/null 2>&1 && command -v clipmenu >/dev/null 2>&1; then
@@ -52,5 +53,6 @@ if [ -d "$HOME/Documents/notes/html" ]; then
         once '(^|/)python3 -m http.server( |$)' python3 -m http.server
     ) &
 fi
-# nm-applet is externally managed. No pcmanfm desktop, compositor or second tray.
+# nm-applet is externally managed. No pcmanfm desktop or second tray; picom
+# supplies only X11 compositing (no blur, fades, shadows, or rounded corners).
 # Desktop wallpaper is rendered by Awesome from aurora-longhorn.png.

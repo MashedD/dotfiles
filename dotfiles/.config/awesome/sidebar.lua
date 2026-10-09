@@ -7,8 +7,22 @@ local sidebar = {}
 
 local palette = {
     bg = "#07110d", card = "#101a15", line = "#263b30",
+    bevel_light = "#496653", bevel_shadow = "#050b07",
     text = "#c7d5cb", muted = "#63736a", teal = "#70c5bd",
     green = "#70c98b", neon = "#00ff41", amber = "#d6bd72",
+}
+
+local sidebar_gradient = gears.color {
+    type = "linear", from = {0, 0}, to = {300, 0},
+    stops = {{0, "#09150f"}, {0.38, "#14271b"}, {0.78, "#1b3022"}, {1, "#0a1710"}},
+}
+local card_gradient = gears.color {
+    type = "linear", from = {0, 0}, to = {300, 0},
+    stops = {{0, "#17271c"}, {0.5, "#142219"}, {1, "#101a14"}},
+}
+local button_gradient = gears.color {
+    type = "linear", from = {0, 0}, to = {0, 30},
+    stops = {{0, "#263a2c"}, {0.5, "#1a2a1f"}, {1, "#0d1811"}},
 }
 
 local function read(path)
@@ -28,10 +42,15 @@ local function label(text, color, size, bold, align)
 end
 
 local function card(widget, height)
+    local surface = wibox.widget {
+        {widget, margins = 9, widget = wibox.container.margin},
+        bg = card_gradient, border_width = 1, border_color = palette.line,
+        widget = wibox.container.background,
+    }
     return wibox.widget {
-        {widget, margins = 10, widget = wibox.container.margin},
-        forced_height = height, bg = palette.card,
-        border_width = 1, border_color = palette.line,
+        {surface, margins = 1, widget = wibox.container.margin},
+        forced_height = height, bg = palette.bevel_shadow,
+        border_width = 1, border_color = palette.bevel_light,
         widget = wibox.container.background,
     }
 end
@@ -138,7 +157,7 @@ local function launcher(text, command)
     local button = wibox.widget {
         label(text, palette.teal, 10, true, "center"),
         forced_width = 112, forced_height = 34,
-        bg = palette.bg, border_width = 1, border_color = palette.line,
+        bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
         widget = wibox.container.background,
     }
     button:buttons(gears.table.join(awful.button({}, 1, function() awful.spawn(command) end)))
@@ -150,7 +169,7 @@ local function action_button(text, callback)
     local button = wibox.widget {
         label(text, palette.teal, 14, true, "center"),
         forced_width = 46, forced_height = 28,
-        bg = palette.bg, border_width = 1, border_color = palette.line,
+        bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
         widget = wibox.container.background,
     }
     button:buttons(gears.table.join(awful.button({}, 1, callback)))
@@ -175,8 +194,13 @@ function sidebar.create(s)
     local volume_tip = awful.tooltip {objects = {volume_text}, text = "Volume"}
 
     local header = wibox.widget {
-        label("MashedD's AwesomeBar", palette.teal, 12, true),
-        forced_height = 30, widget = wibox.container.background,
+        {
+            label("MashedD's AwesomeBar", palette.teal, 12, true),
+            left = 10, right = 6, widget = wibox.container.margin,
+        },
+        forced_height = 30, bg = button_gradient,
+        border_width = 1, border_color = palette.bevel_light,
+        widget = wibox.container.background,
     }
     local clock_card = card({
         date, time, spacing = 4, layout = wibox.layout.fixed.vertical,
@@ -216,7 +240,7 @@ function sidebar.create(s)
         local button = wibox.widget {
             label(text, palette.muted, 11, true, "center"),
             forced_width = 26, forced_height = 20,
-            bg = palette.bg, border_width = 1, border_color = palette.line,
+            bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
             widget = wibox.container.background,
         }
         button:buttons(gears.table.join(awful.button({}, 1, callback)))
@@ -370,7 +394,7 @@ function sidebar.create(s)
         screen = s, type = "dock", visible = false, ontop = true,
         width = sidebar_width, height = math.max(1, s.geometry.height - 30),
         x = s.geometry.x + s.geometry.width - sidebar_width, y = s.geometry.y + 30,
-        bg = palette.bg, fg = palette.text,
+        bg = sidebar_gradient, fg = palette.text,
         border_width = 0,
         shape = gears.shape.rectangle, restrict_workarea = false,
     }
@@ -383,7 +407,7 @@ function sidebar.create(s)
             },
             layout = wibox.layout.fixed.horizontal,
         },
-        bg = palette.bg, widget = wibox.container.background,
+        bg = sidebar_gradient, widget = wibox.container.background,
     }
     s.sidebar = panel
     s.sidebar_clock, s.sidebar_date = time, date

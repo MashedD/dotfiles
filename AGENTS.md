@@ -7,7 +7,7 @@
 - Terminal: kitty
 - Launcher: xfce4-appfinder
 - File manager and desktop: pcmanfm
-- Wallpaper: Awesome (`aurora-longhorn.png`, abstract Aurora; no logo); the lock screen keeps `lock-win98-tux.png`.
+- Wallpaper: Awesome and the lock screen use the current selected wallpaper (default `aurora-longhorn.png`, abstract Aurora; no logo).
 - Notifications: dunst
 - Clipboard history: clipmenu only when installed; Win+V. Clipman is explicitly disabled; do not add it as a fallback.
 - Authentication agent: lxqt-policykit
@@ -43,13 +43,14 @@ Combine Windows 98 controls with Matrix-green accents.
 - Optional right-edge sidebar toggled with Win+Shift+S: flush to screen edges beneath the panel, no outer padding or top/right/bottom borders (retain a slim left accent). Include the centered date/time, wallpaper preview picker (click to apply; previous/next to browse, selection persists), Bydgoszcz weather, CPU, memory, battery, network, free space on `/`, volume, Now Playing, and centered quick launch. Keep hidden by default and non-reserving.
 - Dunst: classic Win98 tooltip background `#ffffe1`, black text, square black border.
 - Lock screen: Win98 teal with centered Tux, without blur, animation, or transparency.
-- Keep effects minimal: no rounding, blur, or shadows that conflict with the pixel-era style.
+- Picom provides X11 compositing and opt-in transparency only: no fading, shadows, blur, inactive dimming, or rounded corners. Keep the AwesomeBar square, with a restrained forest-green left-to-right gradient and raised bevels.
 
 ## Directories
 
 | Path | Purpose |
 |------|---------|
 | `dotfiles/.config/awesome/` | Active floating window-manager, keybinding, titlebar, menu and autostart configuration |
+| `dotfiles/.config/picom/` | Active X11 compositor config; transparency support only, with visual effects disabled |
 | `dotfiles/.config/X11/` | Active startx entry point and X resources |
 | `dotfiles/.config/openbox/` | Previous window-manager configuration, retained for reference |
 | `dotfiles/.config/lxpanel/vax/` | Previous panel configuration, retained for reference |

@@ -33,7 +33,7 @@ xorg-xrandr xorg-xset xclip xdotool maim
 xss-lock i3lock dunst clipmenu dmenu pcmanfm
 gtk2 gtk3 fontconfig dbus util-linux
 kitty xfce4-appfinder lxqt-policykit wireplumber brightnessctl
-playerctl pavucontrol
+playerctl pavucontrol picom
 ```
 
 Clipboard history uses `clipmenu` + `clipmenud` only. Clipman is disabled in

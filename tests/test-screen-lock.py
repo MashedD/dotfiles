@@ -19,11 +19,11 @@ class LockTest(unittest.TestCase):
                 bin_dir.mkdir()
                 assets = root / ".local/share/wallpapers"
                 assets.mkdir(parents=True)
-                (assets / "lock-win98-tux.png").write_bytes(b"mock image")
+                (assets / "aurora-longhorn.png").write_bytes(b"mock image")
                 commands = {
                     "xdpyinfo": '#!/bin/sh\necho "  dimensions:  1280x800 pixels"\n',
-                    "magick": ('#!/bin/sh\nfor last; do :; done\necho mock > "$last"\n'
-                               if conversion_ok else '#!/bin/sh\nexit 1\n'),
+                    "magick": ('#!/bin/sh\nprintf "%s\\n" "$@" > "$TEST_MAGICK_LOG"\nfor last; do :; done\necho mock > "$last"\n'
+                               if conversion_ok else '#!/bin/sh\nprintf "%s\\n" "$@" > "$TEST_MAGICK_LOG"\nexit 1\n'),
                     "i3lock": '''#!/bin/sh
 printf '%s\\n' "$*" >> "$TEST_LOG"
 [ -e "/proc/$$/fd/$XSS_SLEEP_LOCK_FD" ] && echo inherited > "$TEST_FD_LOG"
@@ -36,7 +36,9 @@ sleep 1
                     executable.chmod(0o755)
                 with (root / "sleep-fd").open("w") as descriptor:
                     env = dict(os.environ, HOME=str(root), XDG_RUNTIME_DIR=str(root),
+                               XDG_STATE_HOME=str(root / ".local/state"),
                                PATH=f"{bin_dir}:{os.environ['PATH']}", TEST_LOG=str(root / "calls"),
+                               TEST_MAGICK_LOG=str(root / "magick-args"),
                                TEST_FD_LOG=str(root / "fd-result"), XSS_SLEEP_LOCK_FD=str(descriptor.fileno()))
                     first = subprocess.Popen(["sh", str(HELPER)], env=env, pass_fds=(descriptor.fileno(),))
                     try:
@@ -52,6 +54,8 @@ sleep 1
                         self.assertEqual(len(calls), 1)
                         self.assertIn("--nofork", calls[0])
                         self.assertIn("-i " if conversion_ok else "--color=008080", calls[0])
+                        magick_args = (root / "magick-args").read_text().splitlines()
+                        self.assertEqual(magick_args[0], str(assets / "aurora-longhorn.png"))
                         self.assertEqual((root / "fd-result").read_text().strip(), "inherited")
                         self.assertEqual(list(root.glob("i3lock-bg.*.png")), [])
                     finally:

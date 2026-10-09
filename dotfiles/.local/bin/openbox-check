@@ -4,7 +4,7 @@
 # Keep the helper filename for compatibility with existing deployments.
 set -u
 
-required_commands='awesome awesome-client pgrep xrandr xset xss-lock i3lock maim xclip xdotool snixembed dunst dunstify dmenu pcmanfm xsettingsd lxqt-policykit-agent kitty xfce4-appfinder pavucontrol playerctl fc-match flock logger dbus-update-activation-environment wpctl brightnessctl'
+required_commands='awesome awesome-client picom pgrep xrandr xset xss-lock i3lock maim xclip xdotool snixembed dunst dunstify dmenu pcmanfm xsettingsd lxqt-policykit-agent kitty xfce4-appfinder pavucontrol playerctl fc-match flock logger dbus-update-activation-environment wpctl brightnessctl'
 optional_commands='firefox audacious gajim keepassxc xdpyinfo magick'
 required_failed=0
 
@@ -55,11 +55,15 @@ config_home=${XDG_CONFIG_HOME:-$HOME/.config}
 check_file config "$config_home/awesome/rc.lua"
 check_file config "$config_home/awesome/panel.lua"
 check_file config "$config_home/awesome/autostart"
+check_file config "$config_home/picom/picom.conf"
 check_file config "$config_home/X11/xinitrc"
 if command -v awesome >/dev/null 2>&1; then
   awesome -k -c "$config_home/awesome/rc.lua" || required_failed=1
 fi
-check_file asset "$HOME/.local/share/wallpapers/lock-win98-tux.png"
+if command -v picom >/dev/null 2>&1; then
+  picom --config "$config_home/picom/picom.conf" --diagnostics >/dev/null 2>&1 || required_failed=1
+fi
+check_file asset "$HOME/.local/share/wallpapers/aurora-longhorn.png"
 check_file asset "$HOME/.local/share/wallpapers/win98-teal.svg"
 data_home=${XDG_DATA_HOME:-$HOME/.local/share}
 check_file asset "$data_home/icons/hicolor/32x32/apps/vax-tux-start.png"
