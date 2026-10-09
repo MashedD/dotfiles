@@ -139,7 +139,7 @@ zstyle ':completion:*' menu no
 zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza $realpath'
 
 # Shell integration
-export FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:+${FZF_DEFAULT_OPTS} }--color=fg:${VAX_SILVER},bg:${VAX_BLACK},hl:${VAX_YELLOW},fg+:#ffffff,bg+:${VAX_GRAY},hl+:${VAX_YELLOW},info:${VAX_GREEN},prompt:${VAX_GREEN},pointer:${VAX_GREEN},marker:${VAX_YELLOW},spinner:${VAX_GREEN},header:${VAX_DIM_GREEN},border:${VAX_BLUE}"
+export FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:+${FZF_DEFAULT_OPTS} }--border=sharp --color=fg:${VAX_SILVER},bg:${VAX_BLACK},hl:${VAX_YELLOW},fg+:#f0f4f1,bg+:#1b2b22,hl+:#00ff41,info:${VAX_CYAN},prompt:${VAX_GREEN},pointer:#00ff41,marker:${VAX_YELLOW},spinner:${VAX_CYAN},header:${VAX_DIM_GREEN},border:#263b30"
 eval "$(fzf --zsh)"
 
 # Treat comments as comments
