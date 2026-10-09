@@ -450,8 +450,8 @@ function sidebar.create(s)
     }
     local clock_content = wibox.layout.fixed.vertical()
     clock_content.spacing = 3
-    clock_content:add(clock_centered)
     clock_content:add(date)
+    clock_content:add(clock_centered)
     clock_content:add(digital_time)
     digital_time.visible = false
     local clock_card = card(clock_content, 154, 4)
