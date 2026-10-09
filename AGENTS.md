@@ -39,7 +39,8 @@ Openbox, Hyprland, Waybar, Walker, Mako, cliphist, and hyprlock configurations r
 Combine Windows 98 controls with Matrix-green accents.
 
 - Awesome: square Win98 titlebars, Matrix-green active titles, Microsoft Sans Serif 8. GTK theme: VAX (Chicago95 controls with Matrix-green selections). Prefer Microsoft Sans Serif 8, with Liberation Sans fallback when unavailable.
-- Awesome panel: top, 30px Win98 panel, Start/application menu, workspace buttons, taskbar, CPU, battery, native volume control, tray, weekday/DD.MM.YY/HH:MM:SS clock (fixed width, bold 9pt) and Monday-first calendar. Render the complete 65×25 Start asset at native size without extra label text. Active elements use the dark-green `#001a00` / neon `#00ff41` pairing.
+- Awesome panel: top, 30px Win98 panel, Start/application menu, workspace buttons, taskbar, tray, compact HH:MM clock, and Monday-first calendar popup. Render the complete 65×25 Start asset at native size without extra label text. Active elements use the dark-green `#001a00` / neon `#00ff41` pairing.
+- Optional right-edge sidebar toggled with Win+Shift+S: full date/HH:MM:SS clock, CPU, memory, battery, network, volume controls, Now Playing, and quick launch. Keep it hidden by default and non-reserving.
 - Dunst: classic Win98 tooltip background `#ffffe1`, black text, square black border.
 - Lock screen: Win98 teal with centered Tux, without blur, animation, or transparency.
 - Keep effects minimal: no rounding, blur, or shadows that conflict with the pixel-era style.

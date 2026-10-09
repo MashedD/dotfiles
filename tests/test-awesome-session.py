@@ -98,7 +98,7 @@ def main():
                 assert 'floating' in lua('return require("awful").layout.getname(require("awful").layout.get(screen[1]))')
                 wait('return screen[1].workarea.y', '30')
                 assert 'true' in lua('local p=screen[1].panel; return p.visible and p.height == 30 and p.position == "top"')
-                assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and not b.visible and s.workarea.width == s.geometry.width and b.x+b.width == s.geometry.x+s.geometry.width-2 and b.y == s.geometry.y+32 and b.height == s.geometry.height-34')
+                assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and not b.visible and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_media_text and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width and b.x+b.width == s.geometry.x+s.geometry.width-2 and b.y == s.geometry.y+32 and b.height == s.geometry.height-34')
                 press('super+shift+s')
                 wait('return tostring(screen[1].sidebar.visible)', '"true"')
                 press('super+shift+s')
@@ -106,11 +106,11 @@ def main():
                 wallpaper = subprocess.run(["xprop", "-root", "_XROOTPMAP_ID"], env=env,
                                            capture_output=True, text=True, check=True, timeout=3).stdout
                 assert "PIXMAP" in wallpaper, wallpaper
-                wait('return screen[1].panel_volume_text.text', '"42%"')
-                assert 'true' in lua('local w=screen[1].panel_clock; return w.text:match("%d%d%.%d%d%.%d%d") ~= nil and w.text:match("%d%d:%d%d:%d%d") ~= nil and w.text:find(os.date("%a"), 1, true) ~= nil and w.forced_width == 170')
-                lua('for _,b in ipairs(screen[1].panel_volume:buttons()) do if b.button == 4 then b:emit_signal("press") end end')
-                lua('for _,b in ipairs(screen[1].panel_volume:buttons()) do if b.button == 3 then b:emit_signal("press") end end')
-                lua('for _,b in ipairs(screen[1].panel_volume:buttons()) do if b.button == 1 then b:emit_signal("press") end end')
+                wait('return tostring(screen[1].sidebar_volume_text.markup):find("42%", 1, true) and "42%" or "pending"', '"42%"')
+                assert 'true' in lua('local p=screen[1].panel_clock; local s=screen[1].sidebar_clock; return p.text:match("%d%d:%d%d") ~= nil and p.forced_width == 58 and s.text:match("%d%d:%d%d:%d%d") ~= nil and screen[1].sidebar_date.text:find(os.date("%a"), 1, true) ~= nil')
+                lua('for _,b in ipairs(screen[1].sidebar_volume:buttons()) do if b.button == 4 then b:emit_signal("press") end end')
+                lua('for _,b in ipairs(screen[1].sidebar_volume:buttons()) do if b.button == 3 then b:emit_signal("press") end end')
+                lua('for _,b in ipairs(screen[1].sidebar_volume:buttons()) do if b.button == 1 then b:emit_signal("press") end end')
                 time.sleep(0.3)
                 actions = (directory / "actions").read_text().splitlines()
                 assert all(action in actions for action in ("up", "mute", "mixer")), actions
@@ -245,7 +245,7 @@ def main():
                 assert wm.poll() is None, 'Escape from quit confirmation must cancel'
                 lua('awesome.quit()')
                 assert wm.wait(timeout=5) == 0
-                print("PASS: native panel/date/volume, Start/calendar/tray, wallpaper, corner resize, borderless maximize/fullscreen, workspaces, Win+P outputs menu, confirmed Win+Shift+Q, reload and Win+L/i3lock")
+                print("PASS: native panel/sidebar widgets, Start/calendar/tray, wallpaper, corner resize, borderless maximize/fullscreen, workspaces, Win+P outputs menu, confirmed Win+Shift+Q, reload and Win+L/i3lock")
         finally:
             for pid in lock_pids:
                 try:
