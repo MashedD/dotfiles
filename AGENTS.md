@@ -40,7 +40,7 @@ Combine Windows 98 controls with Matrix-green accents.
 
 - Awesome: square Win98 titlebars, Matrix-green active titles, Microsoft Sans Serif 8. GTK theme: VAX (Chicago95 controls with Matrix-green selections). Prefer Microsoft Sans Serif 8, with Liberation Sans fallback when unavailable.
 - Awesome panel: top, 30px Win98 panel, Start/application menu, workspace buttons, taskbar, tray, compact HH:MM clock, and Monday-first calendar popup. Render the complete 65×25 Start asset at native size without extra label text. Active elements use the dark-green `#001a00` / neon `#00ff41` pairing.
-- Optional right-edge sidebar toggled with Win+Shift+S: flush to screen edges beneath the panel, no outer padding or top/right/bottom borders (retain a slim left accent). Include the centered date/time, wallpaper preview picker (click to apply; previous/next to browse, selection persists), CPU, memory, battery, network, free space on `/`, volume, Now Playing, and centered quick launch. Keep hidden by default and non-reserving.
+- Optional right-edge sidebar toggled with Win+Shift+S: flush to screen edges beneath the panel, no outer padding or top/right/bottom borders (retain a slim left accent). Include the centered date/time, wallpaper preview picker (click to apply; previous/next to browse, selection persists), Bydgoszcz weather, CPU, memory, battery, network, free space on `/`, volume, Now Playing, and centered quick launch. Keep hidden by default and non-reserving.
 - Dunst: classic Win98 tooltip background `#ffffe1`, black text, square black border.
 - Lock screen: Win98 teal with centered Tux, without blur, animation, or transparency.
 - Keep effects minimal: no rounding, blur, or shadows that conflict with the pixel-era style.

@@ -105,6 +105,20 @@ local function wallpaper_paths()
     return paths
 end
 
+local function weather_description(code)
+    if code == 0 then return "Clear" end
+    if code == 1 then return "Mostly clear" end
+    if code == 2 then return "Partly cloudy" end
+    if code == 3 then return "Overcast" end
+    if code == 45 or code == 48 then return "Fog" end
+    if code and code >= 51 and code <= 67 then return "Drizzle / rain" end
+    if code and code >= 71 and code <= 77 then return "Snow" end
+    if code and code >= 80 and code <= 82 then return "Rain showers" end
+    if code and code >= 85 and code <= 86 then return "Snow showers" end
+    if code and code >= 95 then return "Thunderstorm" end
+    return "Conditions unavailable"
+end
+
 local function network_stats()
     local data = read("/proc/net/dev")
     if not data then return nil end
@@ -166,7 +180,7 @@ function sidebar.create(s)
     }
     local clock_card = card({
         date, time, spacing = 4, layout = wibox.layout.fixed.vertical,
-    }, 82)
+    }, 74)
 
     local wallpapers = wallpaper_paths()
     local wallpaper_state = (os.getenv("XDG_STATE_HOME") or os.getenv("HOME") .. "/.local/state")
@@ -229,15 +243,50 @@ function sidebar.create(s)
     update_wallpaper_preview()
     preview:buttons(gears.table.join(awful.button({}, 1, apply_wallpaper)))
     awful.tooltip {objects = {preview}, text = "Click to use this wallpaper"}
+    local preview_centered = {preview, halign = "center", valign = "center", widget = wibox.container.place}
     local wallpaper_card = card({
         label("WALLPAPER", palette.teal, 10, true, "center"),
-        preview,
+        preview_centered,
         {wallpaper_controls, halign = "center", widget = wibox.container.place},
         spacing = 5, layout = wibox.layout.fixed.vertical,
     }, 180)
 
+    local weather_main = label("Weather loading…", palette.text, 14, true, "center")
+    local weather_detail = label("Bydgoszcz, Poland", palette.muted, 10, false, "center")
+    local weather_pending = false
+    local weather_url = "https://api.open-meteo.com/v1/forecast?latitude=53.1235&longitude=17.9871"
+        .. "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=Europe%2FWarsaw"
+    local function update_weather()
+        if weather_pending then return end
+        weather_pending = true
+        awful.spawn.easy_async({"curl", "--fail", "--silent", "--show-error", "--max-time", "12", weather_url},
+            function(stdout, _, _, code)
+                weather_pending = false
+                local current = code == 0 and stdout:match('"current"%s*:%s*{([^}]+)}') or nil
+                local function field(name)
+                    return current and tonumber(current:match('"' .. name .. '"%s*:%s*([%-0-9.]+)')) or nil
+                end
+                local temperature, apparent = field("temperature_2m"), field("apparent_temperature")
+                local condition, wind = field("weather_code"), field("wind_speed_10m")
+                if not temperature then
+                    weather_main.text = "Weather unavailable"
+                    weather_detail.text = "Click to try again"
+                    return
+                end
+                weather_main.text = string.format("%.0f°C  •  %s", temperature, weather_description(condition))
+                weather_detail.text = string.format("Feels %.0f°C  •  Wind %.0f km/h", apparent or temperature, wind or 0)
+            end)
+    end
+    local weather_card = card({
+        label("BYDGOSZCZ · WEATHER", palette.teal, 10, true, "center"),
+        weather_main, weather_detail,
+        spacing = 4, layout = wibox.layout.fixed.vertical,
+    }, 86)
+    weather_card:buttons(gears.table.join(awful.button({}, 1, update_weather)))
+    awful.tooltip {objects = {weather_card}, text = "Current weather for Bydgoszcz, Poland · click to refresh"}
+
     local stats_card = card({
-        label("SYSTEM STATUS", palette.teal, 10, true),
+        label("SYSTEM STATUS", palette.teal, 10, true, "center"),
         cpu_text, cpu_bar,
         memory_text, memory_bar,
         battery_text, battery_bar,
@@ -329,7 +378,7 @@ function sidebar.create(s)
         {
             {forced_width = 2, bg = palette.teal, widget = wibox.container.background},
             {
-                header, clock_card, wallpaper_card, stats_card, media_card, volume_card, quick_card,
+                header, clock_card, wallpaper_card, weather_card, stats_card, volume_card, media_card, quick_card,
                 spacing = 6, layout = wibox.layout.fixed.vertical,
             },
             layout = wibox.layout.fixed.horizontal,
@@ -342,6 +391,7 @@ function sidebar.create(s)
     s.sidebar_volume, s.sidebar_volume_text = volume_control, volume_text
     s.sidebar_media_text = media_text
     s.sidebar_root_text = root_text
+    s.sidebar_weather_text = weather_main
     s.sidebar_wallpaper_preview, s.sidebar_wallpaper_name = preview, wallpaper_name
     s.sidebar_wallpaper_controls = wallpaper_controls
     s.sidebar_wallpaper_previous, s.sidebar_wallpaper_next = previous_wallpaper, next_wallpaper
@@ -434,10 +484,18 @@ function sidebar.create(s)
     s.sidebar_media_timer = gears.timer {
         timeout = 5, autostart = true, call_now = true, callback = update_media,
     }
+    if os.getenv("AWESOME_TEST_MODE") ~= "1" then
+        s.sidebar_weather_timer = gears.timer {
+            timeout = 1800, autostart = true, call_now = true, callback = update_weather,
+        }
+    else
+        weather_main.text = "Weather disabled in test"
+    end
     s:connect_signal("removed", function()
         s.sidebar_stats_timer:stop()
         s.sidebar_volume_timer:stop()
         s.sidebar_media_timer:stop()
+        if s.sidebar_weather_timer then s.sidebar_weather_timer:stop() end
         panel.visible = false
     end)
 end
