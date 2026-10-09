@@ -3,6 +3,15 @@
   "logo": {
     "type": "none"
   },
+  "display": {
+    "separator": "  ",
+    "color": {
+      "keys": "#70c5bd",
+      "title": "#00ff41",
+      "output": "#c7d5cb",
+      "separator": "#63736a"
+    }
+  },
   "modules": [
     "title",
     "separator",
