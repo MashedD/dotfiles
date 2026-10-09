@@ -7,6 +7,7 @@ HISTSIZE=300000
 HISTFILESIZE=100000
 HISTCONTROL="erasedups:ignoreboth"
 export HISTIGNORE="&:[ ]*:exit:ls:bg:fg:history:clear"
+export LESS=-R
 HISTTIMEFORMAT='%F %T '
 # Use Kitty's ANSI palette for syntax highlighting in bat.
 export BAT_THEME=ansi
@@ -35,7 +36,7 @@ man() {
   LESS_TERMCAP_md=$'\e[38;2;214;189;114;1m' \
   LESS_TERMCAP_me=$'\e[0m' \
   LESS_TERMCAP_se=$'\e[0m' \
-  LESS_TERMCAP_so=$'\e[01;44;33m' \
+  LESS_TERMCAP_so=$'\e[38;2;7;17;13;48;2;112;197;189m' \
   LESS_TERMCAP_ue=$'\e[0m' \
   LESS_TERMCAP_us=$'\e[38;2;112;197;189;1m' \
   command man "$@"

@@ -45,7 +45,7 @@ export BAT_THEME=ansi
 export LESS_TERMCAP_mb=$'\e[38;2;217;121;121;1m'
 export LESS_TERMCAP_md=$'\e[38;2;214;189;114;1m'
 export LESS_TERMCAP_me=$'\e[0m'
-export LESS_TERMCAP_so=$'\e[30;47m'
+export LESS_TERMCAP_so=$'\e[38;2;7;17;13;48;2;112;197;189m'
 export LESS_TERMCAP_se=$'\e[0m'
 export LESS_TERMCAP_us=$'\e[38;2;112;197;189;1m'
 export LESS_TERMCAP_ue=$'\e[0m'
@@ -149,7 +149,7 @@ man() {
   LESS_TERMCAP_md=$'\e[38;2;214;189;114;1m' \
   LESS_TERMCAP_me=$'\e[0m' \
   LESS_TERMCAP_se=$'\e[0m' \
-  LESS_TERMCAP_so=$'\e[30;47m' \
+  LESS_TERMCAP_so=$'\e[38;2;7;17;13;48;2;112;197;189m' \
   LESS_TERMCAP_ue=$'\e[0m' \
   LESS_TERMCAP_us=$'\e[38;2;112;197;189;1m' \
   command man "$@"
