@@ -30,12 +30,12 @@ bind '"\e[C": forward-char'
 bind '"\e[D": backward-char'
 
 man() {
-  LESS_TERMCAP_md=$'\e[01;31m' \
+  LESS_TERMCAP_md=$'\e[38;2;214;189;114;1m' \
   LESS_TERMCAP_me=$'\e[0m' \
   LESS_TERMCAP_se=$'\e[0m' \
   LESS_TERMCAP_so=$'\e[01;44;33m' \
   LESS_TERMCAP_ue=$'\e[0m' \
-  LESS_TERMCAP_us=$'\e[01;32m' \
+  LESS_TERMCAP_us=$'\e[38;2;112;197;189;1m' \
   command man "$@"
 }
 
@@ -69,7 +69,8 @@ export PATH="$PATH:$HOME/.local/bin:$HOME/Projects/scripts:$HOME/Programs:$HOME/
 export PATH="$HOME/.local/bin/dotnet:$PATH"
 export DOTNET_ROOT="$HOME/.local/bin/dotnet"
 
-export PS1="\[\033[01;36m\]\[\033[01;34m\]\W\[\033[01;36m\]\$\[\033[00m\] "
+# Match the Aurora two-line prompt used by the interactive Zsh setup.
+export PS1="\[\033[38;2;99;115;106m\]┌─\[\033[38;2;112;197;189m\]\W\n\[\033[38;2;0;255;65m\]└─❯\[\033[0m\] "
 export _JAVA_AWT_WM_NONREPARENTING=1 # Fix for JDownloader 2
 
 export MPD_HOST="$XDG_RUNTIME_DIR/mpd/socket"
