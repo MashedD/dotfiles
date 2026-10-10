@@ -320,10 +320,12 @@ local function make_analog_clock()
     return clock
 end
 
-local section_padding = 6
+local section_padding, section_vertical_padding = 6, 8
 local function card(widget, height)
     local surface = wibox.widget {
-        {widget, margins = section_padding, widget = wibox.container.margin},
+        {widget, left = section_padding, right = section_padding,
+            top = section_vertical_padding, bottom = section_vertical_padding,
+            widget = wibox.container.margin},
         bg = card_gradient, border_width = 1, border_color = palette.line,
         widget = wibox.container.background,
     }
@@ -519,19 +521,24 @@ function sidebar.create(s, dismiss_menu)
     end
     local function collapsible_card(id, title_text, body, expanded_height, trailing_widget)
         local header, title, marker = section_header(title_text, trailing_widget)
+        local body_container = wibox.widget {
+            body, left = 2, right = 2, top = 6, bottom = 0,
+            widget = wibox.container.margin,
+        }
         local contents = wibox.layout.fixed.vertical()
         contents.spacing = 0
         contents:add(header)
-        contents:add(body)
+        contents:add(body_container)
         local section_card = card(contents, expanded_height)
         local section = {
             id = id, title = title_text, header = header, title_widget = title,
-            marker = marker, body = body, card = section_card,
+            marker = marker, body = body, body_container = body_container, card = section_card,
             expanded_height = expanded_height, collapsed = collapsed_ids[id] == true,
         }
-        local collapsed_height = header.forced_height + 2 * section_padding + 6
+        local collapsed_height = header.forced_height + 2 * section_vertical_padding + 6
         local function update()
             body.visible = not section.collapsed
+            body_container.visible = not section.collapsed
             marker.markup = string.format(
                 "<span foreground='%s' size='10pt' weight='bold'>%s</span>",
                 "#d9f7f4", section.collapsed and "▸" or "▾")
@@ -700,7 +707,7 @@ function sidebar.create(s, dismiss_menu)
         {wallpaper_controls, halign = "center", widget = wibox.container.place},
         spacing = 5, layout = wibox.layout.fixed.vertical,
     }
-    local wallpaper_card = collapsible_card("wallpaper", "WALLPAPER", wallpaper_body, 180)
+    local wallpaper_card = collapsible_card("wallpaper", "WALLPAPER", wallpaper_body)
 
     local weather_icon = label("☁", palette.teal, 22, true, "center")
     weather_icon.font = "Noto Sans Symbols 2 20"
@@ -749,7 +756,7 @@ function sidebar.create(s, dismiss_menu)
         {weather_line, halign = "center", valign = "center", widget = wibox.container.place},
         spacing = 3, layout = wibox.layout.fixed.vertical,
     }
-    local weather_card = collapsible_card("weather", "BYDGOSZCZ · WEATHER", weather_body, 78)
+    local weather_card = collapsible_card("weather", "BYDGOSZCZ · WEATHER", weather_body)
 
     local crypto_prices = {}
     local function crypto_cell(symbol)
@@ -769,7 +776,7 @@ function sidebar.create(s, dismiss_menu)
         {crypto_line, halign = "center", widget = wibox.container.place},
         spacing = 3, layout = wibox.layout.fixed.vertical,
     }
-    local crypto_card = collapsible_card("crypto", "CRYPTO PRICES · USD", crypto_body, 62)
+    local crypto_card = collapsible_card("crypto", "CRYPTO PRICES · USD", crypto_body)
     local crypto_pending = false
     local function refresh_crypto()
         if crypto_pending then return end
@@ -795,8 +802,7 @@ function sidebar.create(s, dismiss_menu)
         volume_control, network_text,
         spacing = 2, layout = wibox.layout.fixed.vertical,
     }
-    local stats_card, set_stats_card_height = collapsible_card(
-        "system-status", "SYSTEM STATUS", stats_body, 205)
+    local stats_card = collapsible_card("system-status", "SYSTEM STATUS", stats_body)
 
     local function codex_window_row(period)
         local summary = label(period .. " unavailable", palette.muted, 8, false)
@@ -815,7 +821,7 @@ function sidebar.create(s, dismiss_menu)
         codex_5h_widget, codex_7d_widget, codex_resets,
         spacing = 2, layout = wibox.layout.fixed.vertical,
     }
-    local codex_card = collapsible_card("codex", "CODEX", codex_body, 132)
+    local codex_card = collapsible_card("codex", "CODEX", codex_body)
     local codex_pending = false
     local function refresh_codex()
         if codex_pending then return end
@@ -868,7 +874,7 @@ function sidebar.create(s, dismiss_menu)
         media_text, media_controls_centered,
         spacing = 4, layout = wibox.layout.fixed.vertical,
     }
-    local media_card = collapsible_card("now-playing", "NOW PLAYING", media_body, 110)
+    local media_card = collapsible_card("now-playing", "NOW PLAYING", media_body)
 
     volume_control:add(volume_text)
     volume_control:add(volume_bar)
@@ -1016,7 +1022,7 @@ function sidebar.create(s, dismiss_menu)
         },
         spacing = 6, layout = wibox.layout.fixed.vertical,
     }
-    local quick_card = collapsible_card("quick-launch", "QUICK LAUNCH", quick_body, 168, trash_status)
+    local quick_card = collapsible_card("quick-launch", "QUICK LAUNCH", quick_body, nil, trash_status)
 
     local sidebar_width, scrollbar_height = 300, 12
     local sidebar_height = math.max(1, s.geometry.height - 30)
@@ -1230,7 +1236,7 @@ function sidebar.create(s, dismiss_menu)
             mouse_battery_text.text = string.format("Mouse  %d%%  %s", mouse_capacity, mouse_state or "Unknown")
             mouse_battery_bar.value = mouse_capacity
         end
-        set_stats_card_height(mouse_capacity and 205 or 187)
+        stats_card:emit_signal("widget::layout_changed")
 
         local rx, tx = network_stats()
         if rx and tx then
