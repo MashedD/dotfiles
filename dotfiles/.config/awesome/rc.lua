@@ -291,6 +291,7 @@ update_sidebar_mode = function(s)
     local fullscreen = screen_has_fullscreen(s)
     local reserve = mode == 3 and not fullscreen
     s.sidebar.visible = mode > 0 and not (mode == 3 and fullscreen)
+    if s.panel_clock_container then s.panel_clock_container.visible = not s.sidebar.visible end
     s.sidebar.ontop = mode == 2 or mode == 3
     s.sidebar:struts(reserve and {right = s.sidebar.width}
         or {left = 0, right = 0, top = 0, bottom = 0})

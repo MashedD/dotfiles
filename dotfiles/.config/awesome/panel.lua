@@ -121,6 +121,7 @@ function panel.create(s, menu, activate, window_menu)
     tray:set_base_size(20)
     tray:set_screen("primary")
     local clock = wibox.widget.textclock("%H:%M", 1)
+    local clock_container = glass_clock(clock)
     clock.font = "Segoe UI bold 9"
     clock.fg = "#f2fffb"
     clock.forced_width = 58
@@ -147,7 +148,7 @@ function panel.create(s, menu, activate, window_menu)
                         {start, separator(), s.taglist, separator(), spacing = 4,
                             layout = wibox.layout.fixed.horizontal},
                         s.tasklist,
-                        {tray, glass_clock(clock), spacing = 4, layout = wibox.layout.fixed.horizontal},
+                        {tray, clock_container, spacing = 4, layout = wibox.layout.fixed.horizontal},
                         layout = wibox.layout.align.horizontal,
                     },
                     left = 2, right = 2, top = 1, bottom = 1,
@@ -161,6 +162,6 @@ function panel.create(s, menu, activate, window_menu)
         widget = wibox.container.margin,
     }
     -- Useful handles for runtime checks; there is no external panel process.
-    s.panel_clock, s.panel_calendar = clock, calendar
+    s.panel_clock, s.panel_clock_container, s.panel_calendar = clock, clock_container, calendar
 end
 return panel
