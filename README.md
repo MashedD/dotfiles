@@ -2,7 +2,7 @@
 
 This is the active desktop configuration for a CachyOS X11 session:
 
-- AwesomeWM with four workspaces, floating windows and Win98/Matrix titlebars
+- AwesomeWM with four workspaces, floating-by-default windows (Win+Space toggles the current tag to tile) and Win98/Matrix titlebars
 - Native Awesome 30px Win98/Matrix top panel and XEmbed tray, with snixembed bridge
 - kitty, xfce4-appfinder, pcmanfm, dunst, clipboard history, lxqt-policykit, and xss-lock/i3lock
 - Chicago95 controls with Matrix-green (`#001a00` / `#00ff41`) active states

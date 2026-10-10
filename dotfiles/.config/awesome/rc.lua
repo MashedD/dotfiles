@@ -69,7 +69,7 @@ beautiful.init({
     useless_gap = 0, bg_systray = "#c0c0c0", systray_icon_spacing = 2,
     maximized_hide_border = true, fullscreen_hide_border = true,
 })
-awful.layout.layouts = { awful.layout.suit.floating }
+awful.layout.layouts = { awful.layout.suit.floating, awful.layout.suit.tile }
 
 local function run(command) awful.spawn(command) end
 local function helper(name, argument)
@@ -124,6 +124,52 @@ end
 local function cycle(delta)
     awful.client.focus.byidx(delta)
     if client.focus then client.focus:raise() end
+end
+local floating_restore = setmetatable({}, {__mode = "k"})
+local function belongs_to_tag(c, tag)
+    for _, current in ipairs(c:tags()) do
+        if current == tag then return true end
+    end
+    return false
+end
+local function toggle_layout()
+    local s = awful.screen.focused()
+    local tag = s and s.selected_tag
+    if not tag then return end
+    local to_tile = tag.layout == awful.layout.suit.floating
+    awful.layout.set(to_tile and awful.layout.suit.tile or awful.layout.suit.floating, tag)
+    if to_tile then
+        for _, c in ipairs(client.get(s)) do
+            if c.valid and not c.minimized and not c.fullscreen and belongs_to_tag(c, tag) then
+                local states = floating_restore[c] or {}
+                states[tag] = {floating = c.floating, geometry = c:geometry(), maximized = c.maximized}
+                floating_restore[c] = states
+                c.maximized, c.maximized_horizontal, c.maximized_vertical = false, false, false
+                c.floating = false
+            end
+        end
+    else
+        for _, c in ipairs(client.get(s)) do
+            local states = floating_restore[c]
+            local state = states and states[tag]
+            if c.valid and (belongs_to_tag(c, tag) or state) then
+                if state then
+                    c.floating = state.floating
+                else
+                    c.floating = true
+                end
+                if state then
+                    if state.maximized then
+                        c.maximized = true
+                    elseif state.geometry then
+                        c:geometry(state.geometry)
+                    end
+                    states[tag] = nil
+                    if next(states) == nil then floating_restore[c] = nil end
+                end
+            end
+        end
+    end
 end
 local function lower(c)
     dismiss_start_menu()
@@ -270,6 +316,7 @@ local function key(modifiers, name, callback)
     globalkeys = gears.table.join(globalkeys, awful.key(modifiers, name, callback))
 end
 key({mod}, "Return", function() run("kitty") end)
+key({mod}, "space", toggle_layout)
 key({mod, "Shift"}, "Return", function()
     run({"kitty", "--title", "System Monitor", "btop"})
 end)
@@ -552,6 +599,14 @@ client.connect_signal("manage", function(c)
         end
     end
     awful.placement.no_offscreen(c, {honor_workarea = true})
+    local tag = c.first_tag
+    if tag and tag.layout == awful.layout.suit.tile and c.type ~= "dock" and c.type ~= "desktop" then
+        local states = floating_restore[c] or {}
+        states[tag] = {floating = true, geometry = c:geometry(), maximized = c.maximized}
+        floating_restore[c] = states
+        c.maximized, c.maximized_horizontal, c.maximized_vertical = false, false, false
+        c.floating = false
+    end
 end)
 client.connect_signal("focus", function(c) c.border_color = beautiful.border_focus end)
 client.connect_signal("unfocus", function(c) c.border_color = beautiful.border_normal end)

@@ -19,7 +19,7 @@ Openbox, Hyprland, Waybar, Walker, Mako, cliphist, and hyprlock configurations r
 
 - Configure the WM through `dotfiles/.config/awesome/rc.lua` and `autostart`.
 - `startx` uses `dotfiles/.config/X11/xinitrc`, with `dotfiles/.xinitrc` as a forwarding entry point.
-- Keep only the floating layout. The native panel is in `dotfiles/.config/awesome/panel.lua`; do not start LXPanel or another tray manager.
+- Use floating by default; Win+Space toggles the current desktop between floating and tile layouts. The native panel is in `dotfiles/.config/awesome/panel.lua`; do not start LXPanel or another tray manager.
 - Click-to-focus; keep square Win98 window geometry but give titlebars a restrained Frutiger Aero glass gradient, clear text, teal/mint minimize and maximize controls, and a glossy red close button. Normal windows have a bottom-right left-drag resize grip; maximized/fullscreen windows have no borders or bottom strip. Retain `openbox-*` helpers for compatibility.
 - The session uses four desktops: **1**, **2**, **3**, and **4**.
   - Win+1–4 switches desktops.
