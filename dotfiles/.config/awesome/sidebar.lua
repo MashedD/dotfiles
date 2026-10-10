@@ -8,8 +8,8 @@ local gstring = require("gears.string")
 local sidebar = {}
 
 local palette = {
-    bg = "#07110d", card = "#101a15", line = "#263b30",
-    bevel_light = "#496653", bevel_shadow = "#050b07",
+    bg = "#07110d", card = "#101a15", line = "#29434a",
+    bevel_light = "#4c7180", bevel_shadow = "#050b07",
     text = "#c7d5cb", muted = "#63736a", teal = "#70c5bd",
     green = "#70c98b", neon = "#00ff41", amber = "#d6bd72",
 }
@@ -19,8 +19,16 @@ local sidebar_gradient = gears.color {
     stops = {{0, "#09150f"}, {0.38, "#14271b"}, {0.78, "#1b3022"}, {1, "#0a1710"}},
 }
 local card_gradient = gears.color {
-    type = "linear", from = {0, 0}, to = {300, 0},
-    stops = {{0, "#17271c"}, {0.5, "#142219"}, {1, "#101a14"}},
+    type = "linear", from = {0, 0}, to = {0, 180},
+    stops = {{0, "#1b302e"}, {0.16, "#172a28"}, {0.58, "#12231e"}, {1, "#0d1915"}},
+}
+local sidebar_title_gradient = gears.color {
+    type = "linear", from = {0, 0}, to = {0, 30},
+    stops = {{0, "#a5ecf4"}, {0.16, "#55b1d6"}, {0.48, "#2b88b8"}, {0.76, "#1d638f"}, {1, "#123f5e"}},
+}
+local section_header_gradient = gears.color {
+    type = "linear", from = {0, 0}, to = {0, 24},
+    stops = {{0, "#70b9c9"}, {0.16, "#478da6"}, {0.5, "#2c6986"}, {1, "#173d57"}},
 }
 local button_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
@@ -134,6 +142,31 @@ local function label(text, color, size, bold, align)
         markup = string.format("<span foreground='%s' size='%dpt'%s>%s</span>",
             color, size, bold and " weight='bold'" or "", text),
         align = align or "left", valign = "center", widget = wibox.widget.textbox,
+    }
+end
+
+local function section_header(text)
+    local title = label(text, "#edfaff", 10, true, "center")
+    local contents = wibox.widget {
+        {forced_width = 3, bg = "#8be0ee", widget = wibox.container.background},
+        {title, left = 6, right = 6, widget = wibox.container.margin},
+        layout = wibox.layout.align.horizontal,
+    }
+    return wibox.widget {
+        {
+            {forced_height = 1, bg = "#a5ecf4", widget = wibox.container.background},
+            {
+                {contents, left = 2, right = 2, top = 1, bottom = 1,
+                    widget = wibox.container.margin},
+                forced_height = 20, bg = section_header_gradient,
+                widget = wibox.container.background,
+            },
+            {forced_height = 1, bg = "#12364d", widget = wibox.container.background},
+            layout = wibox.layout.fixed.vertical,
+        },
+        forced_height = 24, bg = section_header_gradient,
+        border_width = 1, border_color = "#5b9bad",
+        widget = wibox.container.background,
     }
 end
 
@@ -436,13 +469,21 @@ function sidebar.create(s)
     media_text.wrap = "word_char"
     media_text.ellipsize = "end"
 
+    local header_title = label("MashedD's AwesomeBar", "#f2fffb", 9, true)
+    header_title.font = "Segoe UI bold 9"
     local header = wibox.widget {
         {
-            label("MashedD's AwesomeBar", palette.teal, 12, true),
-            left = 10, right = 6, widget = wibox.container.margin,
+            {forced_height = 1, bg = "#c5f7fb", widget = wibox.container.background},
+            {
+                {header_title, left = 10, right = 6, widget = wibox.container.margin},
+                forced_height = 23, bg = sidebar_title_gradient,
+                widget = wibox.container.background,
+            },
+            {forced_height = 1, bg = "#123f5e", widget = wibox.container.background},
+            layout = wibox.layout.fixed.vertical,
         },
-        forced_height = 30, bg = button_gradient,
-        border_width = 1, border_color = palette.bevel_light,
+        forced_height = 26, bg = sidebar_title_gradient,
+        border_width = 1, border_color = "#6bb5ca",
         widget = wibox.container.background,
     }
     local clock_centered = wibox.widget {
@@ -538,11 +579,11 @@ function sidebar.create(s)
     preview:buttons(gears.table.join(awful.button({}, 1, apply_wallpaper)))
     local preview_centered = {preview, halign = "center", valign = "center", widget = wibox.container.place}
     local wallpaper_card = card({
-        label("WALLPAPER", palette.teal, 10, true, "center"),
+        section_header("WALLPAPER"),
         preview_centered,
         {wallpaper_controls, halign = "center", widget = wibox.container.place},
         spacing = 5, layout = wibox.layout.fixed.vertical,
-    }, 180)
+    }, 190)
 
     local weather_icon = label("☁", palette.teal, 22, true, "center")
     weather_icon.font = "Noto Sans Symbols 2 20"
@@ -588,20 +629,20 @@ function sidebar.create(s)
             end)
     end
     local weather_card = card({
-        label("BYDGOSZCZ · WEATHER", palette.teal, 10, true, "center"),
+        section_header("BYDGOSZCZ · WEATHER"),
         {weather_line, halign = "center", valign = "center", widget = wibox.container.place},
         spacing = 3, layout = wibox.layout.fixed.vertical,
-    }, 72, 5)
+    }, 78, 5)
 
     local stats_card = card({
-        label("SYSTEM STATUS", palette.teal, 10, true, "center"),
+        section_header("SYSTEM STATUS"),
         cpu_text, cpu_bar,
         memory_text, memory_bar,
         battery_text, battery_bar,
         root_text, root_bar,
         network_text,
         spacing = 4, layout = wibox.layout.fixed.vertical,
-    }, 172)
+    }, 180)
 
     local media_controls = wibox.widget {
         action_button("«", function() awful.spawn.easy_async({"playerctl", "previous"}, function() end) end),
@@ -613,10 +654,10 @@ function sidebar.create(s)
         media_controls, halign = "center", valign = "center", widget = wibox.container.place,
     }
     local media_card = card({
-        label("NOW PLAYING", palette.teal, 10, true, "center"),
+        section_header("NOW PLAYING"),
         media_text, media_controls_centered,
         spacing = 4, layout = wibox.layout.fixed.vertical,
-    }, 100)
+    }, 110)
 
     local volume_control = wibox.widget {
         volume_text, volume_bar, spacing = 4,
@@ -647,11 +688,11 @@ function sidebar.create(s)
         awful.button({}, 4, function() change_volume("up") end),
         awful.button({}, 5, function() change_volume("down") end)
     ))
-    local audio_header = label("AUDIO", palette.teal, 10, true, "center")
+    local audio_header = section_header("AUDIO")
     local volume_card = card({
         audio_header, volume_control,
         spacing = 4, layout = wibox.layout.fixed.vertical,
-    }, 80)
+    }, 86)
 
     local todo_entries = {}
     local todo_list = wibox.layout.fixed.vertical()
@@ -673,7 +714,7 @@ function sidebar.create(s)
     end
     refresh_todo()
     local todo_card = card({
-        label("TODO", palette.teal, 10, true, "center"),
+        section_header("TODO"),
         todo_list, spacing = 5, layout = wibox.layout.fixed.vertical,
     }, nil, 7)
 
@@ -716,12 +757,12 @@ function sidebar.create(s)
     end
     refresh_calendar()
     local calendar_card = card({
-        label("CALENDAR", palette.teal, 10, true, "center"),
+        section_header("CALENDAR"),
         calendar_list, spacing = 5, layout = wibox.layout.fixed.vertical,
     }, nil, 7)
 
     local quick_card = card({
-        label("QUICK LAUNCH", palette.teal, 10, true, "center"),
+        section_header("QUICK LAUNCH"),
         {
             {
                 launcher("Terminal", {"kitty"}), launcher("Files", {"pcmanfm"}),
@@ -736,7 +777,7 @@ function sidebar.create(s)
             }, halign = "center", widget = wibox.container.place,
         },
         spacing = 6, layout = wibox.layout.fixed.vertical,
-    }, 124)
+    }, 132)
 
     local sidebar_width = 300
     local panel = wibox {
@@ -759,6 +800,7 @@ function sidebar.create(s)
         bg = sidebar_gradient, widget = wibox.container.background,
     }
     s.sidebar = panel
+    s.sidebar_header = header
     s.sidebar_mode = 0
     s.sidebar_clock, s.sidebar_digital_time, s.sidebar_date = clock, digital_time, date
     s.sidebar_clock_card = clock_card
