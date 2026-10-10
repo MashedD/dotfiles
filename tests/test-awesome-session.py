@@ -177,6 +177,7 @@ def main():
                 assert 'true' in lua('return screen[1].sidebar_scroll_view.forced_height == screen[1].sidebar.height - screen[1].sidebar_header.forced_height')
                 lua('for _,section in pairs(screen[1].sidebar_sections) do if section.collapsed then for _,button in ipairs(section.title_widget:buttons()) do if button.button == 1 then button:emit_signal("press"); break end end end end')
                 wait('return tostring(screen[1].sidebar_scrollbar.visible and screen[1].sidebar_scroll_max() > 0)', '"true"')
+                assert 'true' in lua('local s=screen[1]; local b=s.sidebar_scrollbar_panel; return b.visible and b.y == s.sidebar.y+s.sidebar_header.forced_height+s.sidebar_scroll_view.forced_height and b.y+b.height == s.sidebar.y+s.sidebar.height')
                 assert section_state_file.read_text() == ""
                 codex_5h_bar = lua('return tostring(screen[1].sidebar_codex_5h.remaining)')
                 codex_7d_bar = lua('return tostring(screen[1].sidebar_codex_7d.remaining)')

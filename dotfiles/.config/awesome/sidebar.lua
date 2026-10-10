@@ -1291,7 +1291,7 @@ function sidebar.create(s, dismiss_menu)
     local scroll_max = 0
     s.sidebar_scroll_position = 0
     local scroll_content_height, scroll_viewport_height = 1, 1
-    local scroll_view, scrollbar, panel
+    local scroll_view, scrollbar, panel, sidebar_column, scrollbar_panel
     local function set_scroll_offset(offset)
         s.sidebar_scroll_position = math.max(0, math.min(scroll_max, offset))
         if scroll_view then
@@ -1319,32 +1319,31 @@ function sidebar.create(s, dismiss_menu)
         cr:rectangle(0, 0, width, height)
         cr:clip()
     end
-    scroll_view.after_draw_children = function(_, _, cr)
+    scroll_view.after_draw_children = function(_, _, cr, width, height)
+        local fade_height = math.min(38, height)
+        if scroll_max > s.sidebar_scroll_position + 1 then
+            local gradient = cairo.LinearPattern.create(0, height - fade_height, 0, height)
+            gradient:add_color_stop_rgba(0, 0, 0, 0, 0)
+            gradient:add_color_stop_rgba(1, 0, 0, 0, 0.72)
+            cr:set_source(gradient)
+            cr:rectangle(0, height - fade_height, width, fade_height)
+            cr:fill()
+            gradient:destroy()
+        end
+        if s.sidebar_scroll_position > 1 then
+            local gradient = cairo.LinearPattern.create(0, 0, 0, fade_height)
+            gradient:add_color_stop_rgba(0, 0, 0, 0, 0.72)
+            gradient:add_color_stop_rgba(1, 0, 0, 0, 0)
+            cr:set_source(gradient)
+            cr:rectangle(0, 0, width, fade_height)
+            cr:fill()
+            gradient:destroy()
+        end
         cr:restore()
     end
-    scroll_view.layout = function(_, context, width, height)
-        local _, content_height = wibox.widget.base.fit_widget(scroll_view, context, content, width, 2^20)
-        local previous_max = scroll_max
-        local full_viewport_height = math.max(1,
-            (panel and panel.height or sidebar_height) - header.forced_height)
-        local needs_scrollbar = content_height > full_viewport_height
-        local viewport_height = math.max(1,
-            full_viewport_height - (needs_scrollbar and scrollbar_height or 0))
-        if scrollbar and scrollbar.visible ~= needs_scrollbar then
-            scrollbar.visible = needs_scrollbar
-        end
-        local desired_bar_height = needs_scrollbar and scrollbar_height or 0
-        if scrollbar and scrollbar.forced_height ~= desired_bar_height then
-            scrollbar.forced_height = desired_bar_height
-        end
-        if scroll_view.forced_height ~= viewport_height then
-            scroll_view.forced_height = viewport_height
-        end
-        scroll_content_height, scroll_viewport_height = content_height, viewport_height
-        scroll_max = math.max(0, content_height - viewport_height)
-        s.sidebar_scroll_position = math.max(0, math.min(scroll_max, s.sidebar_scroll_position))
-        if scrollbar and previous_max ~= scroll_max then scrollbar:emit_signal("widget::redraw_needed") end
-        return {wibox.widget.base.place_widget_at(content, 0, -s.sidebar_scroll_position, width, content_height)}
+    scroll_view.layout = function(_, context, width)
+        return {wibox.widget.base.place_widget_at(content, 0, -s.sidebar_scroll_position,
+            width, scroll_content_height)}
     end
     local function thumb_geometry(width)
         if scroll_max <= 0 then return 0, width end
@@ -1372,6 +1371,43 @@ function sidebar.create(s, dismiss_menu)
         cr:rectangle(x + 1, 1, math.max(0, thumb_width - 2), 1)
         cr:fill()
     end
+    scrollbar_panel = wibox {
+        screen = s, type = "utility", visible = false, ontop = true,
+        width = sidebar_width - 2, height = scrollbar_height,
+        x = s.geometry.x + s.geometry.width - sidebar_width + 2,
+        y = s.geometry.y + s.geometry.height - scrollbar_height,
+        bg = "#07120d", border_width = 0, restrict_workarea = false,
+    }
+    scrollbar_panel:setup {
+        scrollbar, bg = "#07120d", widget = wibox.container.background,
+    }
+    sidebar_column = wibox.widget.base.make_widget()
+    sidebar_column.fit = function(_, _, width, height) return width, height end
+    sidebar_column.layout = function(_, context, width, height)
+        local header_height = header.forced_height
+        local full_viewport_height = math.max(1, height - header_height)
+        local _, content_height = wibox.widget.base.fit_widget(
+            sidebar_column, context, content, width, 2^20)
+        local needs_scrollbar = content_height > full_viewport_height
+        local bar_height = needs_scrollbar and scrollbar_height or 0
+        local viewport_height = math.max(1, full_viewport_height - bar_height)
+        local previous_max = scroll_max
+        scroll_content_height, scroll_viewport_height = content_height, viewport_height
+        scroll_max = math.max(0, content_height - viewport_height)
+        s.sidebar_scroll_position = math.max(0, math.min(scroll_max, s.sidebar_scroll_position))
+        scrollbar.visible, scrollbar.forced_height = needs_scrollbar, bar_height
+        scroll_view.forced_height = viewport_height
+        scrollbar_panel.visible = needs_scrollbar
+        scrollbar_panel.x = (panel and panel.x or (s.geometry.x + s.geometry.width - sidebar_width)) + 2
+        scrollbar_panel.y = (panel and panel.y or (s.geometry.y + 30))
+            + header_height + viewport_height
+        scrollbar_panel.width, scrollbar_panel.height = width, scrollbar_height
+        if previous_max ~= scroll_max then scrollbar:emit_signal("widget::redraw_needed") end
+        return {
+            wibox.widget.base.place_widget_at(header, 0, 0, width, header_height),
+            wibox.widget.base.place_widget_at(scroll_view, 0, header_height, width, viewport_height),
+        }
+    end
     local function set_scroll_from_pointer(x)
         local track_x = (panel and panel.x or (s.geometry.x + s.geometry.width - sidebar_width)) + 2
         local track_width = sidebar_width - 2
@@ -1380,7 +1416,6 @@ function sidebar.create(s, dismiss_menu)
         local fraction = math.max(0, math.min(1, (x - track_x - thumb_width / 2) / travel))
         set_scroll_offset(fraction * scroll_max)
     end
-    scroll_view.forced_height = math.max(1, sidebar_height - header.forced_height)
     scrollbar:buttons(gears.table.join(awful.button({}, 1, function()
         suppress_scroll_click = true
         set_scroll_from_pointer(mouse.coords().x)
@@ -1405,10 +1440,7 @@ function sidebar.create(s, dismiss_menu)
     panel:setup {
         {
             {forced_width = 2, bg = palette.teal, widget = wibox.container.background},
-            {
-                header, scroll_view, scrollbar,
-                layout = wibox.layout.fixed.vertical,
-            },
+            sidebar_column,
             layout = wibox.layout.fixed.horizontal,
         },
         bg = sidebar_gradient, widget = wibox.container.background,
@@ -1420,6 +1452,7 @@ function sidebar.create(s, dismiss_menu)
     end)
     s.sidebar = panel
     s.sidebar_scroll_view, s.sidebar_scrollbar = scroll_view, scrollbar
+    s.sidebar_scrollbar_panel = scrollbar_panel
     s.sidebar_scroll_by = scroll_by
     s.sidebar_scroll_offset = function() return s.sidebar_scroll_position end
     s.sidebar_scroll_max = function() return scroll_max end
@@ -1459,8 +1492,7 @@ function sidebar.create(s, dismiss_menu)
         panel.x = s.geometry.x + s.geometry.width - sidebar_width
         panel.y = s.geometry.y + 30
         panel.height = math.max(1, s.geometry.height - 30)
-        scroll_view.forced_height = math.max(1, panel.height - header.forced_height
-            - (scrollbar.visible and scrollbar_height or 0))
+        sidebar_column:emit_signal("widget::layout_changed")
     end)
 
     local previous_total, previous_idle, previous_rx, previous_tx, previous_net_time
