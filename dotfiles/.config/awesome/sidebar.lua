@@ -929,6 +929,7 @@ function sidebar.create(s, dismiss_menu)
         awful.button({}, 3, function() change_volume("mute") end)
     ))
     if dismiss_menu then volume_control:connect_signal("button::press", dismiss_menu) end
+    local suppress_scroll_click = false
     local todo_entries = {}
     local todo_list = wibox.layout.fixed.vertical()
     todo_list.spacing = 4
@@ -951,8 +952,19 @@ function sidebar.create(s, dismiss_menu)
     local todo_body = wibox.widget {
         todo_list, spacing = 5, layout = wibox.layout.fixed.vertical,
     }
+    local function open_todo_document()
+        if suppress_scroll_click then return end
+        awful.spawn({"xdg-open", (os.getenv("HOME") or "") .. "/Documents/todo.md"})
+        if dismiss_menu then dismiss_menu() end
+    end
+    todo_body:buttons(gears.table.join(awful.button({}, 1, open_todo_document)))
     local todo_card = collapsible_card("todo", "TODO", todo_body)
 
+    local function open_calendar_document()
+        if suppress_scroll_click then return end
+        awful.spawn({"xdg-open", (os.getenv("HOME") or "") .. "/Documents/calendar.md"})
+        if dismiss_menu then dismiss_menu() end
+    end
     local calendar_entries = {}
     local calendar_list = wibox.layout.fixed.vertical()
     calendar_list.spacing = 4
@@ -999,10 +1011,7 @@ function sidebar.create(s, dismiss_menu)
         }
         content:connect_signal("mouse::enter", function() content.bg = "#152b21" end)
         content:connect_signal("mouse::leave", function() content.bg = "#0c1b15" end)
-        content:buttons(gears.table.join(awful.button({}, 1, function()
-            awful.spawn({"xdg-open", (os.getenv("HOME") or "") .. "/Documents/calendar.md"})
-            if dismiss_menu then dismiss_menu() end
-        end)))
+        content:buttons(gears.table.join(awful.button({}, 1, open_calendar_document)))
         return content
     end
     local function refresh_calendar()
@@ -1280,8 +1289,6 @@ function sidebar.create(s, dismiss_menu)
     local scrollbar_height = 12
     local sidebar_height = math.max(1, s.geometry.height - 30)
     local scroll_max = 0
-    local scroll_target = 0
-    local scroll_animation
     s.sidebar_scroll_position = 0
     local scroll_content_height, scroll_viewport_height = 1, 1
     local scroll_view, scrollbar, panel
@@ -1293,34 +1300,8 @@ function sidebar.create(s, dismiss_menu)
         end
         if scrollbar then scrollbar:emit_signal("widget::redraw_needed") end
     end
-    local function animate_scroll_to(target)
-        scroll_target = math.max(0, math.min(scroll_max, target))
-        if scroll_animation and scroll_animation.started then return end
-        local start = s.sidebar_scroll_position
-        local frame = 0
-        scroll_animation = gears.timer.start_new(1 / 60, function()
-            frame = frame + 1
-            local progress = math.min(1, frame / 6)
-            local eased = 1 - (1 - progress) ^ 3
-            set_scroll_offset(start + (scroll_target - start) * eased)
-            if progress >= 1 then
-                set_scroll_offset(scroll_target)
-                scroll_animation = nil
-                return false
-            end
-            return true
-        end)
-    end
-    local function set_scroll_direct(offset)
-        if scroll_animation and scroll_animation.started then
-            scroll_animation:stop()
-            scroll_animation = nil
-        end
-        scroll_target = math.max(0, math.min(scroll_max, offset))
-        set_scroll_offset(scroll_target)
-    end
     local function scroll_by(delta)
-        animate_scroll_to(scroll_target + delta)
+        set_scroll_offset(s.sidebar_scroll_position + delta)
     end
     local content = wibox.layout.fixed.vertical()
     content.spacing = 0
@@ -1333,6 +1314,14 @@ function sidebar.create(s, dismiss_menu)
         return width, math.min(height, scroll_view.forced_height or height)
     end
     scroll_view.draw = function() end
+    scroll_view.before_draw_children = function(_, _, cr, width, height)
+        cr:save()
+        cr:rectangle(0, 0, width, height)
+        cr:clip()
+    end
+    scroll_view.after_draw_children = function(_, _, cr)
+        cr:restore()
+    end
     scroll_view.layout = function(_, context, width, height)
         local _, content_height = wibox.widget.base.fit_widget(scroll_view, context, content, width, 2^20)
         local previous_max = scroll_max
@@ -1353,7 +1342,6 @@ function sidebar.create(s, dismiss_menu)
         end
         scroll_content_height, scroll_viewport_height = content_height, viewport_height
         scroll_max = math.max(0, content_height - viewport_height)
-        scroll_target = math.max(0, math.min(scroll_max, scroll_target))
         s.sidebar_scroll_position = math.max(0, math.min(scroll_max, s.sidebar_scroll_position))
         if scrollbar and previous_max ~= scroll_max then scrollbar:emit_signal("widget::redraw_needed") end
         return {wibox.widget.base.place_widget_at(content, 0, -s.sidebar_scroll_position, width, content_height)}
@@ -1390,14 +1378,20 @@ function sidebar.create(s, dismiss_menu)
         local thumb_width = select(2, thumb_geometry(track_width))
         local travel = math.max(1, track_width - thumb_width)
         local fraction = math.max(0, math.min(1, (x - track_x - thumb_width / 2) / travel))
-        set_scroll_direct(fraction * scroll_max)
+        set_scroll_offset(fraction * scroll_max)
     end
     scroll_view.forced_height = math.max(1, sidebar_height - header.forced_height)
     scrollbar:buttons(gears.table.join(awful.button({}, 1, function()
+        suppress_scroll_click = true
         set_scroll_from_pointer(mouse.coords().x)
         mousegrabber.run(function(pointer)
             set_scroll_from_pointer(pointer.x)
-            return pointer.buttons[1]
+            if pointer.buttons[1] then return true end
+            gears.timer.start_new(0.18, function()
+                suppress_scroll_click = false
+                return false
+            end)
+            return false
         end, "sb_h_double_arrow")
     end)))
     panel = wibox {
@@ -1421,8 +1415,8 @@ function sidebar.create(s, dismiss_menu)
     }
     panel:connect_signal("button::press", function(_, _, _, button)
         if dismiss_menu then dismiss_menu() end
-        local delta = button == 4 and -42 or (button == 5 and 42 or nil)
-        if delta then scroll_by(delta) end
+        local delta = button == 4 and -32 or (button == 5 and 32 or nil)
+        if delta and mouse.coords().y >= panel.y + header.forced_height then scroll_by(delta) end
     end)
     s.sidebar = panel
     s.sidebar_scroll_view, s.sidebar_scrollbar = scroll_view, scrollbar
@@ -1442,7 +1436,9 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_trash_icon, s.sidebar_trash_state = trash_icon, trash_state
     s.sidebar_trash_status, s.sidebar_trash_refresh = trash_status, refresh_trash_status
     s.sidebar_todo_entries, s.sidebar_todo_card = todo_entries, todo_card
+    s.sidebar_todo_open = open_todo_document
     s.sidebar_calendar_card = calendar_card
+    s.sidebar_calendar_open = open_calendar_document
     s.sidebar_crypto_card, s.sidebar_crypto_prices = crypto_card, crypto_prices
     s.sidebar_crypto_refresh = refresh_crypto
     s.sidebar_codex_card, s.sidebar_codex_5h, s.sidebar_codex_7d = codex_card, codex_5h, codex_7d

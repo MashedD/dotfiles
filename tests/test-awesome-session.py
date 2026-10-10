@@ -67,6 +67,7 @@ def main():
         for name, source in {
             "wpctl": '#!/bin/sh\necho "Volume: 0.42"\n',
             "pavucontrol": '#!/bin/sh\necho mixer >> "$TEST_ACTIONS"\n',
+            "xdg-open": '#!/bin/sh\nprintf "open %s\\n" "$*" >> "$TEST_ACTIONS"\n',
         }.items():
             executable = bin_dir / name
             executable.write_text(source)
@@ -246,8 +247,10 @@ def main():
                 lua('for _,b in ipairs(screen[1].sidebar_volume:buttons()) do if b.button == 3 then b:emit_signal("press") end end')
                 lua('for _,b in ipairs(screen[1].sidebar_volume:buttons()) do if b.button == 1 then b:emit_signal("press") end end')
                 time.sleep(0.3)
+                lua('screen[1].sidebar_todo_open(); screen[1].sidebar_calendar_open()')
+                wait('local f=io.open(os.getenv("TEST_ACTIONS"),"r"); local v=f and f:read("*a") or ""; if f then f:close() end; return v:find("open "..os.getenv("HOME").."/Documents/todo.md",1,true) and v:find("open "..os.getenv("HOME").."/Documents/calendar.md",1,true) and "opened" or "pending"', 'opened')
                 actions = (directory / "actions").read_text().splitlines()
-                assert all(action in actions for action in ("mute", "mixer")), actions
+                assert all(action in actions for action in ("mute", "mixer", f"open {testhome}/Documents/todo.md", f"open {testhome}/Documents/calendar.md")), actions
                 assert "up" not in actions and "down" not in actions, actions
                 xlib = ctypes.CDLL("libX11.so.6")
                 xlib.XOpenDisplay.argtypes = [ctypes.c_char_p]
