@@ -77,11 +77,17 @@ local function helper(name, argument)
     if argument then command[#command + 1] = argument end
     run(command)
 end
+local main_menu
+local function dismiss_start_menu()
+    if main_menu and main_menu.wibox.visible then main_menu:hide() end
+end
 local function activate(c)
+    dismiss_start_menu()
     c.minimized = false
     c:emit_signal("request::activate", "user", {raise = true})
 end
 local function maximize(c)
+    dismiss_start_menu()
     c.maximized = not c.maximized
     c:raise()
 end
@@ -120,6 +126,7 @@ local function cycle(delta)
     if client.focus then client.focus:raise() end
 end
 local function lower(c)
+    dismiss_start_menu()
     c:lower()
     awful.client.focus.byidx(1)
     if client.focus == c then client.focus = nil end
@@ -138,6 +145,7 @@ local function snap(c, right)
     awful.placement.no_offscreen(c, {honor_workarea = true})
 end
 local function window_menu(c)
+    dismiss_start_menu()
     awful.menu({items = {
         {"Minimize", function() c.minimized = true end},
         {"Maximize / Restore", function() maximize(c) end},
@@ -148,6 +156,7 @@ local function window_menu(c)
     }}):show()
 end
 local function confirm_quit()
+    dismiss_start_menu()
     local confirmation = awful.menu({items = {
         {"Quit Awesome?", function() awesome.quit() end},
         {"Cancel", function() end},
@@ -163,14 +172,14 @@ local display_menu = awful.menu({items = {
 }})
 _G.__awesome_display_menu = display_menu
 _G.__awesome_quit_confirmation = nil
-local main_menu = awful.menu({items = {
+main_menu = awful.menu({items = {
     {"Applications", function() menubar.show() end},
     {"Run…", "xfce4-appfinder"},
     {"Kitty", "kitty"}, {"PCManFM", "pcmanfm"}, {"Firefox", "firefox"},
     {"Audacious", "audacious"}, {"Gajim", "gajim"}, {"KeePassXC", "keepassxc"},
     {"Volume Control", "pavucontrol"},
     {"Reload Awesome", awesome.restart},
-    {"Display outputs", function() display_menu:show() end},
+    {"Display outputs", function() dismiss_start_menu(); display_menu:show() end},
     {"Log Out…", confirm_quit},
 }})
 local main_menu_keygrabber = main_menu._keygrabber
@@ -214,7 +223,7 @@ awful.screen.connect_for_each_screen(function(s)
     awful.tag({"1", "2", "3", "4"}, s, awful.layout.suit.floating)
     wallpaper(s)
     panel.create(s, main_menu, activate, window_menu)
-    sidebar.create(s)
+    sidebar.create(s, dismiss_start_menu)
 end)
 screen.connect_signal("property::geometry", wallpaper)
 
@@ -344,6 +353,7 @@ globalkeys = gears.table.join(globalkeys,
     awful.key({}, "Super_R", on_super_press))
 root.keys(globalkeys)
 root.buttons(gears.table.join(
+    awful.button({}, 1, dismiss_start_menu),
     awful.button({}, 3, function() main_menu:toggle() end),
     awful.button({}, 2, function() awful.menu.client_list({theme = {width = 250}}) end),
     awful.button({}, 4, function() adjacent_tag(-1, false, false, true) end),
@@ -482,12 +492,13 @@ client.connect_signal("request::titlebars", function(c)
     local icon = awful.titlebar.widget.iconwidget(c)
     icon:buttons(gears.table.join(awful.button({}, 1, function() window_menu(c) end)))
     local minimize_button = control("−", function()
+        dismiss_start_menu()
         gears.timer.delayed_call(function()
             if c.valid then c.minimized = true end
         end)
     end, false, "titlebar_minimize")
     local maximize_button = control("□", function() maximize(c) end, false, "titlebar_maximize")
-    local close_button = control("×", function() c:kill() end, true, "titlebar_close")
+    local close_button = control("×", function() dismiss_start_menu(); c:kill() end, true, "titlebar_close")
     awful.titlebar(c, {size = 26}):setup {
         {
             {icon, forced_width = 18, widget = wibox.container.constraint},

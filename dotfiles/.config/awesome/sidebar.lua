@@ -330,7 +330,7 @@ local function card(widget, height, padding)
     }
 end
 
-local function style_button(button)
+local function style_button(button, dismiss_menu)
     local hovered, pressed = false, false
     local function update()
         button.bg = pressed and button_pressed_gradient
@@ -340,7 +340,11 @@ local function style_button(button)
     end
     button:connect_signal("mouse::enter", function() hovered = true; update() end)
     button:connect_signal("mouse::leave", function() hovered = false; pressed = false; update() end)
-    button:connect_signal("button::press", function() pressed = true; update() end)
+    button:connect_signal("button::press", function()
+        if dismiss_menu then dismiss_menu() end
+        pressed = true
+        update()
+    end)
     button:connect_signal("button::release", function() pressed = false; update() end)
     return button
 end
@@ -456,29 +460,29 @@ local function network_stats()
     return rx, tx
 end
 
-local function launcher(text, command)
+local function launcher(text, command, dismiss_menu)
     local button = style_button(wibox.widget {
         label(text, palette.teal, 10, true, "center"),
         forced_width = 112, forced_height = 34,
         bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
         widget = wibox.container.background,
-    })
+    }, dismiss_menu)
     button:buttons(gears.table.join(awful.button({}, 1, function() awful.spawn(command) end)))
     return button
 end
 
-local function action_button(text, callback)
+local function action_button(text, callback, dismiss_menu)
     local button = style_button(wibox.widget {
         label(text, palette.teal, 14, true, "center"),
         forced_width = 46, forced_height = 28,
         bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
         widget = wibox.container.background,
-    })
+    }, dismiss_menu)
     button:buttons(gears.table.join(awful.button({}, 1, callback)))
     return button
 end
 
-function sidebar.create(s)
+function sidebar.create(s, dismiss_menu)
     local clock = make_analog_clock()
     local digital_time = label("00:00:00", palette.neon, 24, true, "center")
     local date = label("", palette.teal, 12, true, "center")
@@ -536,6 +540,7 @@ function sidebar.create(s)
     end
     local function bind_clock_toggle(widget)
         widget:buttons(gears.table.join(awful.button({}, 1, toggle_clock_mode)))
+        if dismiss_menu then widget:connect_signal("button::press", dismiss_menu) end
     end
     bind_clock_toggle(clock)
     bind_clock_toggle(digital_time)
@@ -579,7 +584,7 @@ function sidebar.create(s)
             forced_width = 26, forced_height = 20,
             bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
             widget = wibox.container.background,
-        })
+        }, dismiss_menu)
         button:buttons(gears.table.join(awful.button({}, 1, callback)))
         return button
     end
@@ -603,6 +608,7 @@ function sidebar.create(s)
     }
     update_wallpaper_preview()
     preview:buttons(gears.table.join(awful.button({}, 1, apply_wallpaper)))
+    if dismiss_menu then preview:connect_signal("button::press", dismiss_menu) end
     local preview_centered = {preview, halign = "center", valign = "center", widget = wibox.container.place}
     local wallpaper_card = card({
         section_header("WALLPAPER"),
@@ -673,9 +679,9 @@ function sidebar.create(s)
     }, 220)
 
     local media_controls = wibox.widget {
-        action_button("«", function() awful.spawn.easy_async({"playerctl", "previous"}, function() end) end),
-        action_button("▶", function() awful.spawn.easy_async({"playerctl", "play-pause"}, function() end) end),
-        action_button("»", function() awful.spawn.easy_async({"playerctl", "next"}, function() end) end),
+        action_button("«", function() awful.spawn.easy_async({"playerctl", "previous"}, function() end) end, dismiss_menu),
+        action_button("▶", function() awful.spawn.easy_async({"playerctl", "play-pause"}, function() end) end, dismiss_menu),
+        action_button("»", function() awful.spawn.easy_async({"playerctl", "next"}, function() end) end, dismiss_menu),
         spacing = 8, layout = wibox.layout.fixed.horizontal,
     }
     local media_controls_centered = {
@@ -714,6 +720,7 @@ function sidebar.create(s)
         awful.button({}, 4, function() change_volume("up") end),
         awful.button({}, 5, function() change_volume("down") end)
     ))
+    if dismiss_menu then volume_control:connect_signal("button::press", dismiss_menu) end
     local todo_entries = {}
     local todo_list = wibox.layout.fixed.vertical()
     todo_list.spacing = 4
@@ -809,21 +816,22 @@ function sidebar.create(s)
     trash_status:buttons(gears.table.join(awful.button({}, 1, function()
         awful.spawn({"pcmanfm", "trash:///"})
     end)))
+    if dismiss_menu then trash_status:connect_signal("button::press", dismiss_menu) end
 
-    local quake2_button = launcher("Quake 2", {os.getenv("HOME") .. "/Games/quake2/q2pro.sh"})
-    local sleep_button = launcher("Sleep", {"systemctl", "suspend"})
+    local quake2_button = launcher("Quake 2", {os.getenv("HOME") .. "/Games/quake2/q2pro.sh"}, dismiss_menu)
+    local sleep_button = launcher("Sleep", {"systemctl", "suspend"}, dismiss_menu)
     local quick_card = card({
         section_header("QUICK LAUNCH", trash_status),
         {
             {
-                launcher("Terminal", {"kitty"}), launcher("Files", {"pcmanfm"}),
+                launcher("Terminal", {"kitty"}, dismiss_menu), launcher("Files", {"pcmanfm"}, dismiss_menu),
                 spacing = 8, layout = wibox.layout.fixed.horizontal,
             }, halign = "center", widget = wibox.container.place,
         },
         {
             {
-                launcher("Monitor", {"kitty", "--title", "System Monitor", "btop"}),
-                launcher("Finder", {"xfce4-appfinder"}),
+                launcher("Monitor", {"kitty", "--title", "System Monitor", "btop"}, dismiss_menu),
+                launcher("Finder", {"xfce4-appfinder"}, dismiss_menu),
                 spacing = 8, layout = wibox.layout.fixed.horizontal,
             }, halign = "center", widget = wibox.container.place,
         },
@@ -855,6 +863,7 @@ function sidebar.create(s)
         },
         bg = sidebar_gradient, widget = wibox.container.background,
     }
+    if dismiss_menu then panel:connect_signal("button::press", dismiss_menu) end
     s.sidebar = panel
     s.sidebar_header = header
     s.sidebar_mode = 0

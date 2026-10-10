@@ -32,6 +32,9 @@ local function separator()
 end
 
 function panel.create(s, menu, activate, window_menu)
+    local function dismiss_menu()
+        if menu and menu.wibox and menu.wibox.visible then menu:hide() end
+    end
     local icon = wibox.widget.imagebox()
     local icon_path = (os.getenv("XDG_DATA_HOME") or os.getenv("HOME") .. "/.local/share")
         .. "/icons/hicolor/32x32/apps/vax-tux-start.png"
@@ -52,8 +55,9 @@ function panel.create(s, menu, activate, window_menu)
             bg_empty = panel_item_gradient, fg_empty = "#d6e7e3",
             bg_occupied = panel_item_gradient, fg_occupied = "#d6e7e3"},
         buttons = gears.table.join(
-            awful.button({}, 1, function(t) t:view_only() end),
+            awful.button({}, 1, function(t) dismiss_menu(); t:view_only() end),
             awful.button({"Mod4"}, 1, function(t)
+                dismiss_menu()
                 if client.focus then client.focus:move_to_tag(t) end
             end),
             -- Up returns to the previous desktop; down advances to the next.
@@ -82,9 +86,10 @@ function panel.create(s, menu, activate, window_menu)
             bg_minimize = panel_item_gradient, fg_minimize = "#9ab6b0"},
         buttons = gears.table.join(
             awful.button({}, 1, function(c)
+                dismiss_menu()
                 if c == client.focus then c.minimized = true else activate(c) end
             end),
-            awful.button({}, 3, window_menu),
+            awful.button({}, 3, function(c) dismiss_menu(); window_menu(c) end),
             awful.button({}, 4, function() awful.client.focus.byidx(1) end),
             awful.button({}, 5, function() awful.client.focus.byidx(-1) end)
         ),
@@ -127,6 +132,8 @@ function panel.create(s, menu, activate, window_menu)
         style_focus = {bg_color = "#287ca5", fg_color = "#ffffff"},
     }
     calendar:attach(clock, "tr", {on_hover = false})
+    clock:connect_signal("button::press", dismiss_menu)
+    tray:connect_signal("button::press", dismiss_menu)
     s.panel = awful.wibar {
         position = "top", screen = s, height = 30, bg = panel_gradient, fg = "#f2fffb",
         border_width = 0, ontop = true, restrict_workarea = true,
