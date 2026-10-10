@@ -634,15 +634,17 @@ function sidebar.create(s)
         spacing = 3, layout = wibox.layout.fixed.vertical,
     }, 78, 5)
 
+    local volume_control = wibox.layout.fixed.vertical()
+    volume_control.spacing = 4
     local stats_card = card({
         section_header("SYSTEM STATUS"),
         cpu_text, cpu_bar,
         memory_text, memory_bar,
         battery_text, battery_bar,
         root_text, root_bar,
-        network_text,
+        network_text, volume_control,
         spacing = 4, layout = wibox.layout.fixed.vertical,
-    }, 180)
+    }, 220)
 
     local media_controls = wibox.widget {
         action_button("«", function() awful.spawn.easy_async({"playerctl", "previous"}, function() end) end),
@@ -659,10 +661,8 @@ function sidebar.create(s)
         spacing = 4, layout = wibox.layout.fixed.vertical,
     }, 110)
 
-    local volume_control = wibox.widget {
-        volume_text, volume_bar, spacing = 4,
-        layout = wibox.layout.fixed.vertical,
-    }
+    volume_control:add(volume_text)
+    volume_control:add(volume_bar)
     local volume_pending = false
     local function update_volume()
         if volume_pending then return end
@@ -688,12 +688,6 @@ function sidebar.create(s)
         awful.button({}, 4, function() change_volume("up") end),
         awful.button({}, 5, function() change_volume("down") end)
     ))
-    local audio_header = section_header("AUDIO")
-    local volume_card = card({
-        audio_header, volume_control,
-        spacing = 4, layout = wibox.layout.fixed.vertical,
-    }, 86)
-
     local todo_entries = {}
     local todo_list = wibox.layout.fixed.vertical()
     todo_list.spacing = 4
@@ -792,7 +786,7 @@ function sidebar.create(s)
         {
             {forced_width = 2, bg = palette.teal, widget = wibox.container.background},
             {
-                header, clock_card, wallpaper_card, weather_card, stats_card, volume_card, media_card, quick_card, todo_card, calendar_card,
+                header, clock_card, wallpaper_card, weather_card, stats_card, media_card, quick_card, todo_card, calendar_card,
                 spacing = 6, layout = wibox.layout.fixed.vertical,
             },
             layout = wibox.layout.fixed.horizontal,
@@ -806,7 +800,6 @@ function sidebar.create(s)
     s.sidebar_clock_card = clock_card
     s.sidebar_cpu, s.sidebar_battery = cpu_text, battery_text
     s.sidebar_volume, s.sidebar_volume_text = volume_control, volume_text
-    s.sidebar_audio_header = audio_header
     s.sidebar_todo_entries, s.sidebar_todo_card = todo_entries, todo_card
     s.sidebar_calendar_card = calendar_card
     s.sidebar_media_text = media_text
