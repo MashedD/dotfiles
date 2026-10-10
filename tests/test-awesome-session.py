@@ -224,6 +224,13 @@ def main():
                 assert 'floating' in lua('return require("awful").layout.getname(require("awful").layout.get(screen[1]))')
                 restored_geometry = lua('local c; for _,x in ipairs(client.get()) do if x.instance == "AwesomeSmokeA" then c=x; break end end; return c.x..","..c.y..","..c.width..","..c.height')
                 assert original_geometry == restored_geometry, (original_geometry, restored_geometry)
+                drag_coords = lua('local c; for _,x in ipairs(client.get()) do if x.instance == "AwesomeSmokeA" then c=x; break end end; return (c.x+80)..","..(c.y+80)')
+                x, y = re.search(r'"(\d+),(\d+)"', drag_coords).groups()
+                subprocess.run(["xdotool", "keydown", "Super_L", "mousemove", x, y, "mousedown", "1",
+                                "mousemove_relative", "--sync", "15", "0", "keyup", "Super_L", "mouseup", "1"],
+                               env=env, check=True, timeout=5)
+                time.sleep(0.15)
+                assert 'false' in lua('return tostring(screen[1].start_menu.wibox.visible)')
                 subprocess.run(["xdotool", "mousemove", "30", "15", "click", "1"], env=env, check=True)
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
                 outside_coords = lua('local c; for _,x in ipairs(client.get()) do if x.class == "Xmessage" then c=x; break end end; return (c.x+40)..","..(c.y+50)')

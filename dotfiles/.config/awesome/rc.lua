@@ -420,9 +420,17 @@ local clientkeys = gears.table.join(
 )
 local clientbuttons = gears.table.join(
     awful.button({}, 1, activate),
-    awful.button({mod}, 1, function(c) activate(c); awful.mouse.client.move(c) end),
-    awful.button({mod}, 3, function(c) activate(c); awful.mouse.client.resize(c) end),
-    awful.button({mod}, 2, lower),
+    awful.button({mod}, 1, function(c)
+        mark_super_combo()
+        activate(c)
+        awful.mouse.client.move(c)
+    end),
+    awful.button({mod}, 3, function(c)
+        mark_super_combo()
+        activate(c)
+        awful.mouse.client.resize(c)
+    end),
+    awful.button({mod}, 2, function(c) mark_super_combo(); lower(c) end),
     awful.button({mod}, 4, function() adjacent_tag(-1, false, false, true) end),
     awful.button({mod}, 5, function() adjacent_tag(1, false, false, true) end),
     awful.button({"Control", "Mod1"}, 4, function() adjacent_tag(-1, false, false, true) end),
