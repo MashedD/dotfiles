@@ -149,7 +149,7 @@ end
 local function section_header(text, trailing_widget)
     local title = label(text, "#edfaff", 10, true, "center")
     local marker = label("−", "#d9f7f4", 10, true, "center")
-    marker.forced_width = 12
+    marker.forced_width = 18
     local contents = wibox.layout.stack()
     local adornments = wibox.layout.align.horizontal()
     adornments:set_left(marker)
@@ -534,7 +534,7 @@ function sidebar.create(s, dismiss_menu)
             body.visible = not section.collapsed
             marker.markup = string.format(
                 "<span foreground='%s' size='10pt' weight='bold'>%s</span>",
-                "#d9f7f4", section.collapsed and "+" or "−")
+                "#d9f7f4", section.collapsed and "▸" or "▾")
             section_card.forced_height = section.collapsed and collapsed_height or section.expanded_height
         end
         local function toggle()
@@ -1049,14 +1049,27 @@ function sidebar.create(s, dismiss_menu)
     scroll_view.layout = function(_, context, width, height)
         local _, content_height = wibox.widget.base.fit_widget(scroll_view, context, content, width, 2^20)
         local previous_max = scroll_max
-        scroll_content_height, scroll_viewport_height = content_height, height
-        scroll_max = math.max(0, content_height - height)
+        local full_viewport_height = math.max(1,
+            (panel and panel.height or sidebar_height) - header.forced_height)
+        local needs_scrollbar = content_height > full_viewport_height
+        local viewport_height = math.max(1,
+            full_viewport_height - (needs_scrollbar and scrollbar_height or 0))
+        if scrollbar and scrollbar.visible ~= needs_scrollbar then
+            scrollbar.visible = needs_scrollbar
+        end
+        local desired_bar_height = needs_scrollbar and scrollbar_height or 0
+        if scrollbar and scrollbar.forced_height ~= desired_bar_height then
+            scrollbar.forced_height = desired_bar_height
+        end
+        if scroll_view.forced_height ~= viewport_height then
+            scroll_view.forced_height = viewport_height
+        end
+        scroll_content_height, scroll_viewport_height = content_height, viewport_height
+        scroll_max = math.max(0, content_height - viewport_height)
         s.sidebar_scroll_position = math.max(0, math.min(scroll_max, s.sidebar_scroll_position))
         if scrollbar and previous_max ~= scroll_max then scrollbar:emit_signal("widget::redraw_needed") end
         return {wibox.widget.base.place_widget_at(content, 0, -s.sidebar_scroll_position, width, content_height)}
     end
-    scroll_view.forced_height = math.max(1, sidebar_height - header.forced_height - scrollbar_height)
-
     local function thumb_geometry(width)
         if scroll_max <= 0 then return 0, width end
         local thumb_width = math.max(24, math.floor(width * scroll_viewport_height / scroll_content_height))
@@ -1065,7 +1078,8 @@ function sidebar.create(s, dismiss_menu)
         return x, thumb_width
     end
     scrollbar = wibox.widget.base.make_widget()
-    scrollbar.forced_height = scrollbar_height
+    scrollbar.visible = false
+    scrollbar.forced_height = 0
     scrollbar.fit = function(_, _, width) return width, scrollbar_height end
     scrollbar.draw = function(_, _, cr, width, height)
         cr:set_source_rgb(0.025, 0.07, 0.05)
@@ -1090,6 +1104,7 @@ function sidebar.create(s, dismiss_menu)
         local fraction = math.max(0, math.min(1, (x - track_x - thumb_width / 2) / travel))
         set_scroll_offset(fraction * scroll_max)
     end
+    scroll_view.forced_height = math.max(1, sidebar_height - header.forced_height)
     scrollbar:buttons(gears.table.join(awful.button({}, 1, function()
         set_scroll_from_pointer(mouse.coords().x)
         mousegrabber.run(function(pointer)
@@ -1160,7 +1175,8 @@ function sidebar.create(s, dismiss_menu)
         panel.x = s.geometry.x + s.geometry.width - sidebar_width
         panel.y = s.geometry.y + 30
         panel.height = math.max(1, s.geometry.height - 30)
-        scroll_view.forced_height = math.max(1, panel.height - header.forced_height - scrollbar_height)
+        scroll_view.forced_height = math.max(1, panel.height - header.forced_height
+            - (scrollbar.visible and scrollbar_height or 0))
     end)
 
     local previous_total, previous_idle, previous_rx, previous_tx, previous_net_time

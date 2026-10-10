@@ -145,7 +145,7 @@ def main():
                 assert 'true' in lua('local s=screen[1]; local count=0; for _,section in pairs(s.sidebar_sections) do count=count+1; if section.collapsed then return "false" end end; return tostring(count == 9)')
                 subprocess.run(["xdotool", "mousemove", "1130", "478", "click", "1"], env=env, check=True)
                 wait('return tostring(screen[1].sidebar_sections.crypto.collapsed)', '"true"')
-                assert 'true' in lua('local section=screen[1].sidebar_sections.crypto; return section.card.forced_height == 42 and not section.body.visible and section.marker.markup:find("+", 1, true) ~= nil')
+                assert 'true' in lua('local section=screen[1].sidebar_sections.crypto; return section.card.forced_height == 42 and not section.body.visible and section.marker.markup:find("▸", 1, true) ~= nil')
                 section_state_file = testhome / ".local/state/awesome/sidebar-sections"
                 assert section_state_file.read_text() == "crypto\n"
                 subprocess.run(["awesome-client", "awesome.restart()"], env=env,
@@ -154,6 +154,12 @@ def main():
                 assert section_state_file.read_text() == "crypto\n"
                 subprocess.run(["xdotool", "mousemove", "1130", "478", "click", "1"], env=env, check=True)
                 wait('return tostring(screen[1].sidebar_sections.crypto.collapsed)', '"false"')
+                assert section_state_file.read_text() == ""
+                lua('for _,section in pairs(screen[1].sidebar_sections) do if not section.collapsed then for _,button in ipairs(section.title_widget:buttons()) do if button.button == 1 then button:emit_signal("press"); break end end end end')
+                wait('return tostring(not screen[1].sidebar_scrollbar.visible and screen[1].sidebar_scroll_max() == 0)', '"true"')
+                assert 'true' in lua('return screen[1].sidebar_scroll_view.forced_height == screen[1].sidebar.height - screen[1].sidebar_header.forced_height')
+                lua('for _,section in pairs(screen[1].sidebar_sections) do if section.collapsed then for _,button in ipairs(section.title_widget:buttons()) do if button.button == 1 then button:emit_signal("press"); break end end end end')
+                wait('return tostring(screen[1].sidebar_scrollbar.visible and screen[1].sidebar_scroll_max() > 0)', '"true"')
                 assert section_state_file.read_text() == ""
                 codex_5h_bar = lua('return tostring(screen[1].sidebar_codex_5h.remaining)')
                 codex_7d_bar = lua('return tostring(screen[1].sidebar_codex_7d.remaining)')
