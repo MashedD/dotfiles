@@ -146,6 +146,16 @@ def main():
                 codex_7d_bar = lua('return tostring(screen[1].sidebar_codex_7d.remaining)')
                 assert '84' in codex_5h_bar, codex_5h_bar
                 assert '33' in codex_7d_bar, codex_7d_bar
+                wait('return tostring(screen[1].sidebar_scroll_max() > 0)', '"true"')
+                subprocess.run(["xdotool", "mousemove", "1100", "720", "click", "5"], env=env, check=True)
+                wait('return tostring(screen[1].sidebar_scroll_offset() > 0)', '"true"')
+                lua('screen[1].sidebar_scroll_by(-10000)')
+                wait('return tostring(screen[1].sidebar_scroll_offset() == 0)', '"true"')
+                subprocess.run(["xdotool", "mousemove", "1030", "794", "mousedown", "1",
+                                "mousemove", "1220", "794", "mouseup", "1"],
+                               env=env, check=True, timeout=5)
+                wait('return tostring(screen[1].sidebar_scroll_offset() > 0)', '"true"')
+                lua('screen[1].sidebar_scroll_by(-10000)')
                 todo_path.write_text("# TODO\n## Sidebar\n- Refreshed item\n")
                 lua('screen[1].sidebar_todo_refresh()')
                 todo_refresh_result = lua('return tostring(#screen[1].sidebar_todo_entries)..":"..tostring(screen[1].sidebar_todo_entries[1])')
@@ -180,12 +190,12 @@ def main():
                 assert 'true' in lua('local s=screen[1]; return s.sidebar_clock_mode == "text" and s.sidebar_digital_time.visible and not s.sidebar_clock.visible and s.sidebar_clock_card.forced_height == 66 and s.sidebar_digital_time.text:match("%d%d:%d%d:%d%d") ~= nil')
                 lua('screen[1].sidebar_clock_toggle()')
                 assert 'true' in lua('local s=screen[1]; return s.sidebar_clock_mode == "analog" and not s.sidebar_digital_time.visible and s.sidebar_clock.visible and s.sidebar_clock_card.forced_height == 142')
-                lua('for _,b in ipairs(screen[1].sidebar_volume:buttons()) do if b.button == 4 then b:emit_signal("press") end end')
                 lua('for _,b in ipairs(screen[1].sidebar_volume:buttons()) do if b.button == 3 then b:emit_signal("press") end end')
                 lua('for _,b in ipairs(screen[1].sidebar_volume:buttons()) do if b.button == 1 then b:emit_signal("press") end end')
                 time.sleep(0.3)
                 actions = (directory / "actions").read_text().splitlines()
-                assert all(action in actions for action in ("up", "mute", "mixer")), actions
+                assert all(action in actions for action in ("mute", "mixer")), actions
+                assert "up" not in actions and "down" not in actions, actions
                 xlib = ctypes.CDLL("libX11.so.6")
                 xlib.XOpenDisplay.argtypes = [ctypes.c_char_p]
                 xlib.XOpenDisplay.restype = ctypes.c_void_p

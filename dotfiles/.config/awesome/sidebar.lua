@@ -812,9 +812,7 @@ function sidebar.create(s, dismiss_menu)
     volume_control:buttons(gears.table.join(
         awful.button({}, 1, function() awful.spawn("pavucontrol") end),
         awful.button({}, 2, function() change_volume("mute") end),
-        awful.button({}, 3, function() change_volume("mute") end),
-        awful.button({}, 4, function() change_volume("up") end),
-        awful.button({}, 5, function() change_volume("down") end)
+        awful.button({}, 3, function() change_volume("mute") end)
     ))
     if dismiss_menu then volume_control:connect_signal("button::press", dismiss_menu) end
     local todo_entries = {}
@@ -939,10 +937,90 @@ function sidebar.create(s, dismiss_menu)
         spacing = 6, layout = wibox.layout.fixed.vertical,
     }, 168)
 
-    local sidebar_width = 300
-    local panel = wibox {
+    local sidebar_width, scrollbar_height = 300, 12
+    local sidebar_height = math.max(1, s.geometry.height - 30)
+    local scroll_offset, scroll_max = 0, 0
+    local scroll_content_height, scroll_viewport_height = 1, 1
+    local scroll_view, scrollbar, panel
+    local function set_scroll_offset(offset)
+        scroll_offset = math.max(0, math.min(scroll_max, offset))
+        if scroll_view then scroll_view:emit_signal("widget::redraw_needed") end
+        if scrollbar then scrollbar:emit_signal("widget::redraw_needed") end
+    end
+    local function scroll_by(delta)
+        set_scroll_offset(scroll_offset + delta)
+    end
+    local content = wibox.layout.fixed.vertical()
+    content.spacing = 0
+    for _, widget in ipairs({clock_card, wallpaper_card, weather_card, crypto_card, stats_card,
+        codex_card, media_card, quick_card, todo_card, calendar_card}) do
+        content:add(widget)
+    end
+    local function scroll_step(_, size, visible_size)
+        local previous_max = scroll_max
+        scroll_content_height, scroll_viewport_height = size, visible_size
+        scroll_max = math.max(0, size - visible_size)
+        scroll_offset = math.max(0, math.min(scroll_max, scroll_offset))
+        if scrollbar and previous_max ~= scroll_max then scrollbar:emit_signal("widget::redraw_needed") end
+        return scroll_offset
+    end
+    scroll_view = wibox.container.scroll.vertical(content, 20, 10, 0, false, nil, scroll_step)
+    scroll_view:pause()
+    scroll_view.forced_height = math.max(1, sidebar_height - header.forced_height - scrollbar_height)
+
+    local function thumb_geometry(width)
+        if scroll_max <= 0 then return 0, width end
+        local thumb_width = math.max(24, math.floor(width * scroll_viewport_height / scroll_content_height))
+        thumb_width = math.min(width, thumb_width)
+        local x = (width - thumb_width) * scroll_offset / scroll_max
+        return x, thumb_width
+    end
+    scrollbar = wibox.widget.base.make_widget()
+    scrollbar.forced_height = scrollbar_height
+    scrollbar.fit = function(_, _, width) return width, scrollbar_height end
+    scrollbar.draw = function(_, _, cr, width, height)
+        cr:set_source_rgb(0.025, 0.07, 0.05)
+        cr:rectangle(0, 0, width, height)
+        cr:fill()
+        cr:set_source_rgb(0.16, 0.28, 0.25)
+        cr:rectangle(0, math.floor(height / 2) - 2, width, 4)
+        cr:fill()
+        local x, thumb_width = thumb_geometry(width)
+        cr:set_source_rgb(0.44, 0.77, 0.74)
+        cr:rectangle(x, 1, thumb_width, height - 2)
+        cr:fill()
+        cr:set_source_rgb(0.78, 1, 0.91)
+        cr:rectangle(x + 1, 1, math.max(0, thumb_width - 2), 1)
+        cr:fill()
+    end
+    local function set_scroll_from_pointer(x)
+        local track_x = (panel and panel.x or (s.geometry.x + s.geometry.width - sidebar_width)) + 2
+        local track_width = sidebar_width - 2
+        local thumb_width = select(2, thumb_geometry(track_width))
+        local travel = math.max(1, track_width - thumb_width)
+        local fraction = math.max(0, math.min(1, (x - track_x - thumb_width / 2) / travel))
+        set_scroll_offset(fraction * scroll_max)
+    end
+    scrollbar:buttons(gears.table.join(awful.button({}, 1, function()
+        set_scroll_from_pointer(mouse.coords().x)
+        mousegrabber.run(function(pointer)
+            set_scroll_from_pointer(pointer.x)
+            return pointer.buttons[1]
+        end, "sb_h_double_arrow")
+    end)))
+    local function bind_sidebar_wheel(widget)
+        widget:connect_signal("button::press", function(_, _, _, button)
+            if button == 4 then scroll_by(-54)
+            elseif button == 5 then scroll_by(54) end
+        end)
+    end
+    bind_sidebar_wheel(scroll_view)
+    bind_sidebar_wheel(header)
+    bind_sidebar_wheel(scrollbar)
+
+    panel = wibox {
         screen = s, type = "dock", visible = false, ontop = false,
-        width = sidebar_width, height = math.max(1, s.geometry.height - 30),
+        width = sidebar_width, height = sidebar_height,
         x = s.geometry.x + s.geometry.width - sidebar_width, y = s.geometry.y + 30,
         bg = sidebar_gradient, fg = palette.text,
         border_width = 0,
@@ -952,8 +1030,8 @@ function sidebar.create(s, dismiss_menu)
         {
             {forced_width = 2, bg = palette.teal, widget = wibox.container.background},
             {
-                header, clock_card, wallpaper_card, weather_card, crypto_card, stats_card, codex_card, media_card, quick_card, todo_card, calendar_card,
-                spacing = 0, layout = wibox.layout.fixed.vertical,
+                header, scroll_view, scrollbar,
+                layout = wibox.layout.fixed.vertical,
             },
             layout = wibox.layout.fixed.horizontal,
         },
@@ -961,6 +1039,10 @@ function sidebar.create(s, dismiss_menu)
     }
     if dismiss_menu then panel:connect_signal("button::press", dismiss_menu) end
     s.sidebar = panel
+    s.sidebar_scroll_view, s.sidebar_scrollbar = scroll_view, scrollbar
+    s.sidebar_scroll_by = scroll_by
+    s.sidebar_scroll_offset = function() return scroll_offset end
+    s.sidebar_scroll_max = function() return scroll_max end
     s.sidebar_header = header
     s.sidebar_mode = 0
     s.sidebar_clock, s.sidebar_digital_time, s.sidebar_date = clock, digital_time, date
@@ -995,6 +1077,7 @@ function sidebar.create(s, dismiss_menu)
         panel.x = s.geometry.x + s.geometry.width - sidebar_width
         panel.y = s.geometry.y + 30
         panel.height = math.max(1, s.geometry.height - 30)
+        scroll_view.forced_height = math.max(1, panel.height - header.forced_height - scrollbar_height)
     end)
 
     local previous_total, previous_idle, previous_rx, previous_tx, previous_net_time
