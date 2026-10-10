@@ -1304,12 +1304,20 @@ function sidebar.create(s, dismiss_menu)
     local function scroll_by(delta)
         set_scroll_offset(s.sidebar_scroll_position + delta)
     end
+    local content_sections = {
+        {id = "system-status", widget = stats_card},
+        {id = "codex", widget = codex_card},
+        {id = "crypto", widget = crypto_card},
+        {id = "weather", widget = weather_card},
+        {id = "now-playing", widget = media_card},
+        {id = "todo", widget = todo_card},
+        {id = "calendar", widget = calendar_card},
+        {id = "quick-launch", widget = quick_card},
+        {id = "wallpaper", widget = wallpaper_card},
+    }
     local content = wibox.layout.fixed.vertical()
     content.spacing = 0
-    for _, widget in ipairs({clock_card, wallpaper_card, weather_card, crypto_card, stats_card,
-        codex_card, media_card, quick_card, todo_card, calendar_card}) do
-        content:add(widget)
-    end
+    for _, section in ipairs(content_sections) do content:add(section.widget) end
     scroll_view = wibox.widget.base.make_widget()
     scroll_view.fit = function(_, _, width, height)
         return width, math.min(height, scroll_view.forced_height or height)
@@ -1386,7 +1394,9 @@ function sidebar.create(s, dismiss_menu)
     sidebar_column.fit = function(_, _, width, height) return width, height end
     sidebar_column.layout = function(_, context, width, height)
         local header_height = header.forced_height
-        local full_viewport_height = math.max(1, height - header_height)
+        local clock_height = clock_card.forced_height
+        local fixed_height = header_height + clock_height
+        local full_viewport_height = math.max(1, height - fixed_height)
         local _, content_height = wibox.widget.base.fit_widget(
             sidebar_column, context, content, width, 2^20)
         local needs_scrollbar = content_height > full_viewport_height
@@ -1401,12 +1411,13 @@ function sidebar.create(s, dismiss_menu)
         scrollbar_panel.visible = needs_scrollbar
         scrollbar_panel.x = (panel and panel.x or (s.geometry.x + s.geometry.width - sidebar_width)) + 2
         scrollbar_panel.y = (panel and panel.y or (s.geometry.y + 30))
-            + header_height + viewport_height
+            + fixed_height + viewport_height
         scrollbar_panel.width, scrollbar_panel.height = width, scrollbar_height
         if previous_max ~= scroll_max then scrollbar:emit_signal("widget::redraw_needed") end
         return {
             wibox.widget.base.place_widget_at(header, 0, 0, width, header_height),
-            wibox.widget.base.place_widget_at(scroll_view, 0, header_height, width, viewport_height),
+            wibox.widget.base.place_widget_at(clock_card, 0, header_height, width, clock_height),
+            wibox.widget.base.place_widget_at(scroll_view, 0, fixed_height, width, viewport_height),
         }
     end
     local function set_scroll_from_pointer(x)
@@ -1458,6 +1469,10 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_scroll_offset = function() return s.sidebar_scroll_position end
     s.sidebar_scroll_max = function() return scroll_max end
     s.sidebar_header = header
+    s.sidebar_content_order = {}
+    for _, section in ipairs(content_sections) do
+        s.sidebar_content_order[#s.sidebar_content_order + 1] = section.id
+    end
     s.sidebar_mode = 0
     s.sidebar_clock, s.sidebar_digital_time, s.sidebar_date = clock, digital_time, date
     s.sidebar_clock_card = clock_card

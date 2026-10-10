@@ -152,6 +152,7 @@ def main():
                 wait('return screen[1].workarea.y', '30')
                 assert 'true' in lua('local p=screen[1].panel; return p.visible and p.height == 30 and p.position == "top"')
                 assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and b.visible and not s.panel_clock_container.visible and s.sidebar_header and s.sidebar_header.forced_height == 26 and s.sidebar_mode == 3 and b.ontop and b:struts().right == 300 and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_quake2_button and s.sidebar_sleep_button and s.sidebar_trash_icon and s.sidebar_trash_state and s.sidebar_trash_timer.timeout == 30 and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_weather_text and s.sidebar_crypto_card.forced_height == nil and s.sidebar_crypto_timer.timeout == 60 and s.sidebar_codex_card.forced_height == nil and s.sidebar_codex_timer.timeout == 60 and s.sidebar_audio_header == nil and s.sidebar_wallpaper_preview and s.sidebar_todo_card and #s.sidebar_todo_entries == 5 and s.sidebar_todo_entries[5] == "Fifth item" and s.sidebar_calendar_card and s.sidebar_date_calendar and not s.sidebar_date_calendar:get_widget().start_sunday and #s.sidebar_calendar_entries == 6 and s.sidebar_calendar_entries[1].day == "past" and s.sidebar_calendar_entries[2].time == "08:15-09:00" and s.sidebar_calendar_entries[3].text == "visit: Today appointment" and s.sidebar_calendar_entries[6].text == "Third future event" and s.sidebar_todo_timer.timeout == 60 and s.sidebar_calendar_timer.timeout == 60 and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width-300 and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
+                assert 'true' in lua('local s=screen[1]; return table.concat(s.sidebar_content_order, ",") == "system-status,codex,crypto,weather,now-playing,todo,calendar,quick-launch,wallpaper"')
                 assert 'true' in lua('local s=screen[1]; if s.sidebar_stats_card.forced_height ~= nil or #s.sidebar_progress_bars ~= 8 then return false end; for _,b in ipairs(s.sidebar_progress_bars) do if b.forced_height ~= 7 then return false end end; return true')
                 wait('return screen[1].sidebar_crypto_prices.BTC.text.."|"..screen[1].sidebar_crypto_prices.ETH.text.."|"..screen[1].sidebar_crypto_prices.LTC.text', '"97.123|3.456|123,45"')
                 wait('return screen[1].sidebar_codex_5h.summary.markup', '5h  84% left · Sat 13:46')
@@ -174,10 +175,10 @@ def main():
                 assert section_state_file.read_text() == ""
                 lua('for _,section in pairs(screen[1].sidebar_sections) do if not section.collapsed then for _,button in ipairs(section.title_widget:buttons()) do if button.button == 1 then button:emit_signal("press"); break end end end end')
                 wait('return tostring(not screen[1].sidebar_scrollbar.visible and screen[1].sidebar_scroll_max() == 0)', '"true"')
-                assert 'true' in lua('return screen[1].sidebar_scroll_view.forced_height == screen[1].sidebar.height - screen[1].sidebar_header.forced_height')
+                assert 'true' in lua('local s=screen[1]; return s.sidebar_scroll_view.forced_height == s.sidebar.height - s.sidebar_header.forced_height - s.sidebar_clock_card.forced_height')
                 lua('for _,section in pairs(screen[1].sidebar_sections) do if section.collapsed then for _,button in ipairs(section.title_widget:buttons()) do if button.button == 1 then button:emit_signal("press"); break end end end end')
                 wait('return tostring(screen[1].sidebar_scrollbar.visible and screen[1].sidebar_scroll_max() > 0)', '"true"')
-                assert 'true' in lua('local s=screen[1]; local b=s.sidebar_scrollbar_panel; return b.visible and b.y == s.sidebar.y+s.sidebar_header.forced_height+s.sidebar_scroll_view.forced_height and b.y+b.height == s.sidebar.y+s.sidebar.height')
+                assert 'true' in lua('local s=screen[1]; local b=s.sidebar_scrollbar_panel; return b.visible and b.y == s.sidebar.y+s.sidebar_header.forced_height+s.sidebar_clock_card.forced_height+s.sidebar_scroll_view.forced_height and b.y+b.height == s.sidebar.y+s.sidebar.height')
                 assert section_state_file.read_text() == ""
                 codex_5h_bar = lua('return tostring(screen[1].sidebar_codex_5h.remaining)')
                 codex_7d_bar = lua('return tostring(screen[1].sidebar_codex_7d.remaining)')
@@ -187,6 +188,7 @@ def main():
                 subprocess.run(["xdotool", "mousemove", "1100", "720", "click", "5"], env=env, check=True)
                 wheel_state = wait('return tostring(screen[1].sidebar_scroll_position > 0)', '"true"')
                 assert 'true' in wheel_state, wheel_state
+                assert 'true' in lua('local s=screen[1]; for _,v in ipairs(s.sidebar:find_widgets(150, 27)) do if v.widget == s.sidebar_clock_card and v.y == 26 then return s.sidebar_scroll_position > 0 end end; return false')
                 lua('screen[1].sidebar_scroll_by(-10000)')
                 wait('return tostring(screen[1].sidebar_scroll_offset() == 0)', '"true"')
                 subprocess.run(["xdotool", "mousemove", "1030", "794", "mousedown", "1",
