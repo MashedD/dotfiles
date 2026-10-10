@@ -265,11 +265,16 @@ local function wallpaper(s)
         gears.wallpaper.set("#008080")
     end
 end
+local update_sidebar_mode
+local configured_screens = {}
 awful.screen.connect_for_each_screen(function(s)
     awful.tag({"1", "2", "3", "4"}, s, awful.layout.suit.floating)
     wallpaper(s)
     panel.create(s, main_menu, activate, window_menu)
     sidebar.create(s, dismiss_start_menu)
+    s.sidebar_mode = 3
+    configured_screens[#configured_screens + 1] = s
+    if update_sidebar_mode then update_sidebar_mode(s) end
 end)
 screen.connect_signal("property::geometry", wallpaper)
 
@@ -280,7 +285,7 @@ local function screen_has_fullscreen(s)
     return false
 end
 
-local function update_sidebar_mode(s)
+update_sidebar_mode = function(s)
     if not s or not s.valid or not s.sidebar then return end
     local mode = s.sidebar_mode or 0
     local fullscreen = screen_has_fullscreen(s)
@@ -290,6 +295,7 @@ local function update_sidebar_mode(s)
     s.sidebar:struts(reserve and {right = s.sidebar.width}
         or {left = 0, right = 0, top = 0, bottom = 0})
 end
+for _, s in ipairs(configured_screens) do update_sidebar_mode(s) end
 
 local function cycle_sidebar_mode(s)
     if not s or not s.sidebar then return end
