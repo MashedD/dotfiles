@@ -198,8 +198,8 @@ end
 
 local function make_analog_clock()
     local clock = wibox.widget.base.make_widget()
-    clock.forced_width, clock.forced_height = 124, 124
-    clock.fit = function() return 124, 124 end
+    clock.forced_width, clock.forced_height = 112, 112
+    clock.fit = function() return 112, 112 end
     clock.current_time = os.date("*t")
     clock.draw = function(_, _, cr, width, height)
         local size = math.min(width, height)
@@ -525,14 +525,14 @@ function sidebar.create(s, dismiss_menu)
     clock_content:add(clock_centered)
     clock_content:add(digital_time)
     digital_time.visible = false
-    local clock_card = card(clock_content, 154, 4)
+    local clock_card = card(clock_content, 142, 4)
     local clock_mode = "analog"
     local function set_clock_mode(mode)
         clock_mode = mode
         clock.visible = mode == "analog"
         clock_centered.visible = mode == "analog"
         digital_time.visible = mode == "text"
-        clock_card.forced_height = mode == "analog" and 154 or 66
+        clock_card.forced_height = mode == "analog" and 142 or 66
         s.sidebar_clock_mode = mode
     end
     local function toggle_clock_mode()
@@ -559,7 +559,7 @@ function sidebar.create(s, dismiss_menu)
     end
     local preview = wibox.widget.imagebox()
     preview.resize = true
-    preview.forced_height = 112
+    preview.forced_height = 102
     local wallpaper_name = label("No PNG wallpapers found", palette.muted, 9, false, "center")
     wallpaper_name.forced_width = 190
     local function update_wallpaper_preview()
@@ -615,7 +615,7 @@ function sidebar.create(s, dismiss_menu)
         preview_centered,
         {wallpaper_controls, halign = "center", widget = wibox.container.place},
         spacing = 5, layout = wibox.layout.fixed.vertical,
-    }, 190)
+    }, 180)
 
     local weather_icon = label("☁", palette.teal, 22, true, "center")
     weather_icon.font = "Noto Sans Symbols 2 20"
@@ -705,6 +705,61 @@ function sidebar.create(s, dismiss_menu)
         network_text, volume_control,
         spacing = 4, layout = wibox.layout.fixed.vertical,
     }, 220)
+
+    local function codex_window_row(period)
+        local summary = label(period .. " unavailable", palette.muted, 8, false)
+        local bar = progress(palette.green)
+        bar.forced_height = 7
+        return wibox.widget {
+            {summary, bar, spacing = 2, layout = wibox.layout.fixed.vertical},
+            layout = wibox.layout.fixed.vertical,
+        }, {summary = summary, bar = bar, remaining = nil}
+    end
+    local codex_5h_widget, codex_5h = codex_window_row("5h")
+    local codex_7d_widget, codex_7d = codex_window_row("7d")
+    local codex_resets = label("Free: --", palette.muted, 8, true, "right")
+    local codex_card = card({
+        section_header("CODEX", codex_resets), codex_5h_widget, codex_7d_widget,
+        spacing = 3, layout = wibox.layout.fixed.vertical,
+    }, 90, 5)
+    local codex_pending = false
+    local function refresh_codex()
+        if codex_pending then return end
+        codex_pending = true
+        awful.spawn.easy_async({os.getenv("HOME") .. "/.local/bin/codex-usage", "--sidebar"}, function(stdout, _, _, code)
+            codex_pending = false
+            local report = code == 0 and stdout or ""
+            local display, reset_count = report:match("^(.-)\t([^\r\n]+)")
+            display = (display or report):gsub("#%b[]", ""):gsub("^C%*?%s*", ""):gsub("%s+$", "")
+            if reset_count and reset_count:match("^%d+$") then
+                codex_resets.markup = string.format("<span foreground='%s'>Free: %s</span>", palette.green, reset_count)
+            else
+                codex_resets.text = "Free: --"
+            end
+            local five_left, five_reset, week_left, week_reset = display:match(
+                "5h%s+(%d+)%%@([%a]+%s+%d%d:%d%d)%s+7d%s+(%d+)%%@([%a]+%s+%d%d:%d%d)")
+            if five_left then
+                codex_5h.summary.markup = string.format(
+                    "<span foreground='%s'>5h  %s%% left · %s</span>", palette.text, five_left, five_reset)
+                codex_5h.remaining = tonumber(five_left) or 0
+                codex_5h.bar.value = codex_5h.remaining
+            else
+                codex_5h.summary.text = "5h usage unavailable"
+                codex_5h.remaining = nil
+                codex_5h.bar.value = 0
+            end
+            if week_left then
+                codex_7d.summary.markup = string.format(
+                    "<span foreground='%s'>7d  %s%% left · %s</span>", palette.text, week_left, week_reset)
+                codex_7d.remaining = tonumber(week_left) or 0
+                codex_7d.bar.value = codex_7d.remaining
+            else
+                codex_7d.summary.text = "7d usage unavailable"
+                codex_7d.remaining = nil
+                codex_7d.bar.value = 0
+            end
+        end)
+    end
 
     local media_controls = wibox.widget {
         action_button("«", function() awful.spawn.easy_async({"playerctl", "previous"}, function() end) end, dismiss_menu),
@@ -884,8 +939,8 @@ function sidebar.create(s, dismiss_menu)
         {
             {forced_width = 2, bg = palette.teal, widget = wibox.container.background},
             {
-                header, clock_card, wallpaper_card, weather_card, crypto_card, stats_card, media_card, quick_card, todo_card, calendar_card,
-                spacing = 6, layout = wibox.layout.fixed.vertical,
+                header, clock_card, wallpaper_card, weather_card, crypto_card, stats_card, codex_card, media_card, quick_card, todo_card, calendar_card,
+                spacing = 1, layout = wibox.layout.fixed.vertical,
             },
             layout = wibox.layout.fixed.horizontal,
         },
@@ -906,6 +961,9 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_calendar_card = calendar_card
     s.sidebar_crypto_card, s.sidebar_crypto_prices = crypto_card, crypto_prices
     s.sidebar_crypto_refresh = refresh_crypto
+    s.sidebar_codex_card, s.sidebar_codex_5h, s.sidebar_codex_7d = codex_card, codex_5h, codex_7d
+    s.sidebar_codex_resets = codex_resets
+    s.sidebar_codex_refresh = refresh_codex
     s.sidebar_media_text = media_text
     s.sidebar_root_text = root_text
     s.sidebar_weather_text = weather_main
@@ -1019,6 +1077,9 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_crypto_timer = gears.timer {
         timeout = 60, autostart = true, call_now = true, callback = refresh_crypto,
     }
+    s.sidebar_codex_timer = gears.timer {
+        timeout = 60, autostart = true, call_now = true, callback = refresh_codex,
+    }
     if os.getenv("AWESOME_TEST_MODE") ~= "1" then
         s.sidebar_weather_timer = gears.timer {
             timeout = 1800, autostart = true, call_now = true, callback = update_weather,
@@ -1034,6 +1095,7 @@ function sidebar.create(s, dismiss_menu)
         s.sidebar_todo_timer:stop()
         s.sidebar_calendar_timer:stop()
         s.sidebar_crypto_timer:stop()
+        s.sidebar_codex_timer:stop()
         if s.sidebar_weather_timer then s.sidebar_weather_timer:stop() end
         panel.visible = false
     end)

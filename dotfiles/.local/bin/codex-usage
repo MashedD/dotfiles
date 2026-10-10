@@ -14,14 +14,15 @@ print_unavailable() {
 }
 
 cache_value() {
-  local display fetched_at
+  local display fetched_at reset_credits
 
   [[ -r "$cache_file" ]] || return 1
   display="$(jq -r '.display // empty' "$cache_file" 2>/dev/null)" || return 1
   fetched_at="$(jq -r '.fetched_at // 0' "$cache_file" 2>/dev/null)" || return 1
+  reset_credits="$(jq -r '.reset_credits // "unavailable"' "$cache_file" 2>/dev/null)" || return 1
   [[ -n "$display" && "$fetched_at" =~ ^[0-9]+$ && "$fetched_at" -gt 0 ]] || return 1
 
-  printf '%s\t%s\n' "$display" "$fetched_at"
+  printf '%s\t%s\t%s\n' "$display" "$fetched_at" "$reset_credits"
 }
 
 format_reset() {
@@ -119,7 +120,7 @@ fetch_from_command() {
   if (( initialized )); then
     printf '%s\n' \
       '{"jsonrpc":"2.0","method":"initialized"}' \
-      '{"jsonrpc":"2.0","id":2,"method":"account/rateLimits/read","params":{"excludeResetCreditDetails":true}}' \
+      '{"jsonrpc":"2.0","id":2,"method":"account/rateLimits/read","params":{"excludeResetCreditDetails":false}}' \
       >&"$app_in"
 
     while IFS= read -r -t "$request_timeout" line <&"$app_out"; do
@@ -152,13 +153,19 @@ fetch_result() {
 write_cache() {
   local display="$1"
   local fetched_at="$2"
-  local temporary_file
+  local reset_credits="${3:-unavailable}"
+  local reset_json temporary_file
 
+  if [[ "$reset_credits" =~ ^[0-9]+$ ]]; then
+    reset_json="$reset_credits"
+  else
+    reset_json='"unavailable"'
+  fi
   mkdir -p "$(dirname -- "$cache_file")" 2>/dev/null || return 1
   temporary_file="${cache_file}.$$"
   umask 077
-  printf '{"display":%s,"fetched_at":%s}\n' \
-    "$(jq -Rn --arg value "$display" '$value')" "$fetched_at" >"$temporary_file" || {
+  printf '{"display":%s,"fetched_at":%s,"reset_credits":%s}\n' \
+    "$(jq -Rn --arg value "$display" '$value')" "$fetched_at" "$reset_json" >"$temporary_file" || {
     rm -f "$temporary_file"
     return 1
   }
@@ -166,18 +173,31 @@ write_cache() {
 }
 
 main() {
-  local now cached cached_display cached_at age result display
+  local mode="${1:-tmux}" now cached cached_display cached_at cached_reset cached_rest age result display reset_credits
   now="$(date +%s)"
 
   cached="$(cache_value 2>/dev/null || true)"
   cached_display="${cached%%$'\t'*}"
-  cached_at="${cached#*$'\t'}"
+  cached_rest="${cached#*$'\t'}"
+  cached_at="${cached_rest%%$'\t'*}"
+  cached_reset="${cached_rest#*$'\t'}"
   [[ "$cached" == *$'\t'* ]] || cached_at=0
   [[ "$cached_at" =~ ^[0-9]+$ ]] || cached_at=0
+  [[ "$cached_reset" != "$cached_rest" ]] || cached_reset=unavailable
   age=$((now - cached_at))
 
+  emit() {
+    local value="$1" resets="${2:-unavailable}"
+    if [[ "$mode" == "--sidebar" ]]; then
+      [[ "$resets" =~ ^[0-9]+$ ]] || resets=--
+      printf '%s\t%s\n' "$value" "$resets"
+    else
+      printf '%s\n' "$value"
+    fi
+  }
+
   if (( cached_at > 0 && age < refresh_interval )); then
-    printf '%s\n' "$cached_display"
+    emit "$cached_display" "$cached_reset"
     return 0
   fi
 
@@ -185,12 +205,12 @@ main() {
   if ! mkdir "$lock_dir" 2>/dev/null; then
     if (( cached_at > 0 )); then
       if (( age >= stale_after )); then
-        printf 'C* %s\n' "${cached_display#C }"
+        emit "C* ${cached_display#C }" "$cached_reset"
       else
-        printf '%s\n' "$cached_display"
+        emit "$cached_display" "$cached_reset"
       fi
     else
-      print_unavailable
+      emit "C --" unavailable
     fi
     return 0
   fi
@@ -198,16 +218,18 @@ main() {
 
   result="$(fetch_result 2>/dev/null || true)"
   if [[ -n "$result" ]] && display="$(format_result "$result" 2>/dev/null)" && [[ -n "$display" ]]; then
-    write_cache "$display" "$now" 2>/dev/null || true
-    printf '%s\n' "$display"
+    reset_credits="$(jq -r '.rateLimitResetCredits.availableCount // "unavailable"' <<<"$result" 2>/dev/null)"
+    [[ "$reset_credits" =~ ^[0-9]+$ ]] || reset_credits=unavailable
+    write_cache "$display" "$now" "$reset_credits" 2>/dev/null || true
+    emit "$display" "$reset_credits"
   elif (( cached_at > 0 )); then
     if (( age >= stale_after )); then
-      printf 'C* %s\n' "${cached_display#C }"
+      emit "C* ${cached_display#C }" "$cached_reset"
     else
-      printf '%s\n' "$cached_display"
+      emit "$cached_display" "$cached_reset"
     fi
   else
-    print_unavailable
+    emit "C --" unavailable
   fi
 }
 
@@ -216,4 +238,4 @@ if ! command -v jq >/dev/null 2>&1 || ! command -v timeout >/dev/null 2>&1; then
   exit 0
 fi
 
-main
+main "$@"
