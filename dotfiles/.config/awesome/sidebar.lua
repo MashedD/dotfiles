@@ -945,16 +945,20 @@ function sidebar.create(s, dismiss_menu)
 
     local sidebar_width, scrollbar_height = 300, 12
     local sidebar_height = math.max(1, s.geometry.height - 30)
-    local scroll_offset, scroll_max = 0, 0
+    local scroll_max = 0
+    s.sidebar_scroll_position = 0
     local scroll_content_height, scroll_viewport_height = 1, 1
     local scroll_view, scrollbar, panel
     local function set_scroll_offset(offset)
-        scroll_offset = math.max(0, math.min(scroll_max, offset))
-        if scroll_view then scroll_view:emit_signal("widget::redraw_needed") end
+        s.sidebar_scroll_position = math.max(0, math.min(scroll_max, offset))
+        if scroll_view then
+            scroll_view:emit_signal("widget::layout_changed")
+            scroll_view:emit_signal("widget::redraw_needed")
+        end
         if scrollbar then scrollbar:emit_signal("widget::redraw_needed") end
     end
     local function scroll_by(delta)
-        set_scroll_offset(scroll_offset + delta)
+        set_scroll_offset(s.sidebar_scroll_position + delta)
     end
     local content = wibox.layout.fixed.vertical()
     content.spacing = 0
@@ -962,23 +966,27 @@ function sidebar.create(s, dismiss_menu)
         codex_card, media_card, quick_card, todo_card, calendar_card}) do
         content:add(widget)
     end
-    local function scroll_step(_, size, visible_size)
-        local previous_max = scroll_max
-        scroll_content_height, scroll_viewport_height = size, visible_size
-        scroll_max = math.max(0, size - visible_size)
-        scroll_offset = math.max(0, math.min(scroll_max, scroll_offset))
-        if scrollbar and previous_max ~= scroll_max then scrollbar:emit_signal("widget::redraw_needed") end
-        return scroll_offset
+    scroll_view = wibox.widget.base.make_widget()
+    scroll_view.fit = function(_, _, width, height)
+        return width, math.min(height, scroll_view.forced_height or height)
     end
-    scroll_view = wibox.container.scroll.vertical(content, 20, 10, 0, false, nil, scroll_step)
-    scroll_view:pause()
+    scroll_view.draw = function() end
+    scroll_view.layout = function(_, context, width, height)
+        local _, content_height = wibox.widget.base.fit_widget(scroll_view, context, content, width, 2^20)
+        local previous_max = scroll_max
+        scroll_content_height, scroll_viewport_height = content_height, height
+        scroll_max = math.max(0, content_height - height)
+        s.sidebar_scroll_position = math.max(0, math.min(scroll_max, s.sidebar_scroll_position))
+        if scrollbar and previous_max ~= scroll_max then scrollbar:emit_signal("widget::redraw_needed") end
+        return {wibox.widget.base.place_widget_at(content, 0, -s.sidebar_scroll_position, width, content_height)}
+    end
     scroll_view.forced_height = math.max(1, sidebar_height - header.forced_height - scrollbar_height)
 
     local function thumb_geometry(width)
         if scroll_max <= 0 then return 0, width end
         local thumb_width = math.max(24, math.floor(width * scroll_viewport_height / scroll_content_height))
         thumb_width = math.min(width, thumb_width)
-        local x = (width - thumb_width) * scroll_offset / scroll_max
+        local x = (width - thumb_width) * s.sidebar_scroll_position / scroll_max
         return x, thumb_width
     end
     scrollbar = wibox.widget.base.make_widget()
@@ -1014,16 +1022,6 @@ function sidebar.create(s, dismiss_menu)
             return pointer.buttons[1]
         end, "sb_h_double_arrow")
     end)))
-    local function bind_sidebar_wheel(widget)
-        widget:connect_signal("button::press", function(_, _, _, button)
-            if button == 4 then scroll_by(-54)
-            elseif button == 5 then scroll_by(54) end
-        end)
-    end
-    bind_sidebar_wheel(scroll_view)
-    bind_sidebar_wheel(header)
-    bind_sidebar_wheel(scrollbar)
-
     panel = wibox {
         screen = s, type = "dock", visible = false, ontop = false,
         width = sidebar_width, height = sidebar_height,
@@ -1043,11 +1041,15 @@ function sidebar.create(s, dismiss_menu)
         },
         bg = sidebar_gradient, widget = wibox.container.background,
     }
-    if dismiss_menu then panel:connect_signal("button::press", dismiss_menu) end
+    panel:connect_signal("button::press", function(_, _, _, button)
+        if dismiss_menu then dismiss_menu() end
+        local delta = button == 4 and -54 or (button == 5 and 54 or nil)
+        if delta then gears.timer.delayed_call(function() scroll_by(delta) end) end
+    end)
     s.sidebar = panel
     s.sidebar_scroll_view, s.sidebar_scrollbar = scroll_view, scrollbar
     s.sidebar_scroll_by = scroll_by
-    s.sidebar_scroll_offset = function() return scroll_offset end
+    s.sidebar_scroll_offset = function() return s.sidebar_scroll_position end
     s.sidebar_scroll_max = function() return scroll_max end
     s.sidebar_header = header
     s.sidebar_mode = 0

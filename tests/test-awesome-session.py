@@ -148,16 +148,24 @@ def main():
                 assert '33' in codex_7d_bar, codex_7d_bar
                 wait('return tostring(screen[1].sidebar_scroll_max() > 0)', '"true"')
                 subprocess.run(["xdotool", "mousemove", "1100", "720", "click", "5"], env=env, check=True)
-                wait('return tostring(screen[1].sidebar_scroll_offset() > 0)', '"true"')
+                wheel_state = lua('return tostring(screen[1].sidebar_scroll_position > 0)')
+                assert 'true' in wheel_state, wheel_state
                 lua('screen[1].sidebar_scroll_by(-10000)')
                 wait('return tostring(screen[1].sidebar_scroll_offset() == 0)', '"true"')
                 subprocess.run(["xdotool", "mousemove", "1030", "794", "mousedown", "1",
                                 "mousemove", "1220", "794", "mouseup", "1"],
                                env=env, check=True, timeout=5)
-                wait('return tostring(screen[1].sidebar_scroll_offset() > 0)', '"true"')
+                slider_state = lua('return tostring(screen[1].sidebar_scroll_position > 0)..":"..tostring(not mousegrabber.isrunning())')
+                assert 'true:true' in slider_state, slider_state
                 lua('screen[1].sidebar_scroll_by(-10000)')
+                subprocess.run(["xdotool", "mousemove", "1130", "140", "click", "1"], env=env, check=True)
+                wait('return screen[1].sidebar_clock_mode', 'text')
+                lua('screen[1].sidebar_clock_toggle()')
+                wait('return screen[1].sidebar_clock_mode', 'analog')
+                lua('screen[1].sidebar_scroll_before_todo = screen[1].sidebar_scroll_max()')
                 todo_path.write_text("# TODO\n## Sidebar\n- Refreshed item\n")
                 lua('screen[1].sidebar_todo_refresh()')
+                wait('return tostring(screen[1].sidebar_scroll_max() < screen[1].sidebar_scroll_before_todo)', '"true"')
                 todo_refresh_result = lua('return tostring(#screen[1].sidebar_todo_entries)..":"..tostring(screen[1].sidebar_todo_entries[1])')
                 assert '1:Refreshed item' in todo_refresh_result, todo_refresh_result
                 press('super+shift+s')
