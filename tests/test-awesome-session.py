@@ -126,13 +126,19 @@ def main():
                     raise AssertionError(f"Expected {expected!r}: {code}\n{last}\n{diagnostic}\n{logfile.read_text()}")
 
                 def click_sidebar_title(section_id):
-                    position = lua(
-                        f'local s=screen[1]; local target=s.sidebar_sections["{section_id}"].title_widget; '
-                        'local x=math.floor(s.sidebar.width/2); '
-                        'for y=0,s.sidebar.height-1 do '
-                        'for _,v in ipairs(s.sidebar:find_widgets(x,y)) do '
-                        'if v.widget==target then return tostring(s.sidebar.x+x)..":"..tostring(s.sidebar.y+y) end '
-                        'end end; return "missing"')
+                    lua('screen[1].sidebar_scroll_by(-10000)')
+                    position = "missing"
+                    for _ in range(20):
+                        position = lua(
+                            f'local s=screen[1]; local target=s.sidebar_sections["{section_id}"].title_widget; '
+                            'local x=math.floor(s.sidebar.width/2); '
+                            'for y=0,s.sidebar.height-1 do '
+                            'for _,v in ipairs(s.sidebar:find_widgets(x,y)) do '
+                            'if v.widget==target then return tostring(s.sidebar.x+x)..":"..tostring(s.sidebar.y+y) end '
+                            'end end; return "missing"')
+                        if re.search(r'(\d+):(\d+)', position):
+                            break
+                        lua('screen[1].sidebar_scroll_by(120)')
                     match = re.search(r'(\d+):(\d+)', position)
                     assert match, f"Could not locate sidebar section {section_id}: {position}"
                     x, y = int(match.group(1)), int(match.group(2)) + 2
@@ -162,10 +168,11 @@ def main():
                 wait('return screen[1].workarea.y', '30')
                 assert 'true' in lua('local p=screen[1].panel; return p.visible and p.height == 30 and p.position == "top"')
                 assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and b.visible and not s.panel_clock_container.visible and s.sidebar_header and s.sidebar_header.forced_height == 26 and s.sidebar_mode == 3 and b.ontop and b:struts().right == 300 and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_quake2_button and s.sidebar_sleep_button and s.sidebar_trash_icon and s.sidebar_trash_state and s.sidebar_trash_timer.timeout == 30 and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_weather_text and s.sidebar_crypto_card.forced_height == nil and s.sidebar_crypto_timer.timeout == 60 and s.sidebar_codex_card.forced_height == nil and s.sidebar_codex_timer.timeout == 60 and s.sidebar_audio_header == nil and s.sidebar_wallpaper_preview and s.sidebar_todo_card and #s.sidebar_todo_entries == 5 and s.sidebar_todo_entries[5] == "Fifth item" and s.sidebar_calendar_card and not s.sidebar_date_calendar and s.sidebar_calendar_grid and s.sidebar_calendar_weekday_order == "MTWTFSS" and #s.sidebar_calendar_entries == 7 and s.sidebar_calendar_entries[1].day == "past" and s.sidebar_calendar_entries[2].time == "08:15-09:00" and s.sidebar_calendar_entries[3].text == "visit: Today appointment" and s.sidebar_calendar_entries[6].text == "Third future event" and s.sidebar_todo_timer.timeout == 60 and s.sidebar_calendar_timer.timeout == 60 and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width-300 and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
-                assert 'true' in lua('local s=screen[1]; return table.concat(s.sidebar_content_order, ",") == "system-status,codex,crypto,weather,now-playing,todo,calendar,quick-launch,wallpaper"')
+                assert 'true' in lua('local s=screen[1]; return table.concat(s.sidebar_content_order, ",") == "calendar,todo,system-status,codex,crypto,weather,now-playing,quick-launch,wallpaper"')
                 assert 'true' in lua('local s=screen[1]; local a,b=s.sidebar_quake2_button,s.sidebar_sleep_button; return a.forced_width == b.forced_width and a.forced_height == b.forced_height and a.border_color ~= b.border_color and b.border_color == "#70c98b"')
                 assert 'true' in lua('local s=screen[1]; if s.sidebar_stats_card.forced_height ~= nil or #s.sidebar_progress_bars ~= 8 then return false end; for _,b in ipairs(s.sidebar_progress_bars) do if b.forced_height ~= 7 then return false end end; return true')
                 wait('return screen[1].sidebar_crypto_prices.BTC.text.."|"..screen[1].sidebar_crypto_prices.ETH.text.."|"..screen[1].sidebar_crypto_prices.LTC.text', '"97.123|3.456|123,45"')
+                lua('screen[1].sidebar_scroll_by(screen[1].sidebar_scroll_max()/2)')
                 crypto_position = lua('local s=screen[1]; local target=s.sidebar_crypto_prices.ETH.widget; local x=math.floor(s.sidebar.width/2); for y=0,s.sidebar.height-1 do for _,v in ipairs(s.sidebar:find_widgets(x,y)) do if v.widget==target then return tostring(s.sidebar.x+x)..":"..tostring(s.sidebar.y+y) end end end; return "missing"')
                 match = re.search(r'(\d+):(\d+)', crypto_position)
                 assert match, f"Could not locate clickable crypto price: {crypto_position}"

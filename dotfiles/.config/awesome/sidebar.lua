@@ -1277,13 +1277,13 @@ function sidebar.create(s, dismiss_menu)
         set_scroll_offset(s.sidebar_scroll_position + delta)
     end
     local content_sections = {
+        {id = "calendar", widget = calendar_card},
+        {id = "todo", widget = todo_card},
         {id = "system-status", widget = stats_card},
         {id = "codex", widget = codex_card},
         {id = "crypto", widget = crypto_card},
         {id = "weather", widget = weather_card},
         {id = "now-playing", widget = media_card},
-        {id = "todo", widget = todo_card},
-        {id = "calendar", widget = calendar_card},
         {id = "quick-launch", widget = quick_card},
         {id = "wallpaper", widget = wallpaper_card},
     }
