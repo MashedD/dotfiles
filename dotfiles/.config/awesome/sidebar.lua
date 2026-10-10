@@ -696,7 +696,7 @@ function sidebar.create(s, dismiss_menu)
         section_header("CRYPTO PRICES · USD"),
         {crypto_line, halign = "center", widget = wibox.container.place},
         spacing = 3, layout = wibox.layout.fixed.vertical,
-    }, 70)
+    }, 62)
     local crypto_pending = false
     local function refresh_crypto()
         if crypto_pending then return end
@@ -722,7 +722,7 @@ function sidebar.create(s, dismiss_menu)
         root_text, root_bar,
         volume_control, network_text,
         spacing = 2, layout = wibox.layout.fixed.vertical,
-    }, 223)
+    }, 205)
 
     local function codex_window_row(period)
         local summary = label(period .. " unavailable", palette.muted, 8, false)
@@ -735,7 +735,7 @@ function sidebar.create(s, dismiss_menu)
     end
     local codex_5h_widget, codex_5h = codex_window_row("5h")
     local codex_7d_widget, codex_7d = codex_window_row("7d")
-    local codex_resets = label("Free resets: --", palette.teal, 8, false)
+    local codex_resets = label("--", palette.teal, 8, false)
     codex_resets.wrap = "word_char"
     local codex_card = card({
         section_header("CODEX"), codex_5h_widget, codex_7d_widget, codex_resets,
@@ -752,7 +752,7 @@ function sidebar.create(s, dismiss_menu)
             display = (display or report):gsub("#%b[]", ""):gsub("^C%*?%s*", ""):gsub("%s+$", "")
             local pretty_reset_dates = reset_dates and reset_dates:gsub(" · ", "\n")
             local reset_text = pretty_reset_dates and reset_dates ~= "--"
-                and ("Free resets: " .. pretty_reset_dates) or "Free resets: --"
+                and pretty_reset_dates or "--"
             codex_resets.markup = string.format(
                 "<span foreground='%s' size='8pt'>%s</span>", palette.teal, gstring.xml_escape(reset_text))
             local five_left, five_reset, week_left, week_reset = display:match(
@@ -1137,7 +1137,7 @@ function sidebar.create(s, dismiss_menu)
             mouse_battery_text.text = string.format("Mouse  %d%%  %s", mouse_capacity, mouse_state or "Unknown")
             mouse_battery_bar.value = mouse_capacity
         end
-        stats_card.forced_height = mouse_capacity and 223 or 205
+        stats_card.forced_height = mouse_capacity and 205 or 187
 
         local rx, tx = network_stats()
         if rx and tx then
