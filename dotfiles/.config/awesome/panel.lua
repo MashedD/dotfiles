@@ -10,7 +10,7 @@ local panel_gradient = gears.color {
 }
 local panel_item_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#557e8d"}, {0.2, "#3b677b"}, {0.6, "#2a5268"}, {1, "#1d3c51"}},
+    stops = {{0, "#6799bf"}, {0.2, "#477ea6"}, {0.6, "#2e608b"}, {1, "#1c4268"}},
 }
 local panel_focus_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 24},

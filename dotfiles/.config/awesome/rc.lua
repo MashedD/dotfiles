@@ -19,7 +19,7 @@ local titlebar_focus_gradient = gears.color {
 }
 local titlebar_normal_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 26},
-    stops = {{0, "#9cbac6"}, {0.2, "#66899c"}, {0.55, "#405f72"}, {1, "#263e50"}},
+    stops = {{0, "#9bbbd0"}, {0.2, "#648ba8"}, {0.55, "#3c627f"}, {1, "#203d58"}},
 }
 local titlebar_button_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 20},
