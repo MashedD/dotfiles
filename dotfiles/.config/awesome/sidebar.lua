@@ -368,13 +368,13 @@ end
 local function battery_stats()
     local root = "/sys/class/power_supply/"
     local enumerator = Gio.File.new_for_path(root):enumerate_children("standard::name", 0)
-    if not enumerator then return nil end
+    if not enumerator then return nil, nil, nil, nil end
     local capacities, states = {}, {}
+    local mouse_capacity, mouse_state
     while true do
         local entry = enumerator:next_file()
         if not entry then break end
         local name = entry:get_name()
-        -- Only laptop batteries; ignore wireless mice and headsets.
         local supply_type = read(root .. name .. "/type") or ""
         if name:match("^BAT") and supply_type:match("^Battery") then
             local capacity = tonumber(read(root .. name .. "/capacity"))
@@ -382,13 +382,19 @@ local function battery_stats()
                 capacities[#capacities + 1] = capacity
                 states[#states + 1] = (read(root .. name .. "/status") or "Unknown"):gsub("%s+$", "")
             end
+        elseif name:match("^hidpp_battery") and supply_type:match("^Battery") and not mouse_capacity then
+            mouse_capacity = tonumber(read(root .. name .. "/capacity"))
+            mouse_state = (read(root .. name .. "/status") or "Unknown"):gsub("%s+$", "")
         end
     end
     enumerator:close()
-    if #capacities == 0 then return nil end
-    local sum = 0
-    for _, capacity in ipairs(capacities) do sum = sum + capacity end
-    return math.floor(sum / #capacities + 0.5), table.concat(states, ", ")
+    local laptop_capacity, laptop_state
+    if #capacities > 0 then
+        local sum = 0
+        for _, capacity in ipairs(capacities) do sum = sum + capacity end
+        laptop_capacity, laptop_state = math.floor(sum / #capacities + 0.5), table.concat(states, ", ")
+    end
+    return laptop_capacity, laptop_state, mouse_capacity, mouse_state
 end
 
 local function filesystem_stats()
@@ -490,10 +496,14 @@ function sidebar.create(s, dismiss_menu)
     local cpu_text = label("CPU  measuring…", palette.text, 10, false)
     local memory_text = label("Memory  reading…", palette.text, 10, false)
     local battery_text = label("Battery  --", palette.text, 10, false)
+    local mouse_battery_text = label("Mouse  --", palette.text, 10, false)
+    mouse_battery_text.visible = false
     local root_text = label("Free /  reading…", palette.text, 10, false)
     local network_text = label("Network  measuring…", palette.text, 10, false)
     local cpu_bar, memory_bar = progress(palette.neon), progress(palette.green)
     local battery_bar, root_bar = progress(palette.amber), progress(palette.teal)
+    local mouse_battery_bar = progress(palette.teal)
+    mouse_battery_bar.visible = false
     local volume_text = label("Volume  --", palette.text, 10, false)
     local volume_bar = progress(palette.teal)
     local media_text = label("Checking player…", palette.text, 11, false, "center")
@@ -702,6 +712,7 @@ function sidebar.create(s, dismiss_menu)
         cpu_text, cpu_bar,
         memory_text, memory_bar,
         battery_text, battery_bar,
+        mouse_battery_text, mouse_battery_bar,
         root_text, root_bar,
         network_text, volume_control,
         spacing = 4, layout = wibox.layout.fixed.vertical,
@@ -954,8 +965,9 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_clock, s.sidebar_digital_time, s.sidebar_date = clock, digital_time, date
     s.sidebar_clock_card = clock_card
     s.sidebar_cpu, s.sidebar_battery = cpu_text, battery_text
+    s.sidebar_mouse_battery, s.sidebar_mouse_battery_bar = mouse_battery_text, mouse_battery_bar
     s.sidebar_stats_card = stats_card
-    s.sidebar_progress_bars = {cpu_bar, memory_bar, battery_bar, root_bar, volume_bar, codex_5h.bar, codex_7d.bar}
+    s.sidebar_progress_bars = {cpu_bar, memory_bar, battery_bar, mouse_battery_bar, root_bar, volume_bar, codex_5h.bar, codex_7d.bar}
     s.sidebar_volume, s.sidebar_volume_text = volume_control, volume_text
     s.sidebar_quake2_button, s.sidebar_sleep_button = quake2_button, sleep_button
     s.sidebar_trash_icon, s.sidebar_trash_state = trash_icon, trash_state
@@ -1024,12 +1036,18 @@ function sidebar.create(s, dismiss_menu)
             root_bar.value = math.floor((root_total - root_free) * 100 / root_total + 0.5)
         end
 
-        local capacity, state = battery_stats()
+        local capacity, state, mouse_capacity, mouse_state = battery_stats()
         battery_text.visible, battery_bar.visible = capacity ~= nil, capacity ~= nil
         if capacity then
             battery_text.text = string.format("Battery  %d%%  %s", capacity, state)
             battery_bar.value = capacity
         end
+        mouse_battery_text.visible, mouse_battery_bar.visible = mouse_capacity ~= nil, mouse_capacity ~= nil
+        if mouse_capacity then
+            mouse_battery_text.text = string.format("Mouse  %d%%  %s", mouse_capacity, mouse_state or "Unknown")
+            mouse_battery_bar.value = mouse_capacity
+        end
+        stats_card.forced_height = mouse_capacity and 228 or 205
 
         local rx, tx = network_stats()
         if rx and tx then
