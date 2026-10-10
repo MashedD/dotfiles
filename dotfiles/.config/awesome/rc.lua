@@ -173,6 +173,26 @@ local main_menu = awful.menu({items = {
     {"Display outputs", function() display_menu:show() end},
     {"Log Out…", confirm_quit},
 }})
+local main_menu_keygrabber = main_menu._keygrabber
+local start_key_pending = false
+main_menu._keygrabber = function(modifiers, key_name, event)
+    if key_name == "Super_L" or key_name == "Super_R" then
+        if event == "press" then
+            start_key_pending = true
+        elseif event == "release" then
+            local tap = start_key_pending
+            start_key_pending = false
+            if tap then main_menu:hide() end
+            return
+        end
+    end
+    main_menu_keygrabber(modifiers, key_name, event)
+end
+local function toggle_start_menu(s)
+    s = s or awful.screen.focused()
+    local menu = s.start_menu or main_menu
+    menu:toggle({coords = {x = s.geometry.x + 2, y = s.geometry.y + (s.panel and s.panel.height or 30)}})
+end
 
 local function wallpaper(s)
     local state_home = os.getenv("XDG_STATE_HOME") or (home .. "/.local/state")
@@ -223,7 +243,21 @@ local function cycle_sidebar_mode(s)
 end
 
 local globalkeys = {}
+local super_key_down, super_combo_used = false, false
+local function mark_super_combo()
+    if super_key_down then super_combo_used = true end
+end
 local function key(modifiers, name, callback)
+    for _, modifier in ipairs(modifiers) do
+        if modifier == mod then
+            local action = callback
+            callback = function(...)
+                mark_super_combo()
+                return action(...)
+            end
+            break
+        end
+    end
     globalkeys = gears.table.join(globalkeys, awful.key(modifiers, name, callback))
 end
 key({mod}, "Return", function() run("kitty") end)
@@ -264,6 +298,8 @@ for _, entry in ipairs({{"Left", -1}, {"Up", -1}, {"Right", 1}, {"Down", 1}}) do
         if client.focus then client.focus:raise() end
     end)
 end
+key({mod}, "Left", function() if client.focus then snap(client.focus, false) end end)
+key({mod}, "Right", function() if client.focus then snap(client.focus, true) end end)
 local commands = {
     {{}, "XF86AudioRaiseVolume", {home .. "/.local/bin/openbox-volume", "up"}},
     {{}, "XF86AudioLowerVolume", {home .. "/.local/bin/openbox-volume", "down"}},
@@ -283,6 +319,29 @@ for _, entry in ipairs(commands) do
     local command = entry[3]
     key(entry[1], entry[2], function() run(command) end)
 end
+-- Modifier releases are unreliable as root key callbacks under X11, so poll
+-- until Mod4 is physically up; registered Win shortcuts cancel the tap.
+local super_tap_timer
+local function on_super_press()
+    super_key_down, super_combo_used = true, false
+    if super_tap_timer then super_tap_timer:stop() end
+    super_tap_timer = gears.timer.start_new(0.05, function()
+        if super_combo_used then
+            super_key_down, super_tap_timer = false, nil
+            return false
+        end
+        for _, modifier in ipairs(awesome._active_modifiers or {}) do
+            if modifier == mod then return true end
+        end
+        local tap = super_key_down and not super_combo_used
+        super_key_down, super_tap_timer = false, nil
+        if tap then toggle_start_menu() end
+        return false
+    end)
+end
+globalkeys = gears.table.join(globalkeys,
+    awful.key({}, "Super_L", on_super_press),
+    awful.key({}, "Super_R", on_super_press))
 root.keys(globalkeys)
 root.buttons(gears.table.join(
     awful.button({}, 3, function() main_menu:toggle() end),
@@ -294,9 +353,7 @@ local clientkeys = gears.table.join(
     awful.key({"Mod1"}, "F4", function(c) c:kill() end),
     awful.key({"Mod1"}, "F11", function(c) c.fullscreen = not c.fullscreen; c:raise() end),
     awful.key({"Mod1"}, "Escape", lower),
-    awful.key({"Mod1"}, "space", window_menu),
-    awful.key({mod}, "Left", function(c) snap(c, false) end),
-    awful.key({mod}, "Right", function(c) snap(c, true) end)
+    awful.key({"Mod1"}, "space", window_menu)
 )
 local clientbuttons = gears.table.join(
     awful.button({}, 1, activate),

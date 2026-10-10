@@ -102,7 +102,8 @@ not replace or kill a live WM.
 
 Awesome's built-in wibar replaces LXPanel **at the top, 30px high**, with
 a Frutiger Aero sky-blue glass gradient, a green Tux Start button, a left-aligned
-Longhorn-style glass Start menu, and consistently styled display/window menus.
+Longhorn-style glass Start menu (Start button or bare Win tap), and consistently
+styled display/window menus.
 It also has four-workspace buttons (scroll up = previous workspace; scroll down = next),
 current-workspace taskbar (including minimized windows),
 CPU graph, battery status, volume, tray and `Fri  DD.MM.YY  HH:MM:SS` clock
