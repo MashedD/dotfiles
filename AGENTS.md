@@ -26,7 +26,7 @@ Openbox, Hyprland, Waybar, Walker, Mako, cliphist, and hyprlock configurations r
   - Win+Shift+1–4 sends the focused window to a desktop and follows it.
   - Win+P opens display outputs; Win+Shift+Q requires quit confirmation.
 - Start only X11-compatible services from Awesome autostart. Do not add Wayland daemons there.
-- Autostart must tolerate Awesome reloads without duplicate services. Start Solaar with `--window=hide` after the SNI bridge when installed.
+- Autostart must tolerate Awesome reloads without duplicate services. Do not autostart Solaar; the sidebar reads Logitech mouse battery status directly from sysfs.
 - Awesome's built-in systray is the sole XEmbed tray owner, displayed on the primary monitor. Start `snixembed --fork` after Awesome initializes it to bridge modern StatusNotifierItem applications (such as Gajim).
 - Win+Shift+Q and Start-menu Logout quit Awesome; in a `startx` session this cleanly returns to the console.
 - The `startx` session must use the existing systemd user D-Bus bus; do not wrap Awesome in `dbus-run-session`, which splits Gajim from GNOME Keyring.

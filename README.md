@@ -220,9 +220,9 @@ the externally managed NetworkManager applet untouched, uses Awesome's native
 tray as the sole owner, and leaves removable-drive handling unchanged. The display watcher is asynchronous,
 single-instance, polls every three seconds, and exits if the X server vanishes.
 The same Openbox session services are retained: xsettingsd, display watcher,
-battery alerts, snixembed, Solaar (when installed, hidden startup window),
-dunst, lxqt-policykit, clipmenud when installed,
-and xss-lock. Syncthing, MPD and the conditional notes HTTP server from the old
+battery alerts, snixembed, dunst, lxqt-policykit, clipmenud when installed,
+and xss-lock. Solaar is not autostarted; Logitech mouse battery status is
+shown in the sidebar. Syncthing, MPD and the conditional notes HTTP server from the old
 xinitrc are also retained. Only LXPanel and feh are replaced by built-in widgets
 and wallpaper rendering. User applications that were not autostarted before
 (e.g. Firefox/Gajim) are not newly autostarted.

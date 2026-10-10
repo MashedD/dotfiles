@@ -58,7 +58,7 @@ with open(os.environ['TEST_STATE'], 'a+') as f:
                 self.assertEqual(calls.count(name), expected, f"duplicate/missing service {name}: {calls}")
             self.assertEqual(calls.count("dbus-update-activation-environment"), 2)
             self.assertNotIn("lxpanel", calls)
-            self.assertEqual(calls.count("solaar"), 1, calls)
+            self.assertNotIn("solaar", calls)
             self.assertNotIn("openbox", calls)
             clipboard = ROOT / "dotfiles/.local/bin/openbox-clipboard"
             subprocess.run(["/bin/sh", str(clipboard)], env=env, check=True, timeout=3)

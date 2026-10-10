@@ -30,8 +30,6 @@ if command -v snixembed >/dev/null 2>&1; then
         # Awesome's built-in systray must own XEmbed before the SNI bridge starts.
         sleep 2
         once '(^|/)snixembed( |$)' snixembed --fork
-        # Solaar's status icon is an SNI and needs snixembed/LXPanel bridge up first.
-        once '(^|/)solaar( |$)' solaar --window=hide
     ) &
 fi
 once '(^|/)picom( |$)' picom --config "$HOME/.config/picom/picom.conf"
