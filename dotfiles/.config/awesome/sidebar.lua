@@ -419,17 +419,32 @@ local function filesystem_stats()
 end
 
 local function wallpaper_paths()
-    local root = (os.getenv("XDG_DATA_HOME") or os.getenv("HOME") .. "/.local/share") .. "/wallpapers"
-    local enumerator = Gio.File.new_for_path(root):enumerate_children("standard::name", 0)
-    local paths = {}
-    if enumerator then
-        while true do
-            local entry = enumerator:next_file()
-            if not entry then break end
-            local name = entry:get_name()
-            if name:match("%.png$") then paths[#paths + 1] = root .. "/" .. name end
+    local home = os.getenv("HOME") or "."
+    local roots = {
+        (os.getenv("XDG_DATA_HOME") or (home .. "/.local/share")) .. "/wallpapers",
+        home .. "/Pictures/Wallpapers",
+    }
+    local image_extensions = {png = true, jpg = true, jpeg = true, webp = true, bmp = true, gif = true}
+    local paths, seen = {}, {}
+    for _, root in ipairs(roots) do
+        local ok, enumerator = pcall(function()
+            return Gio.File.new_for_path(root):enumerate_children("standard::name", 0)
+        end)
+        if ok and enumerator then
+            pcall(function()
+                while true do
+                    local entry = enumerator:next_file()
+                    if not entry then break end
+                    local name = entry:get_name()
+                    local extension = name:lower():match("%.([%w]+)$")
+                    local path = root .. "/" .. name
+                    if extension and image_extensions[extension] and not seen[path] then
+                        paths[#paths + 1], seen[path] = path, true
+                    end
+                end
+            end)
+            pcall(function() enumerator:close() end)
         end
-        enumerator:close()
     end
     table.sort(paths)
     return paths
@@ -1265,6 +1280,8 @@ function sidebar.create(s, dismiss_menu)
     local scrollbar_height = 12
     local sidebar_height = math.max(1, s.geometry.height - 30)
     local scroll_max = 0
+    local scroll_target = 0
+    local scroll_animation
     s.sidebar_scroll_position = 0
     local scroll_content_height, scroll_viewport_height = 1, 1
     local scroll_view, scrollbar, panel
@@ -1276,8 +1293,34 @@ function sidebar.create(s, dismiss_menu)
         end
         if scrollbar then scrollbar:emit_signal("widget::redraw_needed") end
     end
+    local function animate_scroll_to(target)
+        scroll_target = math.max(0, math.min(scroll_max, target))
+        if scroll_animation and scroll_animation.started then return end
+        local start = s.sidebar_scroll_position
+        local frame = 0
+        scroll_animation = gears.timer.start_new(1 / 60, function()
+            frame = frame + 1
+            local progress = math.min(1, frame / 6)
+            local eased = 1 - (1 - progress) ^ 3
+            set_scroll_offset(start + (scroll_target - start) * eased)
+            if progress >= 1 then
+                set_scroll_offset(scroll_target)
+                scroll_animation = nil
+                return false
+            end
+            return true
+        end)
+    end
+    local function set_scroll_direct(offset)
+        if scroll_animation and scroll_animation.started then
+            scroll_animation:stop()
+            scroll_animation = nil
+        end
+        scroll_target = math.max(0, math.min(scroll_max, offset))
+        set_scroll_offset(scroll_target)
+    end
     local function scroll_by(delta)
-        set_scroll_offset(s.sidebar_scroll_position + delta)
+        animate_scroll_to(scroll_target + delta)
     end
     local content = wibox.layout.fixed.vertical()
     content.spacing = 0
@@ -1310,6 +1353,7 @@ function sidebar.create(s, dismiss_menu)
         end
         scroll_content_height, scroll_viewport_height = content_height, viewport_height
         scroll_max = math.max(0, content_height - viewport_height)
+        scroll_target = math.max(0, math.min(scroll_max, scroll_target))
         s.sidebar_scroll_position = math.max(0, math.min(scroll_max, s.sidebar_scroll_position))
         if scrollbar and previous_max ~= scroll_max then scrollbar:emit_signal("widget::redraw_needed") end
         return {wibox.widget.base.place_widget_at(content, 0, -s.sidebar_scroll_position, width, content_height)}
@@ -1346,7 +1390,7 @@ function sidebar.create(s, dismiss_menu)
         local thumb_width = select(2, thumb_geometry(track_width))
         local travel = math.max(1, track_width - thumb_width)
         local fraction = math.max(0, math.min(1, (x - track_x - thumb_width / 2) / travel))
-        set_scroll_offset(fraction * scroll_max)
+        set_scroll_direct(fraction * scroll_max)
     end
     scroll_view.forced_height = math.max(1, sidebar_height - header.forced_height)
     scrollbar:buttons(gears.table.join(awful.button({}, 1, function()
@@ -1377,8 +1421,8 @@ function sidebar.create(s, dismiss_menu)
     }
     panel:connect_signal("button::press", function(_, _, _, button)
         if dismiss_menu then dismiss_menu() end
-        local delta = button == 4 and -54 or (button == 5 and 54 or nil)
-        if delta then gears.timer.delayed_call(function() scroll_by(delta) end) end
+        local delta = button == 4 and -42 or (button == 5 and 42 or nil)
+        if delta then scroll_by(delta) end
     end)
     s.sidebar = panel
     s.sidebar_scroll_view, s.sidebar_scrollbar = scroll_view, scrollbar

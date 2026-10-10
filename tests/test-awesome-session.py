@@ -30,6 +30,7 @@ def main():
         helpers = testhome / ".local/bin"
         helpers.mkdir(parents=True)
         (testhome / ".local/share/wallpapers").mkdir(parents=True)
+        (testhome / "Pictures/Wallpapers").mkdir(parents=True)
         (testhome / "Documents").mkdir()
         todo_path = testhome / "Documents/todo.md"
         todo_path.write_text(
@@ -55,6 +56,8 @@ def main():
                      testhome / ".local/share/wallpapers/lock-win98-tux.png")
         shutil.copy2(ROOT / "dotfiles/.local/share/wallpapers/aurora-longhorn.png",
                      testhome / ".local/share/wallpapers/aurora-longhorn.png")
+        shutil.copy2(ROOT / "dotfiles/.local/share/wallpapers/aurora-longhorn.png",
+                     testhome / "Pictures/Wallpapers/pictures-wallpaper.png")
         icon_source = Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share"))) / "icons/hicolor/32x32/apps/vax-tux-start.png"
         icon_target = testhome / ".local/share/icons/hicolor/32x32/apps/vax-tux-start.png"
         icon_target.parent.mkdir(parents=True)
@@ -180,16 +183,18 @@ def main():
                 assert '33' in codex_7d_bar, codex_7d_bar
                 wait('return tostring(screen[1].sidebar_scroll_max() > 0)', '"true"')
                 subprocess.run(["xdotool", "mousemove", "1100", "720", "click", "5"], env=env, check=True)
-                wheel_state = lua('return tostring(screen[1].sidebar_scroll_position > 0)')
+                wheel_state = wait('return tostring(screen[1].sidebar_scroll_position > 0)', '"true"')
                 assert 'true' in wheel_state, wheel_state
                 lua('screen[1].sidebar_scroll_by(-10000)')
                 wait('return tostring(screen[1].sidebar_scroll_offset() == 0)', '"true"')
                 subprocess.run(["xdotool", "mousemove", "1030", "794", "mousedown", "1",
                                 "mousemove", "1220", "794", "mouseup", "1"],
                                env=env, check=True, timeout=5)
+                wait('return tostring(screen[1].sidebar_scroll_position > 0)', '"true"')
                 slider_state = lua('return tostring(screen[1].sidebar_scroll_position > 0)..":"..tostring(not mousegrabber.isrunning())')
                 assert 'true:true' in slider_state, slider_state
                 lua('screen[1].sidebar_scroll_by(-10000)')
+                wait('return tostring(screen[1].sidebar_scroll_offset() == 0)', '"true"')
                 subprocess.run(["xdotool", "mousemove", "1130", "140", "click", "1"], env=env, check=True)
                 wait('return screen[1].sidebar_clock_mode', 'text')
                 lua('screen[1].sidebar_clock_toggle()')
@@ -222,11 +227,14 @@ def main():
                 wait('return screen[1].sidebar_root_text.text', 'Free /')
                 assert 'aurora-longhorn.png' in lua('return screen[1].sidebar_wallpaper_name.text')
                 next_buttons = lua('return tostring(screen[1].sidebar_wallpaper_count)..":"..#screen[1].sidebar_wallpaper_next:buttons()')
-                assert '2:4' in next_buttons, next_buttons
+                assert '3:4' in next_buttons, next_buttons
                 lua('screen[1].sidebar_wallpaper_next_action()')
                 wallpaper_name = lua('return tostring(screen[1].sidebar_wallpaper_index)..":"..screen[1].sidebar_wallpaper_name.text')
                 assert '2:lock-win98-tux.png' in wallpaper_name, wallpaper_name
-                lua('screen[1].sidebar_wallpaper_previous_action(); screen[1].sidebar_wallpaper_apply()')
+                lua('screen[1].sidebar_wallpaper_next_action()')
+                wallpaper_name = lua('return tostring(screen[1].sidebar_wallpaper_index)..":"..screen[1].sidebar_wallpaper_name.text')
+                assert '3:pictures-wallpaper.png' in wallpaper_name, wallpaper_name
+                lua('screen[1].sidebar_wallpaper_previous_action(); screen[1].sidebar_wallpaper_previous_action(); screen[1].sidebar_wallpaper_apply()')
                 assert (testhome / ".local/state/awesome/wallpaper").read_text().strip().endswith("aurora-longhorn.png")
                 wait('return tostring(screen[1].sidebar_volume_text.markup):find("42%", 1, true) and "42%" or "pending"', '"42%"')
                 assert '8pt' in lua('return screen[1].sidebar_volume_text.markup')
