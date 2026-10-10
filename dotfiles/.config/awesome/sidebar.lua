@@ -147,14 +147,14 @@ end
 
 local function section_header(text, trailing_widget)
     local title = label(text, "#edfaff", 10, true, "center")
-    local contents = wibox.layout.align.horizontal()
-    contents:set_left(wibox.widget {
+    local contents = wibox.layout.stack()
+    local adornments = wibox.layout.align.horizontal()
+    adornments:set_left(wibox.widget {
         forced_width = 3, bg = "#8be0ee", widget = wibox.container.background,
     })
-    contents:set_middle(wibox.widget {
-        title, left = 6, right = 6, widget = wibox.container.margin,
-    })
-    if trailing_widget then contents:set_right(trailing_widget) end
+    if trailing_widget then adornments:set_right(trailing_widget) end
+    contents:add(adornments)
+    contents:add(title)
     return wibox.widget {
         {
             {forced_height = 1, bg = "#a5ecf4", widget = wibox.container.background},
