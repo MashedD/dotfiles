@@ -70,10 +70,7 @@ else
        [[ -f $chicago_candidate/gtk-2.0/gtkrc &&
           -f $chicago_candidate/gtk-2.0/panel/panel-button.png &&
           -f $chicago_candidate/gtk-2.0/panel/panel-button-active.png &&
-          -f $chicago_candidate/gtk-3.0/gtk.css &&
-          ( -f $chicago_candidate/misc/GTK2_start_buttons/tux_30px.png ||
-            -f $chicago_candidate/misc/GTK2_start_buttons/tux.png ||
-            -f $chicago_candidate/misc/tux.png ) ]]; then
+          -f $chicago_candidate/gtk-3.0/gtk.css ]]; then
       chicago95=$chicago_candidate
       break
     fi
@@ -88,17 +85,8 @@ if printf '%s\n' "$chicago95" | grep -q '["\\]'; then
   die 'Chicago95 path contains a quote or backslash; use a simpler --path'
 fi
 
-tux_asset=''
-for candidate in \
-  "$chicago95/misc/GTK2_start_buttons/tux_30px.png" \
-  "$chicago95/misc/GTK2_start_buttons/tux.png" \
-  "$chicago95/misc/tux.png"; do
-  if [[ -f $candidate ]]; then
-    tux_asset=$candidate
-    break
-  fi
-done
-[[ -n $tux_asset ]] || die 'could not find a Chicago95 Tux start-button asset'
+start_asset="$source_dir/assets/vax-tux-start.png"
+[[ -s $start_asset ]] || die "missing themed Start asset: $start_asset"
 
 # Refuse to take ownership of a user's unrelated legacy theme. The old
 # repository symlink is the one migration this helper is allowed to replace.
@@ -185,7 +173,7 @@ EOF
 
 [[ -s $stage/index.theme && -s $stage/gtk-2.0/gtkrc && -s $stage/gtk-3.0/gtk.css ]] ||
   die 'generated VAX theme failed validation'
-cp -- "$tux_asset" "$icon_stage"
+cp -- "$start_asset" "$icon_stage"
 [[ -s $icon_stage ]] || die 'failed to stage the Tux start icon'
 
 if [[ -d $theme_dest ]]; then

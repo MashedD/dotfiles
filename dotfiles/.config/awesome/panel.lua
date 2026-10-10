@@ -40,7 +40,10 @@ function panel.create(s, menu, activate, window_menu)
     -- Render at native size, without a second label or shrinking it to 22px.
     icon.forced_width, icon.forced_height, icon.resize = 65, 25, false
     local start = icon
-    start:buttons(gears.table.join(awful.button({}, 1, function() menu:toggle() end)))
+    local function toggle_start_menu()
+        menu:toggle({coords = {x = s.geometry.x + 2, y = s.geometry.y + 30}})
+    end
+    start:buttons(gears.table.join(awful.button({}, 1, toggle_start_menu)))
     s.start_button, s.start_menu = start, menu
 
     s.taglist = awful.widget.taglist {

@@ -37,6 +37,14 @@ local titlebar_close_hover = gears.color {
     type = "linear", from = {0, 0}, to = {0, 20},
     stops = {{0, "#fffaf1"}, {0.2, "#ffd1ae"}, {0.58, "#f17d63"}, {1, "#a8342e"}},
 }
+local menu_glass_gradient = gears.color {
+    type = "linear", from = {0, 0}, to = {0, 340},
+    stops = {{0, "#315d75"}, {0.18, "#284f69"}, {0.62, "#1d3e57"}, {1, "#142e43"}},
+}
+local menu_selection_gradient = gears.color {
+    type = "linear", from = {0, 0}, to = {0, 28},
+    stops = {{0, "#a5ecf4"}, {0.18, "#55b1d6"}, {0.56, "#2b88b8"}, {1, "#16547d"}},
+}
 
 -- Do not load naughty: dunst, not Awesome, owns the notification D-Bus name.
 awesome.connect_signal("debug::error", function(err)
@@ -54,8 +62,10 @@ beautiful.init({
     border_width = 2, border_normal = "#808080", border_focus = "#70c5bd",
     titlebar_bg_normal = titlebar_normal_gradient, titlebar_fg_normal = "#d6e7e3",
     titlebar_bg_focus = titlebar_focus_gradient, titlebar_fg_focus = "#f2fffb",
-    menu_height = 24, menu_width = 230,
-    menu_border_width = 2, menu_border_color = "#808080",
+    menu_font = "Segoe UI 9", menu_height = 28, menu_width = 270,
+    menu_bg_normal = menu_glass_gradient, menu_fg_normal = "#eaf6fb",
+    menu_bg_focus = menu_selection_gradient, menu_fg_focus = "#ffffff",
+    menu_border_width = 1, menu_border_color = "#8bdff0",
     useless_gap = 0, bg_systray = "#c0c0c0", systray_icon_spacing = 2,
     maximized_hide_border = true, fullscreen_hide_border = true,
 })
