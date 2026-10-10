@@ -14,15 +14,15 @@ print_unavailable() {
 }
 
 cache_value() {
-  local display fetched_at reset_credits
+  local display fetched_at reset_dates
 
   [[ -r "$cache_file" ]] || return 1
   display="$(jq -r '.display // empty' "$cache_file" 2>/dev/null)" || return 1
   fetched_at="$(jq -r '.fetched_at // 0' "$cache_file" 2>/dev/null)" || return 1
-  reset_credits="$(jq -r '.reset_credits // "unavailable"' "$cache_file" 2>/dev/null)" || return 1
+  reset_dates="$(jq -r '.reset_dates // empty' "$cache_file" 2>/dev/null)" || return 1
   [[ -n "$display" && "$fetched_at" =~ ^[0-9]+$ && "$fetched_at" -gt 0 ]] || return 1
 
-  printf '%s\t%s\t%s\n' "$display" "$fetched_at" "$reset_credits"
+  printf '%s\t%s\t%s\n' "$display" "$fetched_at" "$reset_dates"
 }
 
 format_reset() {
@@ -150,21 +150,28 @@ fetch_result() {
   jq -c '.result' <<<"$response" 2>/dev/null
 }
 
+format_reset_credits() {
+  local result="$1" epoch dates=""
+  while IFS= read -r epoch; do
+    [[ "$epoch" =~ ^[0-9]+$ ]] || continue
+    local formatted
+    formatted="$(date -d "@$epoch" '+%a %d.%m %H:%M' 2>/dev/null)" || continue
+    dates+="${dates:+ · }$formatted"
+  done < <(jq -r '.rateLimitResetCredits.credits[]? | select(.status == "available") | .expiresAt // empty' <<<"$result" 2>/dev/null)
+  printf '%s' "${dates:---}"
+}
+
 write_cache() {
   local display="$1"
   local fetched_at="$2"
-  local reset_credits="${3:-unavailable}"
+  local reset_dates="${3:---}"
   local reset_json temporary_file
 
-  if [[ "$reset_credits" =~ ^[0-9]+$ ]]; then
-    reset_json="$reset_credits"
-  else
-    reset_json='"unavailable"'
-  fi
+  reset_json="$(jq -Rn --arg value "$reset_dates" '$value')" || return 1
   mkdir -p "$(dirname -- "$cache_file")" 2>/dev/null || return 1
   temporary_file="${cache_file}.$$"
   umask 077
-  printf '{"display":%s,"fetched_at":%s,"reset_credits":%s}\n' \
+  printf '{"display":%s,"fetched_at":%s,"reset_dates":%s}\n' \
     "$(jq -Rn --arg value "$display" '$value')" "$fetched_at" "$reset_json" >"$temporary_file" || {
     rm -f "$temporary_file"
     return 1
@@ -173,31 +180,31 @@ write_cache() {
 }
 
 main() {
-  local mode="${1:-tmux}" now cached cached_display cached_at cached_reset cached_rest age result display reset_credits
+  local mode="${1:-tmux}" now cached cached_display cached_at cached_dates cached_rest age result display reset_dates
   now="$(date +%s)"
 
   cached="$(cache_value 2>/dev/null || true)"
   cached_display="${cached%%$'\t'*}"
   cached_rest="${cached#*$'\t'}"
   cached_at="${cached_rest%%$'\t'*}"
-  cached_reset="${cached_rest#*$'\t'}"
+  cached_dates="${cached_rest#*$'\t'}"
   [[ "$cached" == *$'\t'* ]] || cached_at=0
   [[ "$cached_at" =~ ^[0-9]+$ ]] || cached_at=0
-  [[ "$cached_reset" != "$cached_rest" ]] || cached_reset=unavailable
+  [[ "$cached_dates" != "$cached_rest" ]] || cached_dates=unavailable
   age=$((now - cached_at))
 
   emit() {
     local value="$1" resets="${2:-unavailable}"
     if [[ "$mode" == "--sidebar" ]]; then
-      [[ "$resets" =~ ^[0-9]+$ ]] || resets=--
+      [[ -n "$resets" && "$resets" != "unavailable" ]] || resets=--
       printf '%s\t%s\n' "$value" "$resets"
     else
       printf '%s\n' "$value"
     fi
   }
 
-  if (( cached_at > 0 && age < refresh_interval )); then
-    emit "$cached_display" "$cached_reset"
+  if (( cached_at > 0 && age < refresh_interval )) && { [[ "$mode" != "--sidebar" ]] || [[ -n "$cached_dates" ]]; }; then
+    emit "$cached_display" "$cached_dates"
     return 0
   fi
 
@@ -205,9 +212,9 @@ main() {
   if ! mkdir "$lock_dir" 2>/dev/null; then
     if (( cached_at > 0 )); then
       if (( age >= stale_after )); then
-        emit "C* ${cached_display#C }" "$cached_reset"
+        emit "C* ${cached_display#C }" "$cached_dates"
       else
-        emit "$cached_display" "$cached_reset"
+        emit "$cached_display" "$cached_dates"
       fi
     else
       emit "C --" unavailable
@@ -218,15 +225,14 @@ main() {
 
   result="$(fetch_result 2>/dev/null || true)"
   if [[ -n "$result" ]] && display="$(format_result "$result" 2>/dev/null)" && [[ -n "$display" ]]; then
-    reset_credits="$(jq -r '.rateLimitResetCredits.availableCount // "unavailable"' <<<"$result" 2>/dev/null)"
-    [[ "$reset_credits" =~ ^[0-9]+$ ]] || reset_credits=unavailable
-    write_cache "$display" "$now" "$reset_credits" 2>/dev/null || true
-    emit "$display" "$reset_credits"
+    reset_dates="$(format_reset_credits "$result")"
+    write_cache "$display" "$now" "$reset_dates" 2>/dev/null || true
+    emit "$display" "$reset_dates"
   elif (( cached_at > 0 )); then
     if (( age >= stale_after )); then
-      emit "C* ${cached_display#C }" "$cached_reset"
+      emit "C* ${cached_display#C }" "$cached_dates"
     else
-      emit "$cached_display" "$cached_reset"
+      emit "$cached_display" "$cached_dates"
     fi
   else
     emit "C --" unavailable

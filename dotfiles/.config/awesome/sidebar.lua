@@ -729,11 +729,12 @@ function sidebar.create(s, dismiss_menu)
     end
     local codex_5h_widget, codex_5h = codex_window_row("5h")
     local codex_7d_widget, codex_7d = codex_window_row("7d")
-    local codex_resets = label("Free: --", palette.muted, 8, true, "right")
+    local codex_resets = label("Free resets: --", palette.teal, 8, false)
+    codex_resets.wrap = "word_char"
     local codex_card = card({
-        section_header("CODEX", codex_resets), codex_5h_widget, codex_7d_widget,
-        spacing = 3, layout = wibox.layout.fixed.vertical,
-    }, 90, 5)
+        section_header("CODEX"), codex_5h_widget, codex_7d_widget, codex_resets,
+        spacing = 2, layout = wibox.layout.fixed.vertical,
+    }, 110, 4)
     local codex_pending = false
     local function refresh_codex()
         if codex_pending then return end
@@ -741,13 +742,13 @@ function sidebar.create(s, dismiss_menu)
         awful.spawn.easy_async({os.getenv("HOME") .. "/.local/bin/codex-usage", "--sidebar"}, function(stdout, _, _, code)
             codex_pending = false
             local report = code == 0 and stdout or ""
-            local display, reset_count = report:match("^(.-)\t([^\r\n]+)")
+            local display, reset_dates = report:match("^(.-)\t([^\r\n]+)")
             display = (display or report):gsub("#%b[]", ""):gsub("^C%*?%s*", ""):gsub("%s+$", "")
-            if reset_count and reset_count:match("^%d+$") then
-                codex_resets.markup = string.format("<span foreground='%s'>Free: %s</span>", palette.green, reset_count)
-            else
-                codex_resets.text = "Free: --"
-            end
+            local pretty_reset_dates = reset_dates and reset_dates:gsub("^(.- · .-) · ", "%1\n")
+            local reset_text = pretty_reset_dates and reset_dates ~= "--"
+                and ("Free resets: " .. pretty_reset_dates) or "Free resets: --"
+            codex_resets.markup = string.format(
+                "<span foreground='%s' size='8pt'>%s</span>", palette.teal, gstring.xml_escape(reset_text))
             local five_left, five_reset, week_left, week_reset = display:match(
                 "5h%s+(%d+)%%@([%a]+%s+%d%d:%d%d)%s+7d%s+(%d+)%%@([%a]+%s+%d%d:%d%d)")
             if five_left then
@@ -936,7 +937,7 @@ function sidebar.create(s, dismiss_menu)
             halign = "center", widget = wibox.container.place,
         },
         spacing = 6, layout = wibox.layout.fixed.vertical,
-    }, 174)
+    }, 168)
 
     local sidebar_width = 300
     local panel = wibox {
@@ -952,7 +953,7 @@ function sidebar.create(s, dismiss_menu)
             {forced_width = 2, bg = palette.teal, widget = wibox.container.background},
             {
                 header, clock_card, wallpaper_card, weather_card, crypto_card, stats_card, codex_card, media_card, quick_card, todo_card, calendar_card,
-                spacing = 1, layout = wibox.layout.fixed.vertical,
+                spacing = 0, layout = wibox.layout.fixed.vertical,
             },
             layout = wibox.layout.fixed.horizontal,
         },
@@ -1047,7 +1048,7 @@ function sidebar.create(s, dismiss_menu)
             mouse_battery_text.text = string.format("Mouse  %d%%  %s", mouse_capacity, mouse_state or "Unknown")
             mouse_battery_bar.value = mouse_capacity
         end
-        stats_card.forced_height = mouse_capacity and 228 or 205
+        stats_card.forced_height = mouse_capacity and 223 or 205
 
         local rx, tx = network_stats()
         if rx and tx then

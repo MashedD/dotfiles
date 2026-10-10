@@ -15,11 +15,9 @@ uses the same volume, display, brightness, clipboard, screenshot and lock tools.
 
 ## Screenshot status
 
-![Obsolete Hyprland desktop](screenshot.png)
+![AwesomeWM](screenshot.png)
 
-The image above is an **obsolete Hyprland desktop reference**, not a picture of
-the current Awesome session. Current screenshots are intentionally not claimed
-until one is captured from this setup.
+Screenshot may differ from current progress.
 
 ## Install and deploy
 
