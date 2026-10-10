@@ -1380,7 +1380,7 @@ function sidebar.create(s, dismiss_menu)
         s.sidebar_scroll_position = math.max(0, math.min(scroll_max, s.sidebar_scroll_position))
         scrollbar.visible, scrollbar.forced_height = needs_scrollbar, bar_height
         scroll_view.forced_height = viewport_height
-        scrollbar_panel.visible = needs_scrollbar
+        scrollbar_panel.visible = needs_scrollbar and panel ~= nil and panel.visible or false
         scrollbar_panel.x = (panel and panel.x or (s.geometry.x + s.geometry.width - sidebar_width)) + 2
         scrollbar_panel.y = (panel and panel.y or (s.geometry.y + 30))
             + fixed_height + viewport_height

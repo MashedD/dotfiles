@@ -293,6 +293,10 @@ update_sidebar_mode = function(s)
     s.sidebar.visible = mode > 0 and not (mode == 3 and fullscreen)
     if s.panel_clock_container then s.panel_clock_container.visible = not s.sidebar.visible end
     s.sidebar.ontop = mode == 2 or mode == 3
+    if s.sidebar_scrollbar_panel then
+        s.sidebar_scrollbar_panel.visible = s.sidebar.visible and s.sidebar_scrollbar.visible
+        s.sidebar_scrollbar_panel.ontop = s.sidebar.ontop
+    end
     s.sidebar:struts(reserve and {right = s.sidebar.width}
         or {left = 0, right = 0, top = 0, bottom = 0})
 end
