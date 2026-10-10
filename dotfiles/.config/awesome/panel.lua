@@ -100,7 +100,7 @@ function panel.create(s, menu, activate, window_menu)
                     {
                         {
                             {id = "icon_role", forced_width = 16, forced_height = 16, widget = wibox.widget.imagebox},
-                            {id = "text_role", widget = wibox.widget.textbox},
+                            {id = "text_role", ellipsize = "end", widget = wibox.widget.textbox},
                             spacing = 4, layout = wibox.layout.fixed.horizontal,
                         },
                         left = 3, right = 4, top = 1, bottom = 1,
@@ -112,7 +112,7 @@ function panel.create(s, menu, activate, window_menu)
                 bg = panel_gradient, border_width = 1, border_color = "#174441",
                 widget = wibox.container.background,
             },
-            width = 180, strategy = "max", widget = wibox.container.constraint,
+            width = 160, strategy = "exact", widget = wibox.container.constraint,
         },
     }
 
