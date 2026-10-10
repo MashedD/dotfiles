@@ -711,7 +711,7 @@ function sidebar.create(s, dismiss_menu)
 
     local weather_icon = label("☁", palette.teal, 22, true, "center")
     weather_icon.font = "Noto Sans Symbols 2 20"
-    weather_icon.forced_width = 32
+    weather_icon.forced_width, weather_icon.forced_height = 32, 36
     local weather_main = label("Weather loading…", palette.text, 14, true, "center")
     local weather_detail = label("Bydgoszcz, Poland", palette.muted, 10, false, "center")
     weather_main.forced_width, weather_detail.forced_width = 190, 190
@@ -719,8 +719,11 @@ function sidebar.create(s, dismiss_menu)
         weather_main, weather_detail, spacing = 2,
         layout = wibox.layout.fixed.vertical,
     }
+    local weather_text_centered = {
+        weather_text_stack, halign = "left", valign = "center", widget = wibox.container.place,
+    }
     local weather_line = wibox.widget {
-        weather_icon, weather_text_stack, spacing = 8,
+        weather_icon, weather_text_centered, spacing = 8,
         layout = wibox.layout.fixed.horizontal,
     }
     local weather_pending = false
