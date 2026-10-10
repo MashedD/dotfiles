@@ -6,27 +6,27 @@ local beautiful = require("beautiful")
 local panel = {}
 local panel_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
-    stops = {{0, "#a5ecf4"}, {0.16, "#55b1d6"}, {0.48, "#2b88b8"}, {0.76, "#1d638f"}, {1, "#123f5e"}},
+    stops = {{0, "#80bfff"}, {0.16, "#438ee5"}, {0.48, "#216bd0"}, {0.76, "#174eaa"}, {1, "#123979"}},},{
 }
 local panel_item_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#6799bf"}, {0.2, "#477ea6"}, {0.6, "#2e608b"}, {1, "#1c4268"}},
+    stops = {{0, "#588bc5"}, {0.2, "#3f6ea7"}, {0.6, "#2b5488"}, {1, "#1c3c68"}},},{
 }
 local panel_focus_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#b4f1f7"}, {0.16, "#55b1d6"}, {0.48, "#2b88b8"}, {0.76, "#1d638f"}, {1, "#123f5e"}},
+    stops = {{0, "#b8dcff"}, {0.16, "#579fee"}, {0.48, "#2876d4"}, {0.76, "#194f9f"}, {1, "#123979"}},},{
 }
 local function glass_clock(widget)
     return wibox.widget {
         {widget, left = 5, right = 5, top = 1, bottom = 1, widget = wibox.container.margin},
         bg = panel_item_gradient, fg = "#f2fffb",
-        border_width = 1, border_color = "#9dece3",
+        border_width = 1, border_color = "#6aabea",
         widget = wibox.container.background,
     }
 end
 local function separator()
     return wibox.widget {
-        forced_width = 3, color = "#5299b4",
+        forced_width = 3, color = "#4c83bf",
         orientation = "vertical", widget = wibox.widget.separator,
     }
 end
@@ -72,10 +72,10 @@ function panel.create(s, menu, activate, window_menu)
                     left = 6, right = 6, top = 1, bottom = 1,
                     widget = wibox.container.margin,
                 },
-                id = "background_role", border_width = 1, border_color = "#a7f3eb",
+                id = "background_role", border_width = 1, border_color = "#8ecbff",
                 widget = wibox.container.background,
             },
-            bg = panel_gradient, border_width = 1, border_color = "#174441",
+            bg = panel_gradient, border_width = 1, border_color = "#173a6c",
             widget = wibox.container.background,
         },
     }
@@ -106,10 +106,10 @@ function panel.create(s, menu, activate, window_menu)
                         left = 3, right = 4, top = 1, bottom = 1,
                         widget = wibox.container.margin,
                     },
-                    id = "background_role", border_width = 1, border_color = "#a7f3eb",
+                    id = "background_role", border_width = 1, border_color = "#8ecbff",
                     widget = wibox.container.background,
                 },
-                bg = panel_gradient, border_width = 1, border_color = "#174441",
+                bg = panel_gradient, border_width = 1, border_color = "#173a6c",
                 widget = wibox.container.background,
             },
             width = 160, strategy = "exact", widget = wibox.container.constraint,

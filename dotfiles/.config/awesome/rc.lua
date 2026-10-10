@@ -15,19 +15,19 @@ local test_mode = os.getenv("AWESOME_TEST_MODE") == "1"
 
 local titlebar_focus_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 26},
-    stops = {{0, "#a5ecf4"}, {0.16, "#55b1d6"}, {0.48, "#2b88b8"}, {0.76, "#1d638f"}, {1, "#123f5e"}},
+    stops = {{0, "#80bfff"}, {0.16, "#438ee5"}, {0.48, "#216bd0"}, {0.76, "#174eaa"}, {1, "#123979"}},},{
 }
 local titlebar_normal_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 26},
-    stops = {{0, "#9bbbd0"}, {0.2, "#648ba8"}, {0.55, "#3c627f"}, {1, "#203d58"}},
+    stops = {{0, "#8eacd2"}, {0.2, "#6588bc"}, {0.55, "#405f96"}, {1, "#233e6e"}},},{
 }
 local titlebar_button_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 20},
-    stops = {{0, "#e9fbff"}, {0.18, "#a5dced"}, {0.55, "#4d9dc5"}, {1, "#245c7d"}},
+    stops = {{0, "#e5f2ff"}, {0.18, "#a5cbf2"}, {0.55, "#4d8fcf"}, {1, "#245b9c"}},},{
 }
 local titlebar_button_hover = gears.color {
     type = "linear", from = {0, 0}, to = {0, 20},
-    stops = {{0, "#ffffff"}, {0.2, "#c9f5ff"}, {0.6, "#70c9e6"}, {1, "#347fa6"}},
+    stops = {{0, "#ffffff"}, {0.2, "#d3eaff"}, {0.6, "#78b8f0"}, {1, "#3479bd"}},},{
 }
 local titlebar_close_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 20},
@@ -59,7 +59,7 @@ beautiful.init({
     bg_normal = "#c0c0c0", fg_normal = "#000000",
     bg_focus = "#001a00", fg_focus = "#00ff41",
     bg_urgent = "#001a00", fg_urgent = "#00ff41",
-    border_width = 2, border_normal = "#808080", border_focus = "#70c5bd",
+    border_width = 2, border_normal = "#808080", border_focus = "#538ed4",
     titlebar_bg_normal = titlebar_normal_gradient, titlebar_fg_normal = "#d6e7e3",
     titlebar_bg_focus = titlebar_focus_gradient, titlebar_fg_focus = "#f2fffb",
     menu_font = "Segoe UI 9", menu_height = 28, menu_width = 270,
