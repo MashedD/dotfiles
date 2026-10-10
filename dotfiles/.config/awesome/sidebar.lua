@@ -711,7 +711,11 @@ function sidebar.create(s, dismiss_menu)
 
     local weather_icon = label("☁", palette.teal, 22, true, "center")
     weather_icon.font = "Noto Sans Symbols 2 20"
-    weather_icon.forced_width, weather_icon.forced_height = 32, 36
+    weather_icon.forced_width = 32
+    local weather_icon_slot = {
+        weather_icon, halign = "center", valign = "center",
+        forced_width = 32, forced_height = 36, widget = wibox.container.place,
+    }
     local weather_main = label("Weather loading…", palette.text, 14, true, "center")
     local weather_detail = label("Bydgoszcz, Poland", palette.muted, 10, false, "center")
     weather_main.forced_width, weather_detail.forced_width = 190, 190
@@ -723,7 +727,7 @@ function sidebar.create(s, dismiss_menu)
         weather_text_stack, halign = "left", valign = "center", widget = wibox.container.place,
     }
     local weather_line = wibox.widget {
-        weather_icon, weather_text_centered, spacing = 8,
+        weather_icon_slot, weather_text_centered, spacing = 8,
         layout = wibox.layout.fixed.horizontal,
     }
     local weather_pending = false
@@ -763,12 +767,21 @@ function sidebar.create(s, dismiss_menu)
 
     local crypto_prices = {}
     local function crypto_cell(symbol)
-        local price = label("--", palette.green, 9, true)
-        crypto_prices[symbol] = price
-        return wibox.widget {
-            label(symbol, palette.teal, 9, true), price,
-            spacing = 3, layout = wibox.layout.fixed.horizontal,
-        }
+        local entry = {text = "--"}
+        local row = wibox.widget.textbox()
+        local function update()
+            row.markup = string.format(
+                "<span foreground='%s' size='9pt' weight='bold'>%s</span> " ..
+                    "<span foreground='%s' size='9pt' weight='bold'>%s</span>",
+                palette.teal, symbol, palette.green, entry.text)
+        end
+        entry.set = function(value)
+            entry.text = value
+            update()
+        end
+        crypto_prices[symbol] = entry
+        update()
+        return row
     end
     local crypto_line = wibox.layout.fixed.horizontal()
     crypto_line.spacing = 12
@@ -788,9 +801,9 @@ function sidebar.create(s, dismiss_menu)
             crypto_pending = false
             local display = code == 0 and stdout:gsub("#%b[]", ""):gsub("%s+$", "") or ""
             local btc, eth, ltc = display:match("BTC%s+(%S+)%s+ETH%s+(%S+)%s+LTC%s+(%S+)")
-            crypto_prices.BTC.text = (btc or "--"):gsub("^%$", "")
-            crypto_prices.ETH.text = (eth or "--"):gsub("^%$", "")
-            crypto_prices.LTC.text = (ltc or "--"):gsub("^%$", "")
+            crypto_prices.BTC.set((btc or "--"):gsub("^%$", ""))
+            crypto_prices.ETH.set((eth or "--"):gsub("^%$", ""))
+            crypto_prices.LTC.set((ltc or "--"):gsub("^%$", ""))
         end)
     end
 
