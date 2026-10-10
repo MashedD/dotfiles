@@ -145,13 +145,16 @@ local function label(text, color, size, bold, align)
     }
 end
 
-local function section_header(text)
+local function section_header(text, trailing_widget)
     local title = label(text, "#edfaff", 10, true, "center")
-    local contents = wibox.widget {
-        {forced_width = 3, bg = "#8be0ee", widget = wibox.container.background},
-        {title, left = 6, right = 6, widget = wibox.container.margin},
-        layout = wibox.layout.align.horizontal,
-    }
+    local contents = wibox.layout.align.horizontal()
+    contents:set_left(wibox.widget {
+        forced_width = 3, bg = "#8be0ee", widget = wibox.container.background,
+    })
+    contents:set_middle(wibox.widget {
+        title, left = 6, right = 6, widget = wibox.container.margin,
+    })
+    if trailing_widget then contents:set_right(trailing_widget) end
     return wibox.widget {
         {
             {forced_height = 1, bg = "#a5ecf4", widget = wibox.container.background},
@@ -168,6 +171,29 @@ local function section_header(text)
         border_width = 1, border_color = "#5b9bad",
         widget = wibox.container.background,
     }
+end
+
+local function make_trash_icon()
+    local icon = wibox.widget.base.make_widget()
+    icon.forced_width, icon.forced_height = 16, 18
+    icon.fit = function() return 16, 18 end
+    icon.full = false
+    icon.draw = function(_, _, cr)
+        local red, green, blue = icon.full and 0.44 or 0.57,
+            icon.full and 0.79 or 0.72, icon.full and 0.55 or 0.75
+        cr:set_source_rgb(red, green, blue)
+        cr:set_line_width(1.4)
+        cr:set_line_cap(cairo.LineCap.ROUND)
+        cr:move_to(2, 4); cr:line_to(14, 4)
+        cr:move_to(6, 2); cr:line_to(10, 2); cr:line_to(10, 4)
+        cr:move_to(4, 5); cr:line_to(5, 16); cr:line_to(11, 16); cr:line_to(12, 5)
+        cr:stroke()
+        for x = 7, 9, 2 do
+            cr:move_to(x, 7); cr:line_to(x, 14)
+        end
+        cr:stroke()
+    end
+    return icon
 end
 
 local function make_analog_clock()
@@ -755,8 +781,39 @@ function sidebar.create(s)
         calendar_list, spacing = 5, layout = wibox.layout.fixed.vertical,
     }, nil, 7)
 
+    local trash_icon = make_trash_icon()
+    local trash_state = label("UNKNOWN", palette.amber, 8, true)
+    local trash_status = wibox.widget {
+        trash_icon, trash_state, spacing = 3,
+        layout = wibox.layout.fixed.horizontal,
+    }
+    local function refresh_trash_status()
+        local full
+        local ok, enumerator = pcall(function()
+            return Gio.File.new_for_uri("trash:///"):enumerate_children("standard::name", 0)
+        end)
+        if ok and enumerator then
+            local read_ok, child = pcall(function() return enumerator:next_file() end)
+            pcall(function() enumerator:close() end)
+            if read_ok then full = child ~= nil end
+        end
+        trash_icon.full = full == true
+        trash_icon:emit_signal("widget::redraw_needed")
+        local text, color = full == nil and "UNKNOWN" or (full and "FULL" or "EMPTY"),
+            full == nil and palette.amber or (full and palette.green or palette.muted)
+        trash_state.markup = string.format(
+            "<span foreground='%s' size='8pt' weight='bold'>%s</span>", color, text)
+        s.sidebar_trash_full = full
+    end
+    refresh_trash_status()
+    trash_status:buttons(gears.table.join(awful.button({}, 1, function()
+        awful.spawn({"pcmanfm", "trash:///"})
+    end)))
+
+    local quake2_button = launcher("Quake 2", {os.getenv("HOME") .. "/Games/quake2/q2pro.sh"})
+    local sleep_button = launcher("Sleep", {"systemctl", "suspend"})
     local quick_card = card({
-        section_header("QUICK LAUNCH"),
+        section_header("QUICK LAUNCH", trash_status),
         {
             {
                 launcher("Terminal", {"kitty"}), launcher("Files", {"pcmanfm"}),
@@ -770,8 +827,13 @@ function sidebar.create(s)
                 spacing = 8, layout = wibox.layout.fixed.horizontal,
             }, halign = "center", widget = wibox.container.place,
         },
+        {
+            {quake2_button, sleep_button, spacing = 8,
+                layout = wibox.layout.fixed.horizontal},
+            halign = "center", widget = wibox.container.place,
+        },
         spacing = 6, layout = wibox.layout.fixed.vertical,
-    }, 132)
+    }, 174)
 
     local sidebar_width = 300
     local panel = wibox {
@@ -800,6 +862,9 @@ function sidebar.create(s)
     s.sidebar_clock_card = clock_card
     s.sidebar_cpu, s.sidebar_battery = cpu_text, battery_text
     s.sidebar_volume, s.sidebar_volume_text = volume_control, volume_text
+    s.sidebar_quake2_button, s.sidebar_sleep_button = quake2_button, sleep_button
+    s.sidebar_trash_icon, s.sidebar_trash_state = trash_icon, trash_state
+    s.sidebar_trash_status, s.sidebar_trash_refresh = trash_status, refresh_trash_status
     s.sidebar_todo_entries, s.sidebar_todo_card = todo_entries, todo_card
     s.sidebar_calendar_card = calendar_card
     s.sidebar_media_text = media_text
@@ -901,6 +966,9 @@ function sidebar.create(s)
     s.sidebar_media_timer = gears.timer {
         timeout = 5, autostart = true, call_now = true, callback = update_media,
     }
+    s.sidebar_trash_timer = gears.timer {
+        timeout = 30, autostart = true, call_now = false, callback = refresh_trash_status,
+    }
     s.sidebar_todo_refresh = refresh_todo
     s.sidebar_todo_timer = gears.timer {
         timeout = 60, autostart = true, call_now = false, callback = refresh_todo,
@@ -920,6 +988,7 @@ function sidebar.create(s)
         s.sidebar_stats_timer:stop()
         s.sidebar_volume_timer:stop()
         s.sidebar_media_timer:stop()
+        s.sidebar_trash_timer:stop()
         s.sidebar_todo_timer:stop()
         s.sidebar_calendar_timer:stop()
         if s.sidebar_weather_timer then s.sidebar_weather_timer:stop() end
