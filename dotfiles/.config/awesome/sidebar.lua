@@ -957,17 +957,42 @@ function sidebar.create(s, dismiss_menu)
             date_color, time_color, event_color, weight = palette.muted, palette.muted, palette.muted, "normal"
         end
         local short_date = os.date("%d.%m", entry.timestamp)
-        local date_text = entry.day == "today" and ("TODAY " .. short_date)
-            or (entry.date == yesterday and ("YESTERDAY " .. short_date)
-                or os.date("%a %d.%m", entry.timestamp))
-        local time_markup = entry.time and string.format(
-            " <span foreground='%s'>%s</span>", time_color, gstring.xml_escape(entry.time)) or ""
-        local row = wibox.widget {
-            markup = string.format("<span foreground='%s' weight='bold'>%s</span>%s <span foreground='%s' weight='%s'>%s</span>",
-                date_color, date_text, time_markup, event_color, weight, gstring.xml_escape(entry.text)),
+        local date_text = entry.day == "today" and ("TODAY · " .. short_date)
+            or (entry.date == yesterday and ("YDAY · " .. short_date)
+                or os.date("%a · %d.%m", entry.timestamp):upper())
+        local date_label = label(date_text, date_color, 8, true)
+        local time_label = label(entry.time or "ALL DAY", time_color, 8, false)
+        local metadata = wibox.widget {
+            date_label, time_label, spacing = 1,
+            layout = wibox.layout.fixed.vertical,
+        }
+        metadata.forced_width = 82
+        local event_label = wibox.widget {
+            markup = string.format("<span foreground='%s' weight='%s'>%s</span>",
+                event_color, weight, gstring.xml_escape(entry.text)),
             wrap = "word_char", valign = "top", widget = wibox.widget.textbox,
         }
-        return row
+        local content = wibox.widget {
+            {
+                {forced_width = 2, bg = date_color, widget = wibox.container.background},
+                {
+                    {metadata, event_label, spacing = 7,
+                        layout = wibox.layout.fixed.horizontal},
+                    left = 6, right = 5, top = 4, bottom = 4,
+                    widget = wibox.container.margin,
+                },
+                layout = wibox.layout.fixed.horizontal,
+            },
+            bg = "#0c1b15", border_width = 1, border_color = "#254238",
+            widget = wibox.container.background,
+        }
+        content:connect_signal("mouse::enter", function() content.bg = "#152b21" end)
+        content:connect_signal("mouse::leave", function() content.bg = "#0c1b15" end)
+        content:buttons(gears.table.join(awful.button({}, 1, function()
+            awful.spawn({"xdg-open", (os.getenv("HOME") or "") .. "/Documents/calendar.md"})
+            if dismiss_menu then dismiss_menu() end
+        end)))
+        return content
     end
     local function refresh_calendar()
         calendar_list:reset()
