@@ -15,19 +15,19 @@ local test_mode = os.getenv("AWESOME_TEST_MODE") == "1"
 
 local titlebar_focus_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 26},
-    stops = {{0, "#79dce8"}, {0.18, "#3a9dab"}, {0.52, "#176c69"}, {1, "#0a342d"}},
+    stops = {{0, "#a5ecf4"}, {0.16, "#55b1d6"}, {0.48, "#2b88b8"}, {0.76, "#1d638f"}, {1, "#123f5e"}},
 }
 local titlebar_normal_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 26},
-    stops = {{0, "#6c9296"}, {0.2, "#476f70"}, {0.55, "#2b4d49"}, {1, "#192e2b"}},
+    stops = {{0, "#9cbac6"}, {0.2, "#66899c"}, {0.55, "#405f72"}, {1, "#263e50"}},
 }
 local titlebar_button_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 20},
-    stops = {{0, "#d9fff7"}, {0.18, "#8cddd8"}, {0.55, "#398f8c"}, {1, "#1a514b"}},
+    stops = {{0, "#e9fbff"}, {0.18, "#a5dced"}, {0.55, "#4d9dc5"}, {1, "#245c7d"}},
 }
 local titlebar_button_hover = gears.color {
     type = "linear", from = {0, 0}, to = {0, 20},
-    stops = {{0, "#ffffff"}, {0.2, "#c3fff2"}, {0.6, "#5fc4b3"}, {1, "#28715d"}},
+    stops = {{0, "#ffffff"}, {0.2, "#c9f5ff"}, {0.6, "#70c9e6"}, {1, "#347fa6"}},
 }
 local titlebar_close_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 20},

@@ -6,15 +6,15 @@ local beautiful = require("beautiful")
 local panel = {}
 local panel_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
-    stops = {{0, "#79dce8"}, {0.18, "#3a9dab"}, {0.52, "#176c69"}, {1, "#0a342d"}},
+    stops = {{0, "#a5ecf4"}, {0.16, "#55b1d6"}, {0.48, "#2b88b8"}, {0.76, "#1d638f"}, {1, "#123f5e"}},
 }
 local panel_item_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#477573"}, {0.2, "#315c58"}, {0.6, "#244742"}, {1, "#17332d"}},
+    stops = {{0, "#557e8d"}, {0.2, "#3b677b"}, {0.6, "#2a5268"}, {1, "#1d3c51"}},
 }
 local panel_focus_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#8ce6e8"}, {0.18, "#3a9dab"}, {0.52, "#176c69"}, {1, "#0a342d"}},
+    stops = {{0, "#b4f1f7"}, {0.16, "#55b1d6"}, {0.48, "#2b88b8"}, {0.76, "#1d638f"}, {1, "#123f5e"}},
 }
 local function glass_clock(widget)
     return wibox.widget {
@@ -26,7 +26,7 @@ local function glass_clock(widget)
 end
 local function separator()
     return wibox.widget {
-        forced_width = 3, color = "#47938c",
+        forced_width = 3, color = "#5299b4",
         orientation = "vertical", widget = wibox.widget.separator,
     }
 end
@@ -119,9 +119,9 @@ function panel.create(s, menu, activate, window_menu)
     clock.align = "center"
     local calendar = awful.widget.calendar_popup.month {
         font = beautiful.font, start_sunday = false, week_numbers = false,
-        bg = "#173d38", fg = "#e4f3ed", border_width = 1, border_color = "#70c5bd",
-        style_month = {bg_color = "#204b45", fg_color = "#f2fffb", padding = 5},
-        style_focus = {bg_color = "#2c8f83", fg_color = "#ffffff"},
+        bg = "#173b50", fg = "#e4f3ed", border_width = 1, border_color = "#70c5bd",
+        style_month = {bg_color = "#204e68", fg_color = "#f2fffb", padding = 5},
+        style_focus = {bg_color = "#287ca5", fg_color = "#ffffff"},
     }
     calendar:attach(clock, "tr", {on_hover = false})
     s.panel = awful.wibar {
@@ -143,7 +143,7 @@ function panel.create(s, menu, activate, window_menu)
                     left = 2, right = 2, top = 1, bottom = 2,
                     widget = wibox.container.margin,
                 },
-                {forced_height = 1, bg = "#70c5bd", widget = wibox.container.background},
+                {forced_height = 1, bg = "#73c6e1", widget = wibox.container.background},
                 layout = wibox.layout.fixed.vertical,
             },
             layout = wibox.layout.fixed.vertical,
