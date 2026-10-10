@@ -77,11 +77,11 @@ local function read_sidebar_todo()
     return items
 end
 
-local function read_calendar_entries()
+local function read_calendar_entries(include_all)
     local file = open_document("calendar.md")
     if not file then return {} end
     local today = os.date("%Y-%m-%d")
-    local entries, previous, current, future = {}, {}, {}, {}
+    local entries, all_entries, previous, current, future = {}, {}, {}, {}, {}
 
     for line in file:lines() do
         local year, month, day, description = line:match("^%s*(%d%d%d%d)%-(%d%d)%-(%d%d)%s+(.+)%s*$")
@@ -109,6 +109,7 @@ local function read_calendar_entries()
                         date = string.format("%04d-%02d-%02d", year, month, day),
                         timestamp = timestamp, time = time_text, text = event_text,
                     }
+                    all_entries[#all_entries + 1] = entry
                     if entry.date < today then
                         entry.day = "past"
                         previous[#previous + 1] = entry
@@ -129,6 +130,8 @@ local function read_calendar_entries()
         if a.date ~= b.date then return a.date < b.date end
         return (a.time or "") < (b.time or "")
     end
+    table.sort(all_entries, sort_entries)
+    if include_all then return all_entries end
     table.sort(previous, sort_entries)
     table.sort(current, sort_entries)
     table.sort(future, sort_entries)
@@ -497,6 +500,7 @@ local function action_button(text, callback, dismiss_menu)
 end
 
 function sidebar.create(s, dismiss_menu)
+    local sidebar_width = 300
     local state_root = os.getenv("XDG_STATE_HOME")
         or ((os.getenv("HOME") or ".") .. "/.local/state")
     local section_state_path = state_root .. "/awesome/sidebar-sections"
@@ -628,16 +632,8 @@ function sidebar.create(s, dismiss_menu)
     end
     bind_clock_toggle(clock)
     bind_clock_toggle(digital_time)
-    local date_calendar = awful.widget.calendar_popup.month {
-        screen = s, font = beautiful.font, start_sunday = false, week_numbers = false,
-        bg = "#173b50", fg = "#e4f3ed", border_width = 1, border_color = "#70c5bd",
-        style_month = {bg_color = "#204e68", fg_color = "#f2fffb", padding = 5},
-        style_focus = {bg_color = "#287ca5", fg_color = "#ffffff"},
-    }
-    date_calendar:attach(date, "tr", {on_hover = false})
-    if dismiss_menu then date:connect_signal("button::press", dismiss_menu) end
+    local date_calendar
     s.sidebar_clock_toggle = toggle_clock_mode
-    s.sidebar_date_calendar = date_calendar
     set_clock_mode("analog")
 
     local wallpapers = wallpaper_paths()
@@ -1010,6 +1006,321 @@ function sidebar.create(s, dismiss_menu)
     }
     local calendar_card = collapsible_card("calendar", "CALENDAR", calendar_body)
 
+    local calendar_path = (os.getenv("HOME") or "") .. "/Documents/calendar.md"
+    local calendar_view_month = os.time({year = tonumber(os.date("%Y")), month = tonumber(os.date("%m")), day = 1, hour = 12})
+    local calendar_selected_date = os.date("%Y-%m-%d")
+    local calendar_selected_event
+    local render_calendar_popup
+    local calendar_month_title = label("", "#edfaff", 11, true, "center")
+    local calendar_selected_title = label("", palette.teal, 10, true)
+    local calendar_grid = wibox.layout.fixed.vertical()
+    calendar_grid.spacing = 2
+    local calendar_events_widget = wibox.layout.fixed.vertical()
+    calendar_events_widget.spacing = 3
+    local calendar_prompt_text = wibox.widget.textbox()
+    calendar_prompt_text.forced_height = 18
+
+    local function calendar_file_lines()
+        local lines = {}
+        local file = io.open(calendar_path, "r")
+        if file then
+            for line in file:lines() do lines[#lines + 1] = line end
+            file:close()
+        end
+        return lines
+    end
+    local function save_calendar_lines(lines)
+        local temporary = calendar_path .. ".tmp"
+        local file = io.open(temporary, "w")
+        if not file then return false end
+        for _, line in ipairs(lines) do file:write(line, "\n") end
+        file:close()
+        if not os.rename(temporary, calendar_path) then
+            os.remove(temporary)
+            return false
+        end
+        return true
+    end
+    local function events_for_date(date_text)
+        local result = {}
+        for index, line in ipairs(calendar_file_lines()) do
+            local event_date, source = line:match("^%s*(%d%d%d%d%-%d%d%-%d%d)%s+(.+)%s*$")
+            if event_date == date_text then
+                result[#result + 1] = {index = index, date = event_date, source = source}
+            end
+        end
+        return result
+    end
+    local function calendar_action(text, callback, width)
+        local widget = wibox.widget {
+            label(text, "#d7eee8", 9, true, "center"),
+            forced_width = width or 75, forced_height = 28,
+            bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
+            widget = wibox.container.background,
+        }
+        widget:buttons(gears.table.join(awful.button({}, 1, callback)))
+        widget:connect_signal("mouse::enter", function() widget.bg = button_hover_gradient end)
+        widget:connect_signal("mouse::leave", function() widget.bg = button_gradient end)
+        return widget
+    end
+    local calendar_previous = calendar_action("◀", function()
+        local current = os.date("*t", calendar_view_month)
+        calendar_view_month = os.time({year = current.year, month = current.month - 1, day = 1, hour = 12})
+        calendar_selected_date = os.date("%Y-%m-%d", calendar_view_month)
+        calendar_selected_event = nil
+        render_calendar_popup()
+    end, 34)
+    local calendar_next = calendar_action("▶", function()
+        local current = os.date("*t", calendar_view_month)
+        calendar_view_month = os.time({year = current.year, month = current.month + 1, day = 1, hour = 12})
+        calendar_selected_date = os.date("%Y-%m-%d", calendar_view_month)
+        calendar_selected_event = nil
+        render_calendar_popup()
+    end, 34)
+    local calendar_close = calendar_action("CLOSE", function()
+        date_calendar.visible = false
+    end, 75)
+    local calendar_add, calendar_edit, calendar_remove
+    local calendar_popup = wibox {
+        screen = s, type = "utility", visible = false, ontop = true,
+        width = 340, height = 430, bg = "#0b1712", fg = palette.text,
+        border_width = 1, border_color = "#70c5bd",
+        x = math.max(s.geometry.x + 8, s.geometry.x + s.geometry.width - sidebar_width - 372),
+        y = s.geometry.y + 34,
+    }
+    date_calendar = calendar_popup
+    date_calendar.start_sunday = false
+    local function set_calendar_prompt(prompt, initial, callback)
+        calendar_prompt_text.markup = string.format(
+            "<span foreground='%s' size='9pt'>%s</span>", palette.muted, gstring.xml_escape(prompt))
+        calendar_popup.height = math.min(520, calendar_popup.height + 30)
+        awful.prompt.run {
+            prompt = prompt .. " ", text = initial or "", textbox = calendar_prompt_text,
+            exe_callback = function(value)
+                calendar_prompt_text.text = ""
+                if value and value:gsub("%s+", "") ~= "" then callback(value) end
+            end,
+            done_callback = function()
+                calendar_prompt_text.text = ""
+                render_calendar_popup()
+            end,
+        }
+    end
+    render_calendar_popup = function()
+        local view = os.date("*t", calendar_view_month)
+        calendar_month_title.text = os.date("%B %Y", calendar_view_month)
+        calendar_selected_title.text = os.date("%A · %d %B %Y", os.time({
+            year = tonumber(calendar_selected_date:sub(1, 4)),
+            month = tonumber(calendar_selected_date:sub(6, 7)),
+            day = tonumber(calendar_selected_date:sub(9, 10)), hour = 12,
+        }))
+
+        local by_date = {}
+        for _, event in ipairs(read_calendar_entries(true)) do
+            by_date[event.date] = (by_date[event.date] or 0) + 1
+        end
+        calendar_grid:reset()
+        local weekday_names = {"M", "T", "W", "T", "F", "S", "S"}
+        local weekday_row = wibox.layout.fixed.horizontal()
+        weekday_row.spacing = 2
+        for _, name in ipairs(weekday_names) do
+            weekday_row:add(wibox.widget {
+                label(name, palette.muted, 8, true, "center"),
+                forced_width = 42, forced_height = 18, widget = wibox.container.background,
+            })
+        end
+        calendar_grid:add(weekday_row)
+        local first_weekday = (os.date("*t", calendar_view_month).wday + 5) % 7
+        local days_in_month = tonumber(os.date("%d", os.time({year = view.year, month = view.month + 1, day = 0, hour = 12})))
+        local weeks = math.ceil((first_weekday + days_in_month) / 7)
+        local day = 1
+        for week = 1, weeks do
+            local row = wibox.layout.fixed.horizontal()
+            row.spacing = 2
+            for column = 1, 7 do
+                local index = (week - 1) * 7 + column - 1
+                if index < first_weekday or day > days_in_month then
+                    row:add(wibox.widget {forced_width = 42, forced_height = 30, widget = wibox.container.background})
+                else
+                    local day_number = day
+                    local day_date = string.format("%04d-%02d-%02d", view.year, view.month, day_number)
+                    local is_selected = day_date == calendar_selected_date
+                    local has_events = by_date[day_date] ~= nil
+                    local day_color = day_date == os.date("%Y-%m-%d") and palette.neon
+                        or (has_events and palette.teal or palette.text)
+                    local cell = wibox.widget {
+                        label(tostring(day_number), day_color, 9, is_selected or has_events, "center"),
+                        forced_width = 42, forced_height = 30,
+                        bg = is_selected and "#1d5944" or (has_events and "#10291f" or "#0e1d17"),
+                        border_width = is_selected and 1 or 0,
+                        border_color = palette.neon, widget = wibox.container.background,
+                    }
+                    cell:buttons(gears.table.join(awful.button({}, 1, function()
+                        calendar_selected_date = day_date
+                        calendar_selected_event = nil
+                        render_calendar_popup()
+                    end)))
+                    row:add(cell)
+                    day = day + 1
+                end
+            end
+            calendar_grid:add(row)
+        end
+
+        calendar_events_widget:reset()
+        local events = events_for_date(calendar_selected_date)
+        if #events == 0 then
+            calendar_events_widget:add(label("No events · choose + to add one", palette.muted, 9, false))
+            calendar_selected_event = nil
+        else
+            if not calendar_selected_event then calendar_selected_event = events[1].index end
+            local selected_exists = false
+            for _, event in ipairs(events) do
+                local chosen = event.index == calendar_selected_event
+                if chosen then selected_exists = true end
+                local event_text = wibox.widget {
+                    markup = string.format("<span foreground='%s' weight='%s'>%s</span>",
+                        chosen and "#ffffff" or palette.text, chosen and "bold" or "normal",
+                        gstring.xml_escape(event.source)),
+                    wrap = "word_char", valign = "top", widget = wibox.widget.textbox,
+                }
+                local event_row = wibox.widget {
+                    {event_text, left = 5, right = 5, top = 3, bottom = 3,
+                        widget = wibox.container.margin},
+                    bg = chosen and "#173b2b" or "#0d1b15",
+                    border_width = chosen and 1 or 0, border_color = palette.teal,
+                    widget = wibox.container.background,
+                }
+                event_row:buttons(gears.table.join(awful.button({}, 1, function()
+                    calendar_selected_event = event.index
+                    render_calendar_popup()
+                end)))
+                calendar_events_widget:add(event_row)
+            end
+            if not selected_exists then calendar_selected_event = events[1].index end
+        end
+        calendar_edit.bg = calendar_selected_event and button_gradient or "#101712"
+        calendar_remove.bg = calendar_selected_event and button_gradient or "#101712"
+        local _, content_height = calendar_popup.widget:fit({}, calendar_popup.width, 1000)
+        calendar_popup.height = math.max(300, math.min(520, math.ceil(content_height + 36)))
+    end
+    calendar_add = calendar_action("+ ADD", function()
+        set_calendar_prompt("Event (optional HH:MM first):", "", function(value)
+            local lines = calendar_file_lines()
+            lines[#lines + 1] = calendar_selected_date .. " " .. value:gsub("%s+$", "")
+            if save_calendar_lines(lines) then
+                calendar_selected_event = nil
+                refresh_calendar()
+                render_calendar_popup()
+            end
+        end)
+    end)
+    calendar_edit = calendar_action("EDIT", function()
+        local events = events_for_date(calendar_selected_date)
+        for _, event in ipairs(events) do
+            if event.index == calendar_selected_event then
+                set_calendar_prompt("Edit event:", event.source, function(value)
+                    local lines = calendar_file_lines()
+                    lines[event.index] = calendar_selected_date .. " " .. value:gsub("%s+$", "")
+                    if save_calendar_lines(lines) then
+                        refresh_calendar()
+                        render_calendar_popup()
+                    end
+                end)
+                return
+            end
+        end
+    end)
+    calendar_remove = calendar_action("DELETE", function()
+        local events = events_for_date(calendar_selected_date)
+        for _, event in ipairs(events) do
+            if event.index == calendar_selected_event then
+                set_calendar_prompt("Type DELETE to confirm:", "", function(value)
+                    if value ~= "DELETE" then return end
+                    local lines = calendar_file_lines()
+                    table.remove(lines, event.index)
+                    if save_calendar_lines(lines) then
+                        calendar_selected_event = nil
+                        refresh_calendar()
+                        render_calendar_popup()
+                    end
+                end)
+                return
+            end
+        end
+    end)
+    local calendar_navigation = wibox.layout.align.horizontal()
+    calendar_navigation:set_left(calendar_previous)
+    calendar_navigation:set_middle(calendar_month_title)
+    calendar_navigation:set_right(calendar_next)
+    local calendar_toolbar = wibox.layout.fixed.horizontal()
+    calendar_toolbar.spacing = 6
+    calendar_toolbar:add(calendar_add)
+    calendar_toolbar:add(calendar_edit)
+    calendar_toolbar:add(calendar_remove)
+    calendar_toolbar:add(calendar_close)
+    local calendar_content = {
+        {
+            {
+                calendar_navigation,
+                calendar_grid,
+                calendar_selected_title,
+                calendar_events_widget,
+                calendar_toolbar,
+                {
+                    {calendar_prompt_text, left = 5, right = 5, top = 3, bottom = 3,
+                        widget = wibox.container.margin},
+                    bg = "#09140f", border_width = 1, border_color = palette.line,
+                    widget = wibox.container.background,
+                },
+                spacing = 7, layout = wibox.layout.fixed.vertical,
+            },
+            left = 10, right = 10, top = 8, bottom = 8,
+            widget = wibox.container.margin,
+        },
+        bg = card_gradient, widget = wibox.container.background,
+    }
+    calendar_popup:setup(calendar_content)
+    local function toggle_calendar_popup()
+        if calendar_popup.visible then
+            calendar_popup.visible = false
+            return
+        end
+        local today = os.date("*t")
+        calendar_view_month = os.time({year = today.year, month = today.month, day = 1, hour = 12})
+        calendar_selected_date = os.date("%Y-%m-%d")
+        calendar_selected_event = nil
+        render_calendar_popup()
+        calendar_popup.x = math.max(s.geometry.x + 8,
+            s.geometry.x + s.geometry.width - sidebar_width - calendar_popup.width - 12)
+        calendar_popup.y = s.geometry.y + 34
+        calendar_popup.visible = true
+        if dismiss_menu then dismiss_menu() end
+    end
+    date:buttons(gears.table.join(awful.button({}, 1, toggle_calendar_popup)))
+    if dismiss_menu then date:connect_signal("button::press", dismiss_menu) end
+    s.sidebar_date_calendar = date_calendar
+    s.sidebar_calendar_add_button = calendar_add
+    s.sidebar_calendar_prompt = calendar_prompt_text
+    s.sidebar_calendar_add = function(date_text, event_text)
+        local lines = calendar_file_lines()
+        lines[#lines + 1] = date_text .. " " .. event_text
+        return save_calendar_lines(lines)
+    end
+    s.sidebar_calendar_edit = function(index, date_text, event_text)
+        local lines = calendar_file_lines()
+        if not lines[index] then return false end
+        lines[index] = date_text .. " " .. event_text
+        return save_calendar_lines(lines)
+    end
+    s.sidebar_calendar_delete = function(index)
+        local lines = calendar_file_lines()
+        if not lines[index] then return false end
+        table.remove(lines, index)
+        return save_calendar_lines(lines)
+    end
+    s.sidebar_calendar_refresh = refresh_calendar
+
     local trash_icon = make_trash_icon()
     local trash_state = label("UNKNOWN", palette.amber, 8, true)
     local trash_status = wibox.widget {
@@ -1065,7 +1376,7 @@ function sidebar.create(s, dismiss_menu)
     }
     local quick_card = collapsible_card("quick-launch", "QUICK LAUNCH", quick_body, nil, trash_status)
 
-    local sidebar_width, scrollbar_height = 300, 12
+    local scrollbar_height = 12
     local sidebar_height = math.max(1, s.geometry.height - 30)
     local scroll_max = 0
     s.sidebar_scroll_position = 0

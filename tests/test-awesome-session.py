@@ -196,9 +196,20 @@ def main():
                 wait('return screen[1].sidebar_clock_mode', 'analog')
                 subprocess.run(["xdotool", "mousemove", "1130", "70", "click", "1"], env=env, check=True)
                 wait('return tostring(screen[1].sidebar_date_calendar.visible)', '"true"')
-                assert 'true' in lua('return screen[1].sidebar_clock_mode == "analog" and not screen[1].sidebar_date_calendar:get_widget().start_sunday')
+                assert 'true:true:true:true:true' in lua('local s=screen[1]; return tostring(s.sidebar_clock_mode == "analog")..":"..tostring(s.sidebar_date_calendar.start_sunday == false)..":"..tostring(s.sidebar_calendar_add ~= nil)..":"..tostring(s.sidebar_calendar_edit ~= nil)..":"..tostring(s.sidebar_calendar_delete ~= nil)')
                 subprocess.run(["xdotool", "click", "1"], env=env, check=True)
                 wait('return tostring(screen[1].sidebar_date_calendar.visible)', '"false"')
+                calendar_path = testhome / "Documents/calendar.md"
+                calendar_test_date = (today + timedelta(days=20)).isoformat()
+                calendar_test_index = len(calendar_path.read_text().splitlines()) + 1
+                assert 'true' in lua(
+                    f'return tostring(screen[1].sidebar_calendar_add("{calendar_test_date}", "15:00 Added test event"))')
+                assert calendar_path.read_text().splitlines()[-1] == f"{calendar_test_date} 15:00 Added test event"
+                assert 'true' in lua(
+                    f'return tostring(screen[1].sidebar_calendar_edit({calendar_test_index}, "{calendar_test_date}", "Updated test event"))')
+                assert calendar_path.read_text().splitlines()[-1] == f"{calendar_test_date} Updated test event"
+                assert 'true' in lua(f'return tostring(screen[1].sidebar_calendar_delete({calendar_test_index}))')
+                assert calendar_path.read_text().splitlines()[-1] != f"{calendar_test_date} Updated test event"
                 lua('screen[1].sidebar_scroll_before_todo = screen[1].sidebar_scroll_max()')
                 todo_path.write_text("# TODO\n## Sidebar\n- Refreshed item\n")
                 lua('screen[1].sidebar_todo_refresh()')
