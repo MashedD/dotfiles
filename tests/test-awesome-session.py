@@ -134,7 +134,7 @@ def main():
                 assert 'floating' in lua('return require("awful").layout.getname(require("awful").layout.get(screen[1]))')
                 wait('return screen[1].workarea.y', '30')
                 assert 'true' in lua('local p=screen[1].panel; return p.visible and p.height == 30 and p.position == "top"')
-                assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and b.visible and not s.panel_clock_container.visible and s.sidebar_header and s.sidebar_header.forced_height == 26 and s.sidebar_mode == 3 and b.ontop and b:struts().right == 300 and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_quake2_button and s.sidebar_sleep_button and s.sidebar_trash_icon and s.sidebar_trash_state and s.sidebar_trash_timer.timeout == 30 and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_weather_text and s.sidebar_crypto_card.forced_height == 62 and s.sidebar_crypto_timer.timeout == 60 and s.sidebar_codex_card.forced_height == 132 and s.sidebar_codex_timer.timeout == 60 and s.sidebar_audio_header == nil and s.sidebar_wallpaper_preview and s.sidebar_todo_card and #s.sidebar_todo_entries == 5 and s.sidebar_todo_entries[5] == "Fifth item" and s.sidebar_calendar_card and #s.sidebar_calendar_entries == 6 and s.sidebar_calendar_entries[1].day == "past" and s.sidebar_calendar_entries[2].time == "08:15-09:00" and s.sidebar_calendar_entries[3].text == "visit: Today appointment" and s.sidebar_calendar_entries[6].text == "Third future event" and s.sidebar_todo_timer.timeout == 60 and s.sidebar_calendar_timer.timeout == 60 and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width-300 and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
+                assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and b.visible and not s.panel_clock_container.visible and s.sidebar_header and s.sidebar_header.forced_height == 26 and s.sidebar_mode == 3 and b.ontop and b:struts().right == 300 and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_quake2_button and s.sidebar_sleep_button and s.sidebar_trash_icon and s.sidebar_trash_state and s.sidebar_trash_timer.timeout == 30 and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_weather_text and s.sidebar_crypto_card.forced_height == 62 and s.sidebar_crypto_timer.timeout == 60 and s.sidebar_codex_card.forced_height == 132 and s.sidebar_codex_timer.timeout == 60 and s.sidebar_audio_header == nil and s.sidebar_wallpaper_preview and s.sidebar_todo_card and #s.sidebar_todo_entries == 5 and s.sidebar_todo_entries[5] == "Fifth item" and s.sidebar_calendar_card and s.sidebar_date_calendar and not s.sidebar_date_calendar:get_widget().start_sunday and #s.sidebar_calendar_entries == 6 and s.sidebar_calendar_entries[1].day == "past" and s.sidebar_calendar_entries[2].time == "08:15-09:00" and s.sidebar_calendar_entries[3].text == "visit: Today appointment" and s.sidebar_calendar_entries[6].text == "Third future event" and s.sidebar_todo_timer.timeout == 60 and s.sidebar_calendar_timer.timeout == 60 and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width-300 and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
                 assert 'true' in lua('local s=screen[1]; local expected=s.sidebar_mouse_battery.visible and 205 or 187; if s.sidebar_stats_card.forced_height ~= expected or #s.sidebar_progress_bars ~= 8 then return false end; for _,b in ipairs(s.sidebar_progress_bars) do if b.forced_height ~= 7 then return false end end; return true')
                 wait('return screen[1].sidebar_crypto_prices.BTC.text.."|"..screen[1].sidebar_crypto_prices.ETH.text.."|"..screen[1].sidebar_crypto_prices.LTC.text', '"97.123|3.456|123,45"')
                 wait('return screen[1].sidebar_codex_5h.summary.markup', '5h  84% left · Sat 13:46')
@@ -142,6 +142,19 @@ def main():
                 wait('return screen[1].sidebar_codex_resets.markup', 'Sat 24.10 13:46')
                 assert 'true' in lua('local m=screen[1].sidebar_codex_resets.markup; return select(2,m:gsub("\\n", "")) == 2 and m:find("Fri 30.10 13:46", 1, true) ~= nil and not m:find("Free resets", 1, true)')
                 assert '8pt' in lua('return screen[1].sidebar_codex_resets.markup')
+                assert 'true' in lua('local s=screen[1]; local count=0; for _,section in pairs(s.sidebar_sections) do count=count+1; if section.collapsed then return "false" end end; return tostring(count == 9)')
+                subprocess.run(["xdotool", "mousemove", "1130", "478", "click", "1"], env=env, check=True)
+                wait('return tostring(screen[1].sidebar_sections.crypto.collapsed)', '"true"')
+                assert 'true' in lua('local section=screen[1].sidebar_sections.crypto; return section.card.forced_height == 42 and not section.body.visible and section.marker.markup:find("+", 1, true) ~= nil')
+                section_state_file = testhome / ".local/state/awesome/sidebar-sections"
+                assert section_state_file.read_text() == "crypto\n"
+                subprocess.run(["awesome-client", "awesome.restart()"], env=env,
+                               capture_output=True, text=True, timeout=5)
+                wait('return tostring(screen[1].sidebar_sections.crypto.collapsed)', '"true"')
+                assert section_state_file.read_text() == "crypto\n"
+                subprocess.run(["xdotool", "mousemove", "1130", "478", "click", "1"], env=env, check=True)
+                wait('return tostring(screen[1].sidebar_sections.crypto.collapsed)', '"false"')
+                assert section_state_file.read_text() == ""
                 codex_5h_bar = lua('return tostring(screen[1].sidebar_codex_5h.remaining)')
                 codex_7d_bar = lua('return tostring(screen[1].sidebar_codex_7d.remaining)')
                 assert '84' in codex_5h_bar, codex_5h_bar
@@ -162,6 +175,11 @@ def main():
                 wait('return screen[1].sidebar_clock_mode', 'text')
                 lua('screen[1].sidebar_clock_toggle()')
                 wait('return screen[1].sidebar_clock_mode', 'analog')
+                subprocess.run(["xdotool", "mousemove", "1130", "70", "click", "1"], env=env, check=True)
+                wait('return tostring(screen[1].sidebar_date_calendar.visible)', '"true"')
+                assert 'true' in lua('return screen[1].sidebar_clock_mode == "analog" and not screen[1].sidebar_date_calendar:get_widget().start_sunday')
+                subprocess.run(["xdotool", "click", "1"], env=env, check=True)
+                wait('return tostring(screen[1].sidebar_date_calendar.visible)', '"false"')
                 lua('screen[1].sidebar_scroll_before_todo = screen[1].sidebar_scroll_max()')
                 todo_path.write_text("# TODO\n## Sidebar\n- Refreshed item\n")
                 lua('screen[1].sidebar_todo_refresh()')

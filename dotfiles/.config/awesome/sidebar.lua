@@ -2,6 +2,7 @@
 local awful = require("awful")
 local gears = require("gears")
 local wibox = require("wibox")
+local beautiful = require("beautiful")
 local Gio = require("lgi").Gio
 local cairo = require("lgi").cairo
 local gstring = require("gears.string")
@@ -147,15 +148,17 @@ end
 
 local function section_header(text, trailing_widget)
     local title = label(text, "#edfaff", 10, true, "center")
+    local marker = label("−", "#d9f7f4", 10, true, "center")
+    marker.forced_width = 12
     local contents = wibox.layout.stack()
     local adornments = wibox.layout.align.horizontal()
-    adornments:set_left(wibox.widget {
-        forced_width = 3, bg = "#8be0ee", widget = wibox.container.background,
-    })
+    adornments:set_left(marker)
     if trailing_widget then adornments:set_right(trailing_widget) end
     contents:add(adornments)
-    contents:add(title)
-    return wibox.widget {
+    contents:add(wibox.widget {
+        title, halign = "center", valign = "center", widget = wibox.container.place,
+    })
+    local header = wibox.widget {
         {
             {forced_height = 1, bg = "#a5ecf4", widget = wibox.container.background},
             {
@@ -171,6 +174,7 @@ local function section_header(text, trailing_widget)
         border_width = 1, border_color = "#5b9bad",
         widget = wibox.container.background,
     }
+    return header, title, marker
 end
 
 local function make_trash_icon()
@@ -491,6 +495,67 @@ local function action_button(text, callback, dismiss_menu)
 end
 
 function sidebar.create(s, dismiss_menu)
+    local state_root = os.getenv("XDG_STATE_HOME")
+        or ((os.getenv("HOME") or ".") .. "/.local/state")
+    local section_state_path = state_root .. "/awesome/sidebar-sections"
+    local collapsed_ids = {}
+    local saved_sections = read(section_state_path) or ""
+    for id in saved_sections:gmatch("[^\r\n]+") do
+        id = id:gsub("^%s+", ""):gsub("%s+$", "")
+        if id:match("^[%w-]+$") then collapsed_ids[id] = true end
+    end
+    local section_order, sections_by_id = {}, {}
+    local function save_section_state()
+        local directory = section_state_path:match("^(.*)/")
+        if not directory or not pcall(gears.filesystem.make_directories, directory) then return end
+        local temporary = section_state_path .. ".tmp"
+        local file = io.open(temporary, "w")
+        if not file then return end
+        for _, section in ipairs(section_order) do
+            if section.collapsed then file:write(section.id, "\n") end
+        end
+        file:close()
+        if not os.rename(temporary, section_state_path) then os.remove(temporary) end
+    end
+    local function collapsible_card(id, title_text, body, expanded_height, trailing_widget)
+        local header, title, marker = section_header(title_text, trailing_widget)
+        local contents = wibox.layout.fixed.vertical()
+        contents.spacing = 0
+        contents:add(header)
+        contents:add(body)
+        local section_card = card(contents, expanded_height)
+        local section = {
+            id = id, title = title_text, header = header, title_widget = title,
+            marker = marker, body = body, card = section_card,
+            expanded_height = expanded_height, collapsed = collapsed_ids[id] == true,
+        }
+        local collapsed_height = header.forced_height + 2 * section_padding + 6
+        local function update()
+            body.visible = not section.collapsed
+            marker.markup = string.format(
+                "<span foreground='%s' size='10pt' weight='bold'>%s</span>",
+                "#d9f7f4", section.collapsed and "+" or "−")
+            section_card.forced_height = section.collapsed and collapsed_height or section.expanded_height
+        end
+        local function toggle()
+            section.collapsed = not section.collapsed
+            update()
+            save_section_state()
+            if dismiss_menu then dismiss_menu() end
+        end
+        title:buttons(gears.table.join(awful.button({}, 1, toggle)))
+        marker:buttons(gears.table.join(awful.button({}, 1, toggle)))
+        section.set_expanded_height = function(height)
+            section.expanded_height = height
+            if not section.collapsed then section_card.forced_height = height end
+        end
+        update()
+        section_order[#section_order + 1] = section
+        sections_by_id[id] = section
+        s.sidebar_sections = sections_by_id
+        return section_card, section.set_expanded_height, section
+    end
+
     local clock = make_analog_clock()
     local digital_time = label("00:00:00", palette.neon, 24, true, "center")
     local date = label("", palette.teal, 12, true, "center")
@@ -556,8 +621,16 @@ function sidebar.create(s, dismiss_menu)
     end
     bind_clock_toggle(clock)
     bind_clock_toggle(digital_time)
-    bind_clock_toggle(date)
+    local date_calendar = awful.widget.calendar_popup.month {
+        screen = s, font = beautiful.font, start_sunday = false, week_numbers = false,
+        bg = "#173b50", fg = "#e4f3ed", border_width = 1, border_color = "#70c5bd",
+        style_month = {bg_color = "#204e68", fg_color = "#f2fffb", padding = 5},
+        style_focus = {bg_color = "#287ca5", fg_color = "#ffffff"},
+    }
+    date_calendar:attach(date, "tr", {on_hover = false})
+    if dismiss_menu then date:connect_signal("button::press", dismiss_menu) end
     s.sidebar_clock_toggle = toggle_clock_mode
+    s.sidebar_date_calendar = date_calendar
     set_clock_mode("analog")
 
     local wallpapers = wallpaper_paths()
@@ -622,12 +695,12 @@ function sidebar.create(s, dismiss_menu)
     preview:buttons(gears.table.join(awful.button({}, 1, apply_wallpaper)))
     if dismiss_menu then preview:connect_signal("button::press", dismiss_menu) end
     local preview_centered = {preview, halign = "center", valign = "center", widget = wibox.container.place}
-    local wallpaper_card = card({
-        section_header("WALLPAPER"),
+    local wallpaper_body = wibox.widget {
         preview_centered,
         {wallpaper_controls, halign = "center", widget = wibox.container.place},
         spacing = 5, layout = wibox.layout.fixed.vertical,
-    }, 180)
+    }
+    local wallpaper_card = collapsible_card("wallpaper", "WALLPAPER", wallpaper_body, 180)
 
     local weather_icon = label("☁", palette.teal, 22, true, "center")
     weather_icon.font = "Noto Sans Symbols 2 20"
@@ -672,11 +745,11 @@ function sidebar.create(s, dismiss_menu)
                 weather_detail.text = string.format("Feels %.0f°C  •  Wind %.0f km/h", apparent or temperature, wind or 0)
             end)
     end
-    local weather_card = card({
-        section_header("BYDGOSZCZ · WEATHER"),
+    local weather_body = wibox.widget {
         {weather_line, halign = "center", valign = "center", widget = wibox.container.place},
         spacing = 3, layout = wibox.layout.fixed.vertical,
-    }, 78)
+    }
+    local weather_card = collapsible_card("weather", "BYDGOSZCZ · WEATHER", weather_body, 78)
 
     local crypto_prices = {}
     local function crypto_cell(symbol)
@@ -692,11 +765,11 @@ function sidebar.create(s, dismiss_menu)
     crypto_line:add(crypto_cell("BTC"))
     crypto_line:add(crypto_cell("ETH"))
     crypto_line:add(crypto_cell("LTC"))
-    local crypto_card = card({
-        section_header("CRYPTO PRICES · USD"),
+    local crypto_body = wibox.widget {
         {crypto_line, halign = "center", widget = wibox.container.place},
         spacing = 3, layout = wibox.layout.fixed.vertical,
-    }, 62)
+    }
+    local crypto_card = collapsible_card("crypto", "CRYPTO PRICES · USD", crypto_body, 62)
     local crypto_pending = false
     local function refresh_crypto()
         if crypto_pending then return end
@@ -713,8 +786,7 @@ function sidebar.create(s, dismiss_menu)
 
     local volume_control = wibox.layout.fixed.vertical()
     volume_control.spacing = 4
-    local stats_card = card({
-        section_header("SYSTEM STATUS"),
+    local stats_body = wibox.widget {
         cpu_text, cpu_bar,
         memory_text, memory_bar,
         battery_text, battery_bar,
@@ -722,7 +794,9 @@ function sidebar.create(s, dismiss_menu)
         root_text, root_bar,
         volume_control, network_text,
         spacing = 2, layout = wibox.layout.fixed.vertical,
-    }, 205)
+    }
+    local stats_card, set_stats_card_height = collapsible_card(
+        "system-status", "SYSTEM STATUS", stats_body, 205)
 
     local function codex_window_row(period)
         local summary = label(period .. " unavailable", palette.muted, 8, false)
@@ -737,10 +811,11 @@ function sidebar.create(s, dismiss_menu)
     local codex_7d_widget, codex_7d = codex_window_row("7d")
     local codex_resets = label("--", palette.teal, 8, false)
     codex_resets.wrap = "word_char"
-    local codex_card = card({
-        section_header("CODEX"), codex_5h_widget, codex_7d_widget, codex_resets,
+    local codex_body = wibox.widget {
+        codex_5h_widget, codex_7d_widget, codex_resets,
         spacing = 2, layout = wibox.layout.fixed.vertical,
-    }, 132)
+    }
+    local codex_card = collapsible_card("codex", "CODEX", codex_body, 132)
     local codex_pending = false
     local function refresh_codex()
         if codex_pending then return end
@@ -789,11 +864,11 @@ function sidebar.create(s, dismiss_menu)
     local media_controls_centered = {
         media_controls, halign = "center", valign = "center", widget = wibox.container.place,
     }
-    local media_card = card({
-        section_header("NOW PLAYING"),
+    local media_body = wibox.widget {
         media_text, media_controls_centered,
         spacing = 4, layout = wibox.layout.fixed.vertical,
-    }, 110)
+    }
+    local media_card = collapsible_card("now-playing", "NOW PLAYING", media_body, 110)
 
     volume_control:add(volume_text)
     volume_control:add(volume_bar)
@@ -840,10 +915,10 @@ function sidebar.create(s, dismiss_menu)
         s.sidebar_todo_entries = todo_entries
     end
     refresh_todo()
-    local todo_card = card({
-        section_header("TODO"),
+    local todo_body = wibox.widget {
         todo_list, spacing = 5, layout = wibox.layout.fixed.vertical,
-    })
+    }
+    local todo_card = collapsible_card("todo", "TODO", todo_body)
 
     local calendar_entries = {}
     local calendar_list = wibox.layout.fixed.vertical()
@@ -883,10 +958,10 @@ function sidebar.create(s, dismiss_menu)
         s.sidebar_calendar_entries = calendar_entries
     end
     refresh_calendar()
-    local calendar_card = card({
-        section_header("CALENDAR"),
+    local calendar_body = wibox.widget {
         calendar_list, spacing = 5, layout = wibox.layout.fixed.vertical,
-    })
+    }
+    local calendar_card = collapsible_card("calendar", "CALENDAR", calendar_body)
 
     local trash_icon = make_trash_icon()
     local trash_state = label("UNKNOWN", palette.amber, 8, true)
@@ -920,8 +995,7 @@ function sidebar.create(s, dismiss_menu)
 
     local quake2_button = launcher("Quake 2", {os.getenv("HOME") .. "/Games/quake2/q2pro.sh"}, dismiss_menu)
     local sleep_button = launcher("Sleep", {"systemctl", "suspend"}, dismiss_menu)
-    local quick_card = card({
-        section_header("QUICK LAUNCH", trash_status),
+    local quick_body = wibox.widget {
         {
             {
                 launcher("Terminal", {"kitty"}, dismiss_menu), launcher("Files", {"pcmanfm"}, dismiss_menu),
@@ -941,7 +1015,8 @@ function sidebar.create(s, dismiss_menu)
             halign = "center", widget = wibox.container.place,
         },
         spacing = 6, layout = wibox.layout.fixed.vertical,
-    }, 168)
+    }
+    local quick_card = collapsible_card("quick-launch", "QUICK LAUNCH", quick_body, 168, trash_status)
 
     local sidebar_width, scrollbar_height = 300, 12
     local sidebar_height = math.max(1, s.geometry.height - 30)
@@ -1139,7 +1214,7 @@ function sidebar.create(s, dismiss_menu)
             mouse_battery_text.text = string.format("Mouse  %d%%  %s", mouse_capacity, mouse_state or "Unknown")
             mouse_battery_bar.value = mouse_capacity
         end
-        stats_card.forced_height = mouse_capacity and 205 or 187
+        set_stats_card_height(mouse_capacity and 205 or 187)
 
         local rx, tx = network_stats()
         if rx and tx then
