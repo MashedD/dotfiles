@@ -666,6 +666,34 @@ function sidebar.create(s, dismiss_menu)
         spacing = 3, layout = wibox.layout.fixed.vertical,
     }, 78, 5)
 
+    local crypto_prices = {}
+    local function crypto_row(symbol)
+        local price = label("--", palette.green, 9, true)
+        crypto_prices[symbol] = price
+        return {
+            label(symbol, palette.teal, 9, true), nil, price,
+            layout = wibox.layout.align.horizontal,
+        }
+    end
+    local crypto_card = card({
+        section_header("CRYPTO PRICES · USD"),
+        crypto_row("BTC"), crypto_row("ETH"), crypto_row("LTC"),
+        spacing = 3, layout = wibox.layout.fixed.vertical,
+    }, 92, 6)
+    local crypto_pending = false
+    local function refresh_crypto()
+        if crypto_pending then return end
+        crypto_pending = true
+        awful.spawn.easy_async({os.getenv("HOME") .. "/.local/bin/crypto-prices"}, function(stdout, _, _, code)
+            crypto_pending = false
+            local display = code == 0 and stdout:gsub("#%b[]", ""):gsub("%s+$", "") or ""
+            local btc, eth, ltc = display:match("BTC%s+(%S+)%s+ETH%s+(%S+)%s+LTC%s+(%S+)")
+            crypto_prices.BTC.text = (btc or "--"):gsub("^%$", "")
+            crypto_prices.ETH.text = (eth or "--"):gsub("^%$", "")
+            crypto_prices.LTC.text = (ltc or "--"):gsub("^%$", "")
+        end)
+    end
+
     local volume_control = wibox.layout.fixed.vertical()
     volume_control.spacing = 4
     local stats_card = card({
@@ -856,7 +884,7 @@ function sidebar.create(s, dismiss_menu)
         {
             {forced_width = 2, bg = palette.teal, widget = wibox.container.background},
             {
-                header, clock_card, wallpaper_card, weather_card, stats_card, media_card, quick_card, todo_card, calendar_card,
+                header, clock_card, wallpaper_card, weather_card, crypto_card, stats_card, media_card, quick_card, todo_card, calendar_card,
                 spacing = 6, layout = wibox.layout.fixed.vertical,
             },
             layout = wibox.layout.fixed.horizontal,
@@ -876,6 +904,8 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_trash_status, s.sidebar_trash_refresh = trash_status, refresh_trash_status
     s.sidebar_todo_entries, s.sidebar_todo_card = todo_entries, todo_card
     s.sidebar_calendar_card = calendar_card
+    s.sidebar_crypto_card, s.sidebar_crypto_prices = crypto_card, crypto_prices
+    s.sidebar_crypto_refresh = refresh_crypto
     s.sidebar_media_text = media_text
     s.sidebar_root_text = root_text
     s.sidebar_weather_text = weather_main
@@ -986,6 +1016,9 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_calendar_timer = gears.timer {
         timeout = 60, autostart = true, call_now = false, callback = refresh_calendar,
     }
+    s.sidebar_crypto_timer = gears.timer {
+        timeout = 60, autostart = true, call_now = true, callback = refresh_crypto,
+    }
     if os.getenv("AWESOME_TEST_MODE") ~= "1" then
         s.sidebar_weather_timer = gears.timer {
             timeout = 1800, autostart = true, call_now = true, callback = update_weather,
@@ -1000,6 +1033,7 @@ function sidebar.create(s, dismiss_menu)
         s.sidebar_trash_timer:stop()
         s.sidebar_todo_timer:stop()
         s.sidebar_calendar_timer:stop()
+        s.sidebar_crypto_timer:stop()
         if s.sidebar_weather_timer then s.sidebar_weather_timer:stop() end
         panel.visible = false
     end)
