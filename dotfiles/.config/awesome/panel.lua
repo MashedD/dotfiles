@@ -1,25 +1,32 @@
--- Native Awesome widgets, styled like the previous 30px VAX/Win98 panel.
+-- Native Awesome panel: Win98 geometry with Frutiger Aero glass styling.
 local awful = require("awful")
 local gears = require("gears")
 local wibox = require("wibox")
 local beautiful = require("beautiful")
 local panel = {}
-local function bevel(widget, inset, padding)
+local panel_gradient = gears.color {
+    type = "linear", from = {0, 0}, to = {0, 30},
+    stops = {{0, "#79dce8"}, {0.18, "#3a9dab"}, {0.52, "#176c69"}, {1, "#0a342d"}},
+}
+local panel_item_gradient = gears.color {
+    type = "linear", from = {0, 0}, to = {0, 24},
+    stops = {{0, "#477573"}, {0.2, "#315c58"}, {0.6, "#244742"}, {1, "#17332d"}},
+}
+local panel_focus_gradient = gears.color {
+    type = "linear", from = {0, 0}, to = {0, 24},
+    stops = {{0, "#8ce6e8"}, {0.18, "#3a9dab"}, {0.52, "#176c69"}, {1, "#0a342d"}},
+}
+local function glass_clock(widget)
     return wibox.widget {
-        {
-            {widget, margins = padding or 2, widget = wibox.container.margin},
-            bg = "#c0c0c0", fg = "#000000",
-            border_width = 1, border_color = inset and "#808080" or "#ffffff",
-            widget = wibox.container.background,
-        },
-        bg = "#c0c0c0", border_width = 1,
-        border_color = inset and "#ffffff" or "#404040",
+        {widget, left = 5, right = 5, top = 1, bottom = 1, widget = wibox.container.margin},
+        bg = panel_item_gradient, fg = "#f2fffb",
+        border_width = 1, border_color = "#9dece3",
         widget = wibox.container.background,
     }
 end
 local function separator()
     return wibox.widget {
-        forced_width = 3, color = "#808080",
+        forced_width = 3, color = "#47938c",
         orientation = "vertical", widget = wibox.widget.separator,
     }
 end
@@ -38,9 +45,9 @@ function panel.create(s, menu, activate, window_menu)
 
     s.taglist = awful.widget.taglist {
         screen = s, filter = awful.widget.taglist.filter.all,
-        style = {bg_focus = "#001a00", fg_focus = "#00ff41",
-            bg_empty = "#c0c0c0", fg_empty = "#000000",
-            bg_occupied = "#c0c0c0", fg_occupied = "#000000"},
+        style = {bg_focus = panel_focus_gradient, fg_focus = "#f2fffb",
+            bg_empty = panel_item_gradient, fg_empty = "#d6e7e3",
+            bg_occupied = panel_item_gradient, fg_occupied = "#d6e7e3"},
         buttons = gears.table.join(
             awful.button({}, 1, function(t) t:view_only() end),
             awful.button({"Mod4"}, 1, function(t)
@@ -58,18 +65,18 @@ function panel.create(s, menu, activate, window_menu)
                     left = 6, right = 6, top = 1, bottom = 1,
                     widget = wibox.container.margin,
                 },
-                id = "background_role", border_width = 1, border_color = "#ffffff",
+                id = "background_role", border_width = 1, border_color = "#a7f3eb",
                 widget = wibox.container.background,
             },
-            bg = "#c0c0c0", border_width = 1, border_color = "#404040",
+            bg = panel_gradient, border_width = 1, border_color = "#174441",
             widget = wibox.container.background,
         },
     }
     s.tasklist = awful.widget.tasklist {
         screen = s, filter = awful.widget.tasklist.filter.currenttags,
-        style = {bg_normal = "#c0c0c0", fg_normal = "#000000",
-            bg_focus = "#001a00", fg_focus = "#00ff41",
-            bg_minimize = "#c0c0c0", fg_minimize = "#404040"},
+        style = {bg_normal = panel_item_gradient, fg_normal = "#d6e7e3",
+            bg_focus = panel_focus_gradient, fg_focus = "#f2fffb",
+            bg_minimize = panel_item_gradient, fg_minimize = "#9ab6b0"},
         buttons = gears.table.join(
             awful.button({}, 1, function(c)
                 if c == client.focus then c.minimized = true else activate(c) end
@@ -91,10 +98,10 @@ function panel.create(s, menu, activate, window_menu)
                         left = 3, right = 4, top = 1, bottom = 1,
                         widget = wibox.container.margin,
                     },
-                    id = "background_role", border_width = 1, border_color = "#ffffff",
+                    id = "background_role", border_width = 1, border_color = "#a7f3eb",
                     widget = wibox.container.background,
                 },
-                bg = "#c0c0c0", border_width = 1, border_color = "#404040",
+                bg = panel_gradient, border_width = 1, border_color = "#174441",
                 widget = wibox.container.background,
             },
             width = 180, strategy = "max", widget = wibox.container.constraint,
@@ -106,30 +113,31 @@ function panel.create(s, menu, activate, window_menu)
     tray:set_base_size(20)
     tray:set_screen("primary")
     local clock = wibox.widget.textclock("%H:%M", 1)
-    clock.font = "Microsoft Sans Serif bold 9"
+    clock.font = "Segoe UI bold 9"
+    clock.fg = "#f2fffb"
     clock.forced_width = 58
     clock.align = "center"
     local calendar = awful.widget.calendar_popup.month {
         font = beautiful.font, start_sunday = false, week_numbers = false,
-        bg = "#c0c0c0", fg = "#000000", border_width = 2, border_color = "#000000",
-        style_month = {bg_color = "#c0c0c0", fg_color = "#000000", padding = 5},
-        style_focus = {bg_color = "#001a00", fg_color = "#00ff41"},
+        bg = "#173d38", fg = "#e4f3ed", border_width = 1, border_color = "#70c5bd",
+        style_month = {bg_color = "#204b45", fg_color = "#f2fffb", padding = 5},
+        style_focus = {bg_color = "#2c8f83", fg_color = "#ffffff"},
     }
     calendar:attach(clock, "tr", {on_hover = false})
     s.panel = awful.wibar {
-        position = "top", screen = s, height = 30, bg = "#c0c0c0", fg = "#000000",
+        position = "top", screen = s, height = 30, bg = panel_gradient, fg = "#f2fffb",
         border_width = 0, ontop = true, restrict_workarea = true,
     }
     s.panel:setup {
         {
-            {forced_height = 1, bg = "#ffffff", widget = wibox.container.background},
+            {forced_height = 1, bg = "#c2fff5", widget = wibox.container.background},
             {
                 {
                     {
                         {start, separator(), s.taglist, separator(), spacing = 4,
                             layout = wibox.layout.fixed.horizontal},
                         s.tasklist,
-                        {tray, bevel(clock, true), spacing = 4, layout = wibox.layout.fixed.horizontal},
+                        {tray, glass_clock(clock), spacing = 4, layout = wibox.layout.fixed.horizontal},
                         layout = wibox.layout.align.horizontal,
                     },
                     left = 2, right = 2, top = 1, bottom = 2,

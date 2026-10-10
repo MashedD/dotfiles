@@ -1,4 +1,5 @@
 /dotfiles/.local/share/tmux/plugins
 lazy-lock.json
 .uuid
+__pycache__
 
