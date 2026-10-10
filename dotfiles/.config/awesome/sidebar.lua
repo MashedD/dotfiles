@@ -316,9 +316,10 @@ local function make_analog_clock()
     return clock
 end
 
-local function card(widget, height, padding)
+local section_padding = 6
+local function card(widget, height)
     local surface = wibox.widget {
-        {widget, margins = padding or 9, widget = wibox.container.margin},
+        {widget, margins = section_padding, widget = wibox.container.margin},
         bg = card_gradient, border_width = 1, border_color = palette.line,
         widget = wibox.container.background,
     }
@@ -536,7 +537,7 @@ function sidebar.create(s, dismiss_menu)
     clock_content:add(clock_centered)
     clock_content:add(digital_time)
     digital_time.visible = false
-    local clock_card = card(clock_content, 142, 4)
+    local clock_card = card(clock_content, 142)
     local clock_mode = "analog"
     local function set_clock_mode(mode)
         clock_mode = mode
@@ -675,7 +676,7 @@ function sidebar.create(s, dismiss_menu)
         section_header("BYDGOSZCZ · WEATHER"),
         {weather_line, halign = "center", valign = "center", widget = wibox.container.place},
         spacing = 3, layout = wibox.layout.fixed.vertical,
-    }, 78, 5)
+    }, 78)
 
     local crypto_prices = {}
     local function crypto_row(symbol)
@@ -690,7 +691,7 @@ function sidebar.create(s, dismiss_menu)
         section_header("CRYPTO PRICES · USD"),
         crypto_row("BTC"), crypto_row("ETH"), crypto_row("LTC"),
         spacing = 3, layout = wibox.layout.fixed.vertical,
-    }, 92, 6)
+    }, 92)
     local crypto_pending = false
     local function refresh_crypto()
         if crypto_pending then return end
@@ -714,9 +715,9 @@ function sidebar.create(s, dismiss_menu)
         battery_text, battery_bar,
         mouse_battery_text, mouse_battery_bar,
         root_text, root_bar,
-        network_text, volume_control,
+        volume_control, network_text,
         spacing = 4, layout = wibox.layout.fixed.vertical,
-    }, 205)
+    }, 223)
 
     local function codex_window_row(period)
         local summary = label(period .. " unavailable", palette.muted, 8, false)
@@ -734,7 +735,7 @@ function sidebar.create(s, dismiss_menu)
     local codex_card = card({
         section_header("CODEX"), codex_5h_widget, codex_7d_widget, codex_resets,
         spacing = 2, layout = wibox.layout.fixed.vertical,
-    }, 110, 4)
+    }, 110)
     local codex_pending = false
     local function refresh_codex()
         if codex_pending then return end
@@ -837,7 +838,7 @@ function sidebar.create(s, dismiss_menu)
     local todo_card = card({
         section_header("TODO"),
         todo_list, spacing = 5, layout = wibox.layout.fixed.vertical,
-    }, nil, 7)
+    })
 
     local calendar_entries = {}
     local calendar_list = wibox.layout.fixed.vertical()
@@ -880,7 +881,7 @@ function sidebar.create(s, dismiss_menu)
     local calendar_card = card({
         section_header("CALENDAR"),
         calendar_list, spacing = 5, layout = wibox.layout.fixed.vertical,
-    }, nil, 7)
+    })
 
     local trash_icon = make_trash_icon()
     local trash_state = label("UNKNOWN", palette.amber, 8, true)
@@ -1131,7 +1132,7 @@ function sidebar.create(s, dismiss_menu)
             mouse_battery_text.text = string.format("Mouse  %d%%  %s", mouse_capacity, mouse_state or "Unknown")
             mouse_battery_bar.value = mouse_capacity
         end
-        stats_card.forced_height = mouse_capacity and 223 or 205
+        stats_card.forced_height = mouse_capacity and 241 or 223
 
         local rx, tx = network_stats()
         if rx and tx then
