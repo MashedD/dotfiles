@@ -505,7 +505,8 @@ end
 
 local function action_button(text, callback, dismiss_menu)
     local button = style_button(wibox.widget {
-        label(text, palette.teal, 14, true, "center"),
+        {label(text, palette.teal, 14, true, "center"),
+            halign = "center", valign = "center", widget = wibox.container.place},
         forced_width = 46, forced_height = 28,
         bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
         widget = wibox.container.background,
