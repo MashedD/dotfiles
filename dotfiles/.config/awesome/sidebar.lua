@@ -29,7 +29,7 @@ local sidebar_title_gradient = gears.color {
 }
 local section_header_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#70b9c9"}, {0.16, "#478da6"}, {0.5, "#2c6986"}, {1, "#173d57"}},
+    stops = {{0, "#82c8d5"}, {0.16, "#4d9db5"}, {0.5, "#2d6e8d"}, {1, "#173d57"}},
 }
 local button_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
@@ -163,14 +163,14 @@ local function section_header(text, trailing_widget)
     })
     local header = wibox.widget {
         {
-            {forced_height = 1, bg = "#a5ecf4", widget = wibox.container.background},
+            {forced_height = 1, bg = "#8bd2dc", widget = wibox.container.background},
             {
                 {contents, left = 2, right = 2, top = 1, bottom = 1,
                     widget = wibox.container.margin},
                 forced_height = 20, bg = section_header_gradient,
                 widget = wibox.container.background,
             },
-            {forced_height = 1, bg = "#12364d", widget = wibox.container.background},
+            {forced_height = 1, bg = "#123f5e", widget = wibox.container.background},
             layout = wibox.layout.fixed.vertical,
         },
         forced_height = 24, bg = section_header_gradient,
