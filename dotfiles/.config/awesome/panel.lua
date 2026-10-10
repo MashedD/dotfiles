@@ -150,7 +150,7 @@ function panel.create(s, menu, activate, window_menu)
                         {tray, glass_clock(clock), spacing = 4, layout = wibox.layout.fixed.horizontal},
                         layout = wibox.layout.align.horizontal,
                     },
-                    left = 2, right = 2, top = 1, bottom = 2,
+                    left = 2, right = 2, top = 1, bottom = 1,
                     widget = wibox.container.margin,
                 },
                 {forced_height = 1, bg = "#73c6e1", widget = wibox.container.background},
