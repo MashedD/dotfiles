@@ -349,9 +349,10 @@ local function style_button(button, dismiss_menu)
     return button
 end
 
+local progress_bar_height = 7
 local function progress(color)
     return wibox.widget {
-        max_value = 100, value = 0, forced_height = 10,
+        max_value = 100, value = 0, forced_height = progress_bar_height,
         background_color = palette.bg, color = color,
         border_color = palette.line, border_width = 1,
         widget = wibox.widget.progressbar,
@@ -704,12 +705,12 @@ function sidebar.create(s, dismiss_menu)
         root_text, root_bar,
         network_text, volume_control,
         spacing = 4, layout = wibox.layout.fixed.vertical,
-    }, 220)
+    }, 205)
 
     local function codex_window_row(period)
         local summary = label(period .. " unavailable", palette.muted, 8, false)
         local bar = progress(palette.green)
-        bar.forced_height = 7
+        bar.forced_height = progress_bar_height
         return wibox.widget {
             {summary, bar, spacing = 2, layout = wibox.layout.fixed.vertical},
             layout = wibox.layout.fixed.vertical,
@@ -953,6 +954,8 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_clock, s.sidebar_digital_time, s.sidebar_date = clock, digital_time, date
     s.sidebar_clock_card = clock_card
     s.sidebar_cpu, s.sidebar_battery = cpu_text, battery_text
+    s.sidebar_stats_card = stats_card
+    s.sidebar_progress_bars = {cpu_bar, memory_bar, battery_bar, root_bar, volume_bar, codex_5h.bar, codex_7d.bar}
     s.sidebar_volume, s.sidebar_volume_text = volume_control, volume_text
     s.sidebar_quake2_button, s.sidebar_sleep_button = quake2_button, sleep_button
     s.sidebar_trash_icon, s.sidebar_trash_state = trash_icon, trash_state
