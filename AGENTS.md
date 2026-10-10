@@ -20,7 +20,7 @@ Openbox, Hyprland, Waybar, Walker, Mako, cliphist, and hyprlock configurations r
 - Configure the WM through `dotfiles/.config/awesome/rc.lua` and `autostart`.
 - `startx` uses `dotfiles/.config/X11/xinitrc`, with `dotfiles/.xinitrc` as a forwarding entry point.
 - Keep only the floating layout. The native panel is in `dotfiles/.config/awesome/panel.lua`; do not start LXPanel or another tray manager.
-- Click-to-focus; square Win98/Matrix titlebars. Normal windows have a bottom-right left-drag resize grip; maximized/fullscreen windows have no borders or bottom strip. Retain `openbox-*` helpers for compatibility.
+- Click-to-focus; keep square Win98 window geometry but give titlebars a restrained Frutiger Aero glass gradient, clear text, teal/mint minimize and maximize controls, and a glossy red close button. Normal windows have a bottom-right left-drag resize grip; maximized/fullscreen windows have no borders or bottom strip. Retain `openbox-*` helpers for compatibility.
 - The session uses four desktops: **1**, **2**, **3**, and **4**.
   - Win+1–4 switches desktops.
   - Win+Shift+1–4 sends the focused window to a desktop and follows it.
@@ -38,7 +38,7 @@ Openbox, Hyprland, Waybar, Walker, Mako, cliphist, and hyprlock configurations r
 
 Combine Windows 98 controls with Matrix-green accents.
 
-- Awesome: square Win98 titlebars, Matrix-green active titles, Microsoft Sans Serif 8. GTK theme: VAX (Chicago95 controls with Matrix-green selections). Prefer Microsoft Sans Serif 8, with Liberation Sans fallback when unavailable.
+- Awesome: square Win98 window geometry with Frutiger Aero glass-gradient titlebars and glossy controls; keep the rest of the desktop Win98/Matrix. GTK theme: VAX (Chicago95 controls with Matrix-green selections). Prefer Microsoft Sans Serif 8, with Liberation Sans fallback when unavailable.
 - Awesome panel: top, 30px Win98 panel, Start/application menu, workspace buttons, taskbar, tray, compact HH:MM clock, and Monday-first calendar popup. Render the complete 65×25 Start asset at native size without extra label text. Active elements use the dark-green `#001a00` / neon `#00ff41` pairing.
 - Optional right-edge sidebar: Win+Shift+S cycles hidden → visible below windows → always on top → workarea-reserving (hidden for fullscreen) → hidden. It spans workspaces; its reserved mode keeps windows left of it. Keep it flush beneath the panel with no outer padding or top/right/bottom border (retain the slim left accent). Include a centered date with a round, glassy green analog clock (teal bezel, hour numerals, minute divisions, and hour/minute/second hands; clicking toggles to the former digital date/time display and back), wallpaper picker, Bydgoszcz weather, CPU, memory, battery, network, root free space, volume, Now Playing, centered quick launch, the first five top-level items from `~/Documents/todo.md` under `## Sidebar` (refresh every minute), and a CALENDAR card from `~/Documents/calendar.md` with one latest past event, today’s events, and the next three upcoming entries. Color dates and times separately; emphasize today and distinguish upcoming events. Hidden and non-reserving by default.
 - Dunst: classic Win98 tooltip background `#ffffe1`, black text, square black border.

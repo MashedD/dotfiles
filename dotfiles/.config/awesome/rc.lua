@@ -13,6 +13,31 @@ local home = assert(os.getenv("HOME"))
 local mod = "Mod4"
 local test_mode = os.getenv("AWESOME_TEST_MODE") == "1"
 
+local titlebar_focus_gradient = gears.color {
+    type = "linear", from = {0, 0}, to = {0, 26},
+    stops = {{0, "#79dce8"}, {0.18, "#3a9dab"}, {0.52, "#176c69"}, {1, "#0a342d"}},
+}
+local titlebar_normal_gradient = gears.color {
+    type = "linear", from = {0, 0}, to = {0, 26},
+    stops = {{0, "#6c9296"}, {0.2, "#476f70"}, {0.55, "#2b4d49"}, {1, "#192e2b"}},
+}
+local titlebar_button_gradient = gears.color {
+    type = "linear", from = {0, 0}, to = {0, 20},
+    stops = {{0, "#d9fff7"}, {0.18, "#8cddd8"}, {0.55, "#398f8c"}, {1, "#1a514b"}},
+}
+local titlebar_button_hover = gears.color {
+    type = "linear", from = {0, 0}, to = {0, 20},
+    stops = {{0, "#ffffff"}, {0.2, "#c3fff2"}, {0.6, "#5fc4b3"}, {1, "#28715d"}},
+}
+local titlebar_close_gradient = gears.color {
+    type = "linear", from = {0, 0}, to = {0, 20},
+    stops = {{0, "#fff2e9"}, {0.2, "#f5b19a"}, {0.58, "#d65c4a"}, {1, "#7f2928"}},
+}
+local titlebar_close_hover = gears.color {
+    type = "linear", from = {0, 0}, to = {0, 20},
+    stops = {{0, "#fffaf1"}, {0.2, "#ffd1ae"}, {0.58, "#f17d63"}, {1, "#a8342e"}},
+}
+
 -- Do not load naughty: dunst, not Awesome, owns the notification D-Bus name.
 awesome.connect_signal("debug::error", function(err)
     io.stderr:write("awesome config: " .. tostring(err) .. "\n")
@@ -27,8 +52,8 @@ beautiful.init({
     bg_focus = "#001a00", fg_focus = "#00ff41",
     bg_urgent = "#001a00", fg_urgent = "#00ff41",
     border_width = 2, border_normal = "#808080", border_focus = "#70c5bd",
-    titlebar_bg_normal = "#808080", titlebar_fg_normal = "#c0c0c0",
-    titlebar_bg_focus = "#001a00", titlebar_fg_focus = "#00ff41",
+    titlebar_bg_normal = titlebar_normal_gradient, titlebar_fg_normal = "#d6e7e3",
+    titlebar_bg_focus = titlebar_focus_gradient, titlebar_fg_focus = "#f2fffb",
     menu_height = 24, menu_width = 230,
     menu_border_width = 2, menu_border_color = "#808080",
     useless_gap = 0, bg_systray = "#c0c0c0", systray_icon_spacing = 2,
@@ -346,23 +371,32 @@ client.connect_signal("unmanage", function(c)
     end
 end)
 
--- Square, bevelled Win98 buttons; no modern icon set or compositing required.
-local function control(label, callback)
+-- Square glass controls keep Win98 geometry with a restrained Aero sheen.
+local function control(label, callback, is_close, widget_id)
     local text = wibox.widget.textbox(label)
     text.align = "center"
-    text.font = "Microsoft Sans Serif bold 8"
+    text.valign = "center"
+    text.font = "Segoe UI bold 10"
     local button = wibox.widget {
-        {text, margins = 1, widget = wibox.container.margin},
-        bg = "#c0c0c0", fg = "#000000",
-        border_width = 1, border_color = "#ffffff",
-        forced_width = 18, forced_height = 18,
+        {text, left = 2, right = 2, top = 1, bottom = 1, widget = wibox.container.margin},
+        bg = is_close and titlebar_close_gradient or titlebar_button_gradient,
+        fg = "#f4fffb", border_width = 1,
+        border_color = is_close and "#ffd0bd" or "#b9f5e9",
+        forced_width = 21, forced_height = 19, id = widget_id,
         widget = wibox.container.background,
     }
-    button:buttons(gears.table.join(awful.button({}, 1, callback)))
-    return wibox.widget {
-        button, bg = "#000000", border_width = 1, border_color = "#000000",
-        widget = wibox.container.background,
-    }
+    local function set_hover(hovered)
+        button.bg = is_close
+            and (hovered and titlebar_close_hover or titlebar_close_gradient)
+            or (hovered and titlebar_button_hover or titlebar_button_gradient)
+        button.border_color = hovered and "#ffffff" or (is_close and "#ffd0bd" or "#b9f5e9")
+    end
+    button:connect_signal("mouse::enter", function() set_hover(true) end)
+    button:connect_signal("mouse::leave", function() set_hover(false) end)
+    button:connect_signal("button::press", function(_, _, _, pressed_button)
+        if pressed_button == 1 then callback() end
+    end)
+    return button
 end
 client.connect_signal("request::titlebars", function(c)
     local click_timer = gears.timer({timeout = 0.5, single_shot = true, callback = function() end})
@@ -376,11 +410,18 @@ client.connect_signal("request::titlebars", function(c)
         awful.button({}, 3, function() window_menu(c) end)
     )
     local title = awful.titlebar.widget.titlewidget(c)
-    title:set_font("Microsoft Sans Serif bold 8")
+    title:set_font("Segoe UI bold 9")
     title:set_align("left")
     local icon = awful.titlebar.widget.iconwidget(c)
     icon:buttons(gears.table.join(awful.button({}, 1, function() window_menu(c) end)))
-    awful.titlebar(c, {size = 24}):setup {
+    local minimize_button = control("−", function()
+        gears.timer.delayed_call(function()
+            if c.valid then c.minimized = true end
+        end)
+    end, false, "titlebar_minimize")
+    local maximize_button = control("□", function() maximize(c) end, false, "titlebar_maximize")
+    local close_button = control("×", function() c:kill() end, true, "titlebar_close")
+    awful.titlebar(c, {size = 26}):setup {
         {
             {icon, forced_width = 18, widget = wibox.container.constraint},
             margins = 2, widget = wibox.container.margin,
@@ -388,9 +429,7 @@ client.connect_signal("request::titlebars", function(c)
         {title, buttons = drag, left = 3, widget = wibox.container.margin},
         {
             {
-                control("_", function() c.minimized = true end),
-                control("□", function() maximize(c) end),
-                control("×", function() c:kill() end),
+                minimize_button, maximize_button, close_button,
                 spacing = 2, layout = wibox.layout.fixed.horizontal,
             },
             margins = 2, widget = wibox.container.margin,
