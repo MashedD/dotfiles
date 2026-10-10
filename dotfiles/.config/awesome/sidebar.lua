@@ -11,7 +11,7 @@ local sidebar = {}
 local palette = {
     bg = "#07110d", card = "#101a15", line = "#29434a",
     bevel_light = "#4c7180", bevel_shadow = "#050b07",
-    text = "#c7d5cb", muted = "#63736a", teal = "#70c5bd",
+    text = "#c7d5cb", muted = "#819289", teal = "#70c5bd",
     green = "#70c98b", neon = "#00ff41", amber = "#d6bd72",
 }
 
@@ -324,6 +324,7 @@ local function make_analog_clock()
 end
 
 local section_padding, section_vertical_padding = 6, 8
+local compact_spacing, list_spacing = 3, 4
 local function card(widget, height)
     local surface = wibox.widget {
         {widget, left = section_padding, right = section_padding,
@@ -732,7 +733,7 @@ function sidebar.create(s, dismiss_menu)
     local weather_detail = label("Bydgoszcz, Poland", palette.muted, 10, false, "center")
     weather_main.forced_width, weather_detail.forced_width = 190, 190
     local weather_text_stack = wibox.widget {
-        weather_main, weather_detail, spacing = 2,
+        weather_main, weather_detail, spacing = compact_spacing,
         layout = wibox.layout.fixed.vertical,
     }
     local weather_text_centered = {
@@ -802,7 +803,7 @@ function sidebar.create(s, dismiss_menu)
     crypto_line:add(crypto_cell("LTC"))
     local crypto_body = wibox.widget {
         {crypto_line, halign = "center", widget = wibox.container.place},
-        spacing = 3, layout = wibox.layout.fixed.vertical,
+        spacing = compact_spacing, layout = wibox.layout.fixed.vertical,
     }
     local crypto_card = collapsible_card("crypto", "CRYPTO PRICES · USD", crypto_body)
     local crypto_pending = false
@@ -828,7 +829,7 @@ function sidebar.create(s, dismiss_menu)
         mouse_battery_text, mouse_battery_bar,
         root_text, root_bar,
         volume_control, network_text,
-        spacing = 2, layout = wibox.layout.fixed.vertical,
+        spacing = compact_spacing, layout = wibox.layout.fixed.vertical,
     }
     local stats_card = collapsible_card("system-status", "SYSTEM STATUS", stats_body)
 
@@ -837,7 +838,7 @@ function sidebar.create(s, dismiss_menu)
         local bar = progress(palette.green)
         bar.forced_height = progress_bar_height
         return wibox.widget {
-            {summary, bar, spacing = 2, layout = wibox.layout.fixed.vertical},
+            {summary, bar, spacing = compact_spacing, layout = wibox.layout.fixed.vertical},
             layout = wibox.layout.fixed.vertical,
         }, {summary = summary, bar = bar, remaining = nil}
     end
@@ -847,7 +848,7 @@ function sidebar.create(s, dismiss_menu)
     codex_resets.wrap = "word_char"
     local codex_body = wibox.widget {
         codex_5h_widget, codex_7d_widget, codex_resets,
-        spacing = 2, layout = wibox.layout.fixed.vertical,
+        spacing = compact_spacing, layout = wibox.layout.fixed.vertical,
     }
     local codex_card = collapsible_card("codex", "CODEX", codex_body)
     local codex_pending = false
@@ -900,7 +901,7 @@ function sidebar.create(s, dismiss_menu)
     }
     local media_body = wibox.widget {
         media_text, media_controls_centered,
-        spacing = 4, layout = wibox.layout.fixed.vertical,
+        spacing = list_spacing, layout = wibox.layout.fixed.vertical,
     }
     local media_card = collapsible_card("now-playing", "NOW PLAYING", media_body)
 
@@ -933,7 +934,7 @@ function sidebar.create(s, dismiss_menu)
     local suppress_scroll_click = false
     local todo_entries = {}
     local todo_list = wibox.layout.fixed.vertical()
-    todo_list.spacing = 4
+    todo_list.spacing = list_spacing
     local function refresh_todo()
         todo_list:reset()
         todo_entries = read_sidebar_todo()
@@ -968,7 +969,7 @@ function sidebar.create(s, dismiss_menu)
     end
     local calendar_entries = {}
     local calendar_list = wibox.layout.fixed.vertical()
-    calendar_list.spacing = 4
+    calendar_list.spacing = list_spacing
     local function calendar_row(entry)
         local now = os.date("*t")
         local yesterday = os.date("%Y-%m-%d", os.time({year = now.year, month = now.month, day = now.day - 1, hour = 12}))
