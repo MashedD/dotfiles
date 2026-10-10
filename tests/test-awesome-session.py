@@ -32,6 +32,14 @@ def main():
         (testhome / ".local/share/wallpapers").mkdir(parents=True)
         (testhome / "Pictures/Wallpapers").mkdir(parents=True)
         (testhome / "Documents").mkdir()
+        programs = testhome / "Programs"
+        programs.mkdir()
+        old_trezor = programs / "Trezor-Suite-25.0.0-old.AppImage"
+        current_trezor = programs / "Trezor-Suite-99.1.0-current.AppImage"
+        for image in (old_trezor, current_trezor):
+            image.write_text('#!/bin/sh\nprintf "trezor:%s\\n" "$0" >> "$TEST_ACTIONS"\n')
+            image.chmod(0o755)
+        os.utime(old_trezor, (1, 1))
         todo_path = testhome / "Documents/todo.md"
         todo_path.write_text(
             "# TODO\n## Sidebar\n- First item\n- Second item\n- Third item\n"
@@ -75,7 +83,9 @@ def main():
         volume_helper = helpers / "openbox-volume"
         volume_helper.write_text('#!/bin/sh\necho "$1" >> "$TEST_ACTIONS"\n')
         volume_helper.chmod(0o755)
-        env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}", TEST_ACTIONS=str(directory / "actions"), AWESOME_TEST_MODE="1", NO_AT_BRIDGE="1", GIO_USE_VFS="local",
+        actions_file = directory / "actions"
+        actions_file.touch()
+        env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}", TEST_ACTIONS=str(actions_file), AWESOME_TEST_MODE="1", NO_AT_BRIDGE="1", GIO_USE_VFS="local",
                    HOME=str(testhome), XDG_CONFIG_HOME=str(testhome / ".config"),
                    XDG_DATA_HOME=str(testhome / ".local/share"),
                    XDG_STATE_HOME=str(testhome / ".local/state"), XDG_RUNTIME_DIR=str(directory))
@@ -156,6 +166,17 @@ def main():
                 assert 'true' in lua('local s=screen[1]; local a,b=s.sidebar_quake2_button,s.sidebar_sleep_button; return a.forced_width == b.forced_width and a.forced_height == b.forced_height and a.border_color ~= b.border_color and b.border_color == "#70c98b"')
                 assert 'true' in lua('local s=screen[1]; if s.sidebar_stats_card.forced_height ~= nil or #s.sidebar_progress_bars ~= 8 then return false end; for _,b in ipairs(s.sidebar_progress_bars) do if b.forced_height ~= 7 then return false end end; return true')
                 wait('return screen[1].sidebar_crypto_prices.BTC.text.."|"..screen[1].sidebar_crypto_prices.ETH.text.."|"..screen[1].sidebar_crypto_prices.LTC.text', '"97.123|3.456|123,45"')
+                crypto_position = lua('local s=screen[1]; local target=s.sidebar_crypto_prices.ETH.widget; local x=math.floor(s.sidebar.width/2); for y=0,s.sidebar.height-1 do for _,v in ipairs(s.sidebar:find_widgets(x,y)) do if v.widget==target then return tostring(s.sidebar.x+x)..":"..tostring(s.sidebar.y+y) end end end; return "missing"')
+                match = re.search(r'(\d+):(\d+)', crypto_position)
+                assert match, f"Could not locate clickable crypto price: {crypto_position}"
+                subprocess.run(["xdotool", "mousemove", match.group(1), match.group(2), "click", "1"], env=env, check=True)
+                expected_trezor = f"trezor:{current_trezor}"
+                deadline = time.monotonic() + 5
+                while time.monotonic() < deadline:
+                    if expected_trezor in actions_file.read_text():
+                        break
+                    time.sleep(0.1)
+                assert expected_trezor in actions_file.read_text(), actions_file.read_text()
                 wait('return screen[1].sidebar_codex_5h.summary.markup', '5h  84% left · Sat 13:46')
                 wait('return screen[1].sidebar_codex_7d.summary.markup', '7d  33% left · Wed 06:41')
                 wait('return screen[1].sidebar_codex_resets.markup', 'Sat 24.10 13:46')

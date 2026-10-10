@@ -778,20 +778,65 @@ function sidebar.create(s, dismiss_menu)
     }
     local weather_card = collapsible_card("weather", "BYDGOSZCZ · WEATHER", weather_body)
 
+    local function find_trezor_appimage()
+        local root = (os.getenv("HOME") or "") .. "/Programs"
+        local ok, enumerator = pcall(function()
+            return Gio.File.new_for_path(root):enumerate_children(
+                "standard::name,standard::type,time::modified", 0)
+        end)
+        if not ok or not enumerator then return nil end
+        local candidates = {}
+        local read_ok = pcall(function()
+            while true do
+                local info = enumerator:next_file()
+                if not info then break end
+                local name = info:get_name()
+                if name:match("^Trezor%-Suite%-.+%.AppImage$")
+                    and tostring(info:get_file_type()) == "REGULAR" then
+                    local modified = tonumber(info:get_attribute_uint64("time::modified")) or 0
+                    candidates[#candidates + 1] = {path = root .. "/" .. name, modified = modified}
+                end
+            end
+        end)
+        pcall(function() enumerator:close() end)
+        if not read_ok then return nil end
+        table.sort(candidates, function(a, b)
+            if a.modified ~= b.modified then return a.modified < b.modified end
+            return a.path < b.path
+        end)
+        return candidates[#candidates] and candidates[#candidates].path or nil
+    end
+    local function open_trezor_suite()
+        if dismiss_menu then dismiss_menu() end
+        local path = find_trezor_appimage()
+        if not path then
+            awful.spawn({"notify-send", "Trezor Suite", "No Trezor-Suite-*.AppImage found in ~/Programs"})
+            return
+        end
+        local ok = pcall(awful.spawn, {path})
+        if not ok then
+            awful.spawn({"notify-send", "Trezor Suite", "Could not launch " .. path})
+        end
+    end
     local crypto_prices = {}
     local function crypto_cell(symbol)
-        local entry = {text = "--"}
+        local entry = {text = "--", hovered = false}
         local row = wibox.widget.textbox()
         local function update()
+            local underline = entry.hovered and " underline='single'" or ""
             row.markup = string.format(
-                "<span foreground='%s' size='9pt' weight='bold'>%s</span> " ..
-                    "<span foreground='%s' size='9pt' weight='bold'>%s</span>",
-                palette.teal, symbol, palette.green, entry.text)
+                "<span foreground='%s' size='9pt' weight='bold'%s>%s</span> " ..
+                    "<span foreground='%s' size='9pt' weight='bold'%s>%s</span>",
+                palette.teal, underline, symbol, palette.green, underline, entry.text)
         end
         entry.set = function(value)
             entry.text = value
             update()
         end
+        entry.widget = row
+        row:buttons(gears.table.join(awful.button({}, 1, open_trezor_suite)))
+        row:connect_signal("mouse::enter", function() entry.hovered = true; update() end)
+        row:connect_signal("mouse::leave", function() entry.hovered = false; update() end)
         crypto_prices[symbol] = entry
         update()
         return row
