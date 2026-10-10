@@ -788,7 +788,7 @@ function sidebar.create(s, dismiss_menu)
             local value = code == 0 and tonumber(stdout:match("Volume:%s*([%d.]+)")) or nil
             local muted = stdout:find("MUTED", 1, true) ~= nil
             volume_text.markup = string.format(
-                "<span foreground='%s' size='10pt'>Volume  %s</span>",
+                "<span foreground='%s' size='8pt'>Volume  %s</span>",
                 muted and palette.amber or palette.text,
                 value and (muted and "Mute" or string.format("%.0f%%", value * 100)) or "--")
             volume_bar.value = value and math.floor(value * 100 + 0.5) or 0
