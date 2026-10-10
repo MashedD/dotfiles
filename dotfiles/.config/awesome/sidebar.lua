@@ -493,11 +493,11 @@ local function network_stats()
     return rx, tx
 end
 
-local function launcher(text, command, dismiss_menu)
+local function launcher(text, command, dismiss_menu, accent)
     local button = style_button(wibox.widget {
-        label(text, palette.teal, 10, true, "center"),
+        label(text, accent or palette.teal, 10, true, "center"),
         forced_width = 112, forced_height = 34,
-        bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
+        bg = button_gradient, border_width = 1, border_color = accent or palette.bevel_light,
         widget = wibox.container.background,
     }, dismiss_menu)
     button:buttons(gears.table.join(awful.button({}, 1, function() awful.spawn(command) end)))
@@ -1264,7 +1264,7 @@ function sidebar.create(s, dismiss_menu)
     if dismiss_menu then trash_status:connect_signal("button::press", dismiss_menu) end
 
     local quake2_button = launcher("Quake 2", {os.getenv("HOME") .. "/Games/quake2/q2pro.sh"}, dismiss_menu)
-    local sleep_button = launcher("Sleep", {"systemctl", "suspend"}, dismiss_menu)
+    local sleep_button = launcher("Sleep", {"systemctl", "suspend"}, dismiss_menu, palette.green)
     local quick_body = wibox.widget {
         {
             {
