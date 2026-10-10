@@ -6,10 +6,10 @@
   "display": {
     "separator": "  ",
     "color": {
-      "keys": "#70c5bd",
-      "title": "#00ff41",
-      "output": "#c7d5cb",
-      "separator": "#63736a"
+      "keys": "#00ff55",
+      "title": "#55ff99",
+      "output": "#cccccc",
+      "separator": "#00aa33"
     }
   },
   "modules": [

@@ -26,28 +26,29 @@ fi
 # Source/Load zinit
 source "$ZINIT_HOME/zinit.zsh"
 
-# Aurora terminal palette; bright Matrix green is reserved for the prompt marker.
-typeset -gr VAX_BLACK='#07110d'
-typeset -gr VAX_GREEN='#70c98b'
-typeset -gr VAX_DIM_GREEN='#63736a'
-typeset -gr VAX_SILVER='#c7d5cb'
-typeset -gr VAX_GRAY='#63736a'
-typeset -gr VAX_YELLOW='#d6bd72'
-typeset -gr VAX_CYAN='#70c5bd'
-typeset -gr VAX_BLUE='#78a9c4'
-typeset -gr VAX_MAGENTA='#b18bbd'
-typeset -gr VAX_RED='#d87979'
+# VAX Vibrant palette shared with Kitty's true-black ANSI colors.
+typeset -gr VAX_BLACK='#000000'
+typeset -gr VAX_GREEN='#00ff55'
+typeset -gr VAX_BRIGHT_GREEN='#55ff99'
+typeset -gr VAX_DIM_GREEN='#00aa33'
+typeset -gr VAX_SILVER='#cccccc'
+typeset -gr VAX_GRAY='#666666'
+typeset -gr VAX_YELLOW='#ffff00'
+typeset -gr VAX_CYAN='#00ffff'
+typeset -gr VAX_BLUE='#5555ff'
+typeset -gr VAX_MAGENTA='#ff55ff'
+typeset -gr VAX_RED='#ff3333'
 
 # Settings for `less`
 export LESS=-R
 # Use Kitty's ANSI palette for syntax highlighting in bat.
 export BAT_THEME=ansi
-export LESS_TERMCAP_mb=$'\e[38;2;217;121;121;1m'
-export LESS_TERMCAP_md=$'\e[38;2;214;189;114;1m'
+export LESS_TERMCAP_mb=$'\e[1;31m'
+export LESS_TERMCAP_md=$'\e[1;32m'
 export LESS_TERMCAP_me=$'\e[0m'
-export LESS_TERMCAP_so=$'\e[38;2;7;17;13;48;2;112;197;189m'
+export LESS_TERMCAP_so=$'\e[1;30;42m'
 export LESS_TERMCAP_se=$'\e[0m'
-export LESS_TERMCAP_us=$'\e[38;2;112;197;189;1m'
+export LESS_TERMCAP_us=$'\e[32;1m'
 export LESS_TERMCAP_ue=$'\e[0m'
 export LESSOPEN="| /usr/bin/highlight -O ansi %s 2>/dev/null"
 
@@ -134,28 +135,28 @@ setopt auto_cd
 
 # Completion styling
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
-zstyle ':completion:*' list-colors 'fi=38;2;199;213;203:di=38;2;120;169;196:ex=38;2;112;201;139:ln=38;2;112;197;189:or=38;2;217;121;121:mi=38;2;217;121;121:pi=38;2;214;189;114:so=38;2;177;139;189:bd=38;2;214;189;114:cd=38;2;214;189;114:ma=30;47'
+zstyle ':completion:*' list-colors 'fi=38;2;204;204;204:di=38;2;85;85;255:ex=38;2;0;255;85:ln=38;2;0;255;255:or=38;2;255;51;51:mi=38;2;255;51;51:pi=38;2;255;255;0:so=38;2;255;85;255:bd=38;2;255;255;0:cd=38;2;255;255;0:ma=30;42'
 zstyle ':completion:*' menu no
 zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza $realpath'
 
 # Shell integration
-export FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:+${FZF_DEFAULT_OPTS} }--border=sharp --color=fg:${VAX_SILVER},bg:${VAX_BLACK},hl:${VAX_YELLOW},fg+:#f0f4f1,bg+:#1b2b22,hl+:#00ff41,info:${VAX_CYAN},prompt:${VAX_GREEN},pointer:#00ff41,marker:${VAX_YELLOW},spinner:${VAX_CYAN},header:${VAX_DIM_GREEN},border:#263b30"
+export FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:+${FZF_DEFAULT_OPTS} }--border=sharp --color=fg:${VAX_SILVER},bg:${VAX_BLACK},hl:${VAX_YELLOW},fg+:#ffffff,bg+:#001a00,hl+:${VAX_BRIGHT_GREEN},info:${VAX_CYAN},prompt:${VAX_GREEN},pointer:#00ff00,marker:${VAX_YELLOW},spinner:${VAX_CYAN},header:${VAX_GRAY},border:${VAX_DIM_GREEN}"
 eval "$(fzf --zsh)"
 
 # Treat comments as comments
 setopt interactivecomments
 
 man() {
-  LESS_TERMCAP_md=$'\e[38;2;214;189;114;1m' \
+  LESS_TERMCAP_md=$'\e[1;32m' \
   LESS_TERMCAP_me=$'\e[0m' \
   LESS_TERMCAP_se=$'\e[0m' \
-  LESS_TERMCAP_so=$'\e[38;2;7;17;13;48;2;112;197;189m' \
+  LESS_TERMCAP_so=$'\e[1;30;42m' \
   LESS_TERMCAP_ue=$'\e[0m' \
-  LESS_TERMCAP_us=$'\e[38;2;112;197;189;1m' \
+  LESS_TERMCAP_us=$'\e[32;1m' \
   command man "$@"
 }
 
-export EZA_COLORS='di=38;2;120;169;196:ex=38;2;112;201;139:ln=38;2;112;197;189:or=38;2;217;121;121'
+export EZA_COLORS='di=38;2;85;85;255:ex=38;2;0;255;85:ln=38;2;0;255;255:or=38;2;255;51;51'
 alias l="eza --icons=auto --group-directories-first"
 alias la='eza --icons=auto --group-directories-first -A'
 alias ls="eza --icons=auto --group-directories-first"
@@ -189,18 +190,18 @@ export _JAVA_AWT_WM_NONREPARENTING=1 # Fix for JDownloader 2
 
 export MPD_HOST="$XDG_RUNTIME_DIR/mpd/socket"
 
-# Two-line Aurora prompt: location and Git branch above, Matrix-green input below.
+# Two-line VAX Vibrant prompt: cyan location and bright-green input marker.
 autoload -Uz add-zsh-hook vcs_info
 zstyle ':vcs_info:git:*' check-for-changes true
 zstyle ':vcs_info:git:*' check-for-staged-changes true
 zstyle ':vcs_info:git:*' stagedstr '+'
 zstyle ':vcs_info:git:*' unstagedstr '*'
-zstyle ':vcs_info:git:*' formats ' %F{#63736a}[%b%u%c]%f'
-zstyle ':vcs_info:git:*' actionformats ' %F{#63736a}[%b%u%c|%a]%f'
+zstyle ':vcs_info:git:*' formats ' %F{#666666}[%b%u%c]%f'
+zstyle ':vcs_info:git:*' actionformats ' %F{#666666}[%b%u%c|%a]%f'
 add-zsh-hook precmd vcs_info
 setopt prompt_subst
-PROMPT='%F{#63736a}┌─%f %F{#70c5bd}%~%f${vcs_info_msg_0_}%(?.. %F{#d87979}✘ %?%f)
-%F{#00ff41}└─❯%f '
+PROMPT='%F{#666666}┌─%f %F{#00ffff}%~%f${vcs_info_msg_0_}%(?.. %F{#ff3333}✘ %?%f)
+%F{#55ff99}└─❯%f '
 
 # Cyberpunk
 

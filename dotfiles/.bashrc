@@ -33,16 +33,16 @@ bind '"\e[C": forward-char'
 bind '"\e[D": backward-char'
 
 man() {
-  LESS_TERMCAP_md=$'\e[38;2;214;189;114;1m' \
+  LESS_TERMCAP_md=$'\e[1;32m' \
   LESS_TERMCAP_me=$'\e[0m' \
   LESS_TERMCAP_se=$'\e[0m' \
-  LESS_TERMCAP_so=$'\e[38;2;7;17;13;48;2;112;197;189m' \
+  LESS_TERMCAP_so=$'\e[1;30;42m' \
   LESS_TERMCAP_ue=$'\e[0m' \
-  LESS_TERMCAP_us=$'\e[38;2;112;197;189;1m' \
+  LESS_TERMCAP_us=$'\e[32;1m' \
   command man "$@"
 }
 
-export EZA_COLORS='di=38;2;120;169;196:ex=38;2;112;201;139:ln=38;2;112;197;189:or=38;2;217;121;121'
+export EZA_COLORS='di=38;2;85;85;255:ex=38;2;0;255;85:ln=38;2;0;255;255:or=38;2;255;51;51'
 alias l="eza --icons=auto --group-directories-first"
 alias la='eza --icons=auto --group-directories-first -A'
 alias ls="eza --icons=auto --group-directories-first"
@@ -68,9 +68,9 @@ alias rg="rg --no-ignore"
 alias fd="fd --no-ignore"
 alias q="cd $HOME/Games/quake2"
 
-# Keep Bash's fuzzy finder styled like the Zsh/Kitty Aurora setup.
+# Keep Bash's fuzzy finder aligned with Kitty's VAX Vibrant ANSI palette.
 if command -v fzf >/dev/null 2>&1; then
-  export FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:+${FZF_DEFAULT_OPTS} }--border=sharp --color=fg:#c7d5cb,bg:#07110d,hl:#d6bd72,fg+:#f0f4f1,bg+:#1b2b22,hl+:#00ff41,info:#70c5bd,prompt:#70c98b,pointer:#00ff41,marker:#d6bd72,spinner:#70c5bd,header:#63736a,border:#263b30"
+  export FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:+${FZF_DEFAULT_OPTS} }--border=sharp --color=fg:#cccccc,bg:#000000,hl:#ffff00,fg+:#ffffff,bg+:#001a00,hl+:#55ff99,info:#00ffff,prompt:#00ff55,pointer:#00ff00,marker:#ffff00,spinner:#00ffff,header:#666666,border:#006400"
   eval "$(fzf --bash)"
 fi
 
@@ -82,14 +82,14 @@ export PATH="$PATH:$HOME/.local/bin:$HOME/Projects/scripts:$HOME/Programs:$HOME/
 export PATH="$HOME/.local/bin/dotnet:$PATH"
 export DOTNET_ROOT="$HOME/.local/bin/dotnet"
 
-# Match the Aurora two-line prompt used by the interactive Zsh setup.
+# Match the VAX Vibrant two-line prompt used by the interactive Zsh setup.
 if [ -r /usr/share/git/completion/git-prompt.sh ]; then
   . /usr/share/git/completion/git-prompt.sh
   GIT_PS1_SHOWDIRTYSTATE=1
   GIT_PS1_SHOWSTASHSTATE=1
-  export PS1="\[\033[38;2;99;115;106m\]┌─\[\033[38;2;112;197;189m\]\W\[\033[38;2;99;115;106m\]\$(__git_ps1 ' [%s]')\n\[\033[38;2;0;255;65m\]└─❯\[\033[0m\] "
+  export PS1="\[\033[38;2;102;102;102m\]┌─\[\033[38;2;0;255;255m\]\W\[\033[38;2;102;102;102m\]\$(__git_ps1 ' [%s]')\n\[\033[38;2;0;255;85m\]└─❯\[\033[0m\] "
 else
-  export PS1="\[\033[38;2;99;115;106m\]┌─\[\033[38;2;112;197;189m\]\W\n\[\033[38;2;0;255;65m\]└─❯\[\033[0m\] "
+  export PS1="\[\033[38;2;102;102;102m\]┌─\[\033[38;2;0;255;255m\]\W\n\[\033[38;2;0;255;85m\]└─❯\[\033[0m\] "
 fi
 export _JAVA_AWT_WM_NONREPARENTING=1 # Fix for JDownloader 2
 

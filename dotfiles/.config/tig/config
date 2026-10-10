@@ -1,8 +1,8 @@
 # ===========================================================================
-# tigrc -- Win98 + Aurora theme using Kitty's ANSI palette
+# tigrc -- Win98 + VAX Vibrant theme using Kitty's ANSI palette
 # ===========================================================================
-# Default terminal: deep forest background, soft text
-# Highlights: Matrix green, with teal/amber supporting accents
+# Default terminal: true-black background, silver text
+# Highlights: vivid Matrix green with classic ANSI accents
 # ===========================================================================
 
 # ===========================================================================

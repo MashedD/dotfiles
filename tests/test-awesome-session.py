@@ -55,10 +55,10 @@ def main():
             f"{today + timedelta(days=3)} 09:00 Omit fourth future event\n")
         shutil.copy2(ROOT / "dotfiles/.local/bin/openbox-lock", helpers / "openbox-lock")
         crypto_helper = helpers / "crypto-prices"
-        crypto_helper.write_text("#!/bin/sh\nprintf '%s\\n' '#[fg=#006400]BTC #[fg=#00ff41,bold]$97.123 #[fg=#006400]ETH #[fg=#00ff41,bold]$3.456 #[fg=#006400]LTC #[fg=#00ff41,bold]$123,45'\n")
+        crypto_helper.write_text("#!/bin/sh\nprintf '%s\\n' '#[fg=#006400]BTC #[fg=#55ff99,bold]$97.123 #[fg=#006400]ETH #[fg=#55ff99,bold]$3.456 #[fg=#006400]LTC #[fg=#55ff99,bold]$123,45'\n")
         crypto_helper.chmod(0o755)
         codex_helper = helpers / "codex-usage"
-        codex_helper.write_text("#!/bin/sh\nprintf '%s\\t%s\\n' 'C 5h #[fg=#00ff41]84%#[fg=#006400]@#[fg=#00ff41]Sat 13:46 7d #[fg=#00ff41]33%#[fg=#006400]@#[fg=#00ff41]Wed 06:41' 'Sat 24.10 13:46 · Tue 27.10 13:46 · Fri 30.10 13:46'\n")
+        codex_helper.write_text("#!/bin/sh\nprintf '%s\\t%s\\n' 'C 5h #[fg=#55ff99]84%#[fg=#006400]@#[fg=#55ff99]Sat 13:46 7d #[fg=#55ff99]33%#[fg=#006400]@#[fg=#55ff99]Wed 06:41' 'Sat 24.10 13:46 · Tue 27.10 13:46 · Fri 30.10 13:46'\n")
         codex_helper.chmod(0o755)
         shutil.copy2(ROOT / "dotfiles/.local/share/wallpapers/lock-win98-tux.png",
                      testhome / ".local/share/wallpapers/lock-win98-tux.png")
