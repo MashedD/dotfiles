@@ -679,19 +679,24 @@ function sidebar.create(s, dismiss_menu)
     }, 78)
 
     local crypto_prices = {}
-    local function crypto_row(symbol)
+    local function crypto_cell(symbol)
         local price = label("--", palette.green, 9, true)
         crypto_prices[symbol] = price
-        return {
-            label(symbol, palette.teal, 9, true), nil, price,
-            layout = wibox.layout.align.horizontal,
+        return wibox.widget {
+            label(symbol, palette.teal, 9, true), price,
+            spacing = 3, layout = wibox.layout.fixed.horizontal,
         }
     end
+    local crypto_line = wibox.layout.fixed.horizontal()
+    crypto_line.spacing = 12
+    crypto_line:add(crypto_cell("BTC"))
+    crypto_line:add(crypto_cell("ETH"))
+    crypto_line:add(crypto_cell("LTC"))
     local crypto_card = card({
         section_header("CRYPTO PRICES · USD"),
-        crypto_row("BTC"), crypto_row("ETH"), crypto_row("LTC"),
+        {crypto_line, halign = "center", widget = wibox.container.place},
         spacing = 3, layout = wibox.layout.fixed.vertical,
-    }, 92)
+    }, 70)
     local crypto_pending = false
     local function refresh_crypto()
         if crypto_pending then return end
@@ -716,7 +721,7 @@ function sidebar.create(s, dismiss_menu)
         mouse_battery_text, mouse_battery_bar,
         root_text, root_bar,
         volume_control, network_text,
-        spacing = 4, layout = wibox.layout.fixed.vertical,
+        spacing = 2, layout = wibox.layout.fixed.vertical,
     }, 223)
 
     local function codex_window_row(period)
@@ -735,7 +740,7 @@ function sidebar.create(s, dismiss_menu)
     local codex_card = card({
         section_header("CODEX"), codex_5h_widget, codex_7d_widget, codex_resets,
         spacing = 2, layout = wibox.layout.fixed.vertical,
-    }, 110)
+    }, 132)
     local codex_pending = false
     local function refresh_codex()
         if codex_pending then return end
@@ -745,7 +750,7 @@ function sidebar.create(s, dismiss_menu)
             local report = code == 0 and stdout or ""
             local display, reset_dates = report:match("^(.-)\t([^\r\n]+)")
             display = (display or report):gsub("#%b[]", ""):gsub("^C%*?%s*", ""):gsub("%s+$", "")
-            local pretty_reset_dates = reset_dates and reset_dates:gsub("^(.- · .-) · ", "%1\n")
+            local pretty_reset_dates = reset_dates and reset_dates:gsub(" · ", "\n")
             local reset_text = pretty_reset_dates and reset_dates ~= "--"
                 and ("Free resets: " .. pretty_reset_dates) or "Free resets: --"
             codex_resets.markup = string.format(
@@ -1132,7 +1137,7 @@ function sidebar.create(s, dismiss_menu)
             mouse_battery_text.text = string.format("Mouse  %d%%  %s", mouse_capacity, mouse_state or "Unknown")
             mouse_battery_bar.value = mouse_capacity
         end
-        stats_card.forced_height = mouse_capacity and 241 or 223
+        stats_card.forced_height = mouse_capacity and 223 or 205
 
         local rx, tx = network_stats()
         if rx and tx then
