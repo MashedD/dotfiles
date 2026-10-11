@@ -246,7 +246,7 @@ end
 local function toggle_start_menu(s)
     s = s or awful.screen.focused()
     local menu = s.start_menu or main_menu
-    menu:toggle({coords = {x = s.geometry.x + 2, y = s.geometry.y + (s.panel and s.panel.height or 30)}})
+    menu:toggle({coords = {x = s.geometry.x, y = s.geometry.y + (s.panel and s.panel.height or 30)}})
 end
 
 local function wallpaper(s)

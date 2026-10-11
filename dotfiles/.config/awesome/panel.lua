@@ -44,7 +44,7 @@ function panel.create(s, menu, activate, window_menu)
     icon.forced_width, icon.forced_height, icon.resize = 65, 25, false
     local start = icon
     local function toggle_start_menu()
-        menu:toggle({coords = {x = s.geometry.x + 2, y = s.geometry.y + 30}})
+        menu:toggle({coords = {x = s.geometry.x, y = s.geometry.y + 30}})
     end
     start:buttons(gears.table.join(awful.button({}, 1, toggle_start_menu)))
     s.start_button, s.start_menu = start, menu
