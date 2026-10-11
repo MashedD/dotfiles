@@ -234,7 +234,7 @@ main_menu = awful.menu({items = {
     {"Audacious", "audacious"}, {"Gajim", "gajim"}, {"KeePassXC", "keepassxc"},
     {"Monitor", function() dismiss_start_menu(); run({"kitty", "--title", "System Monitor", "btop"}) end},
     {"Volume Control", "pavucontrol"},
-    {"Quake 1", function() dismiss_start_menu(); run({home .. "/Games/quake-remastered/vkquake.sh"}) end},
+    {"Quake 1", function() dismiss_start_menu(); run({home .. "/Games/quake-rerelease/vkquake.sh"}) end},
     {"Quake 2", function() dismiss_start_menu(); run({home .. "/Games/quake2/q2pro.sh"}) end},
     {"Reload Awesome", awesome.restart},
     {"Display outputs", function() dismiss_start_menu(); display_menu:show() end},
