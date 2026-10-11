@@ -219,6 +219,56 @@ local function confirm_poweroff()
     _G.__awesome_poweroff_confirmation = confirmation
     confirmation:show()
 end
+local function menu_separator(_, args)
+    local rule = wibox.widget {
+        orientation = "horizontal", color = "#75a7b5", thickness = 1,
+        widget = wibox.widget.separator,
+    }
+    local theme = {
+        fg_normal = args.theme.fg_normal, fg_focus = args.theme.fg_normal,
+        bg_normal = args.theme.bg_normal, bg_focus = args.theme.bg_normal,
+    }
+    return {
+        widget = wibox.widget {
+            rule, left = 10, right = 10, top = 2, bottom = 2,
+            widget = wibox.container.margin,
+        },
+        width = args.theme.width, height = 5, theme = theme,
+    }
+end
+local legacy_menu_icons = "/usr/share/icons/AdwaitaLegacy/32x32/legacy/"
+local legacy_menu_fallbacks = {
+    ["applications-all"] = "applications-utilities.png",
+    ["system-run"] = "system-run.png",
+    ["utilities-terminal"] = "utilities-terminal.png",
+    ["system-file-manager"] = "system-file-manager.png",
+    ["web-browser"] = "web-browser.png",
+    ["multimedia-player"] = "multimedia-player.png",
+    ["im-message"] = "applications-internet.png",
+    ["dialog-password"] = "dialog-password.png",
+    ["utilities-system-monitor"] = "utilities-system-monitor.png",
+    ["audio-volume-high"] = "audio-volume-high.png",
+    ["video-display"] = "video-display.png",
+    ["applications-games"] = "applications-games.png",
+    ["input-gaming"] = "applications-games.png",
+    ["view-refresh"] = "view-refresh.png",
+    ["system-log-out"] = "system-log-out.png",
+    ["system-suspend"] = "/usr/share/icons/hicolor/48x48/actions/xfsm-suspend.png",
+    ["system-shutdown"] = "system-shutdown.png",
+}
+local function menu_icon(name)
+    local ok, path = pcall(function()
+        local theme = require("lgi").Gtk.IconTheme.get_default()
+        local info = theme and theme:lookup_icon(name, 32, 0)
+        return info and info:get_filename()
+    end)
+    if ok and path and gears.filesystem.file_readable(path) then return path end
+    local fallback = legacy_menu_fallbacks[name]
+    local fallback_path = fallback and (fallback:sub(1, 1) == "/" and fallback or legacy_menu_icons .. fallback)
+    if fallback_path and gears.filesystem.file_readable(fallback_path) then return fallback_path end
+    local looked_up = menubar.utils.lookup_icon(name)
+    return type(looked_up) == "string" and gears.filesystem.file_readable(looked_up) and looked_up or nil
+end
 local display_menu = awful.menu({items = {
     {"Internal display only", function() helper("display", "--internal") end},
     {"External HDMI only", function() helper("display", "--hdmi") end},
@@ -228,19 +278,32 @@ local display_menu = awful.menu({items = {
 _G.__awesome_display_menu = display_menu
 _G.__awesome_quit_confirmation = nil
 main_menu = awful.menu({items = {
-    {"Applications", function() menubar.show() end},
-    {"Run…", "xfce4-appfinder"},
-    {"Kitty", "kitty"}, {"PCManFM", "pcmanfm"}, {"Firefox", "firefox"},
-    {"Audacious", "audacious"}, {"Gajim", "gajim"}, {"KeePassXC", "keepassxc"},
-    {"Monitor", function() dismiss_start_menu(); run({"kitty", "--title", "System Monitor", "btop"}) end},
-    {"Volume Control", "pavucontrol"},
-    {"Quake 1", function() dismiss_start_menu(); run({home .. "/Games/quake-rerelease/vkquake.sh"}) end},
-    {"Quake 2", function() dismiss_start_menu(); run({home .. "/Games/quake2/q2pro.sh"}) end},
-    {"Reload Awesome", awesome.restart},
-    {"Display outputs", function() dismiss_start_menu(); display_menu:show() end},
-    {"Log Out…", confirm_quit},
-    {"Sleep", function() dismiss_start_menu(); run({"systemctl", "suspend"}) end},
-    {"Poweroff", confirm_poweroff},
+    {"Applications", function() menubar.show() end, menu_icon("applications-all")},
+    {"Run…", "xfce4-appfinder", menu_icon("system-run")},
+    {new = menu_separator},
+    {"Kitty", "kitty", menu_icon("utilities-terminal")},
+    {"PCManFM", "pcmanfm", menu_icon("system-file-manager")},
+    {"Firefox", "firefox", menu_icon("web-browser")},
+    {"Audacious", "audacious", menu_icon("multimedia-player")},
+    {"Gajim", "gajim", menu_icon("im-message")},
+    {"KeePassXC", "keepassxc", menu_icon("dialog-password")},
+    {new = menu_separator},
+    {"Monitor", function() dismiss_start_menu(); run({"kitty", "--title", "System Monitor", "btop"}) end,
+        menu_icon("utilities-system-monitor")},
+    {"Volume Control", "pavucontrol", menu_icon("audio-volume-high")},
+    {"Display outputs", function() dismiss_start_menu(); display_menu:show() end,
+        menu_icon("video-display")},
+    {new = menu_separator},
+    {"Quake 1", function() dismiss_start_menu(); run({home .. "/Games/quake-remastered/vkquake.sh"}) end,
+        menu_icon("applications-games")},
+    {"Quake 2", function() dismiss_start_menu(); run({home .. "/Games/quake2/q2pro.sh"}) end,
+        menu_icon("input-gaming")},
+    {new = menu_separator},
+    {"Reload Awesome", awesome.restart, menu_icon("view-refresh")},
+    {"Log Out…", confirm_quit, menu_icon("system-log-out")},
+    {"Sleep", function() dismiss_start_menu(); run({"systemctl", "suspend"}) end,
+        menu_icon("system-suspend")},
+    {"Poweroff", confirm_poweroff, menu_icon("system-shutdown")},
 }})
 local main_menu_keygrabber = main_menu._keygrabber
 local start_key_pending = false
