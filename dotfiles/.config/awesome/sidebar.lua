@@ -1216,7 +1216,9 @@ function sidebar.create(s, dismiss_menu)
             end
         end
         if event_count == 0 then
-            calendar_events_widget:add(label("No events for this date", palette.muted, 9, false))
+            local empty_day = label("No events for this date", palette.muted, 9, false)
+            empty_day:buttons(gears.table.join(awful.button({}, 1, open_calendar_document)))
+            calendar_events_widget:add(empty_day)
         end
         calendar_grid:emit_signal("widget::layout_changed")
         calendar_events_widget:emit_signal("widget::layout_changed")
