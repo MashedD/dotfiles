@@ -210,6 +210,15 @@ local function confirm_quit()
     _G.__awesome_quit_confirmation = confirmation
     confirmation:show()
 end
+local function confirm_poweroff()
+    dismiss_start_menu()
+    local confirmation = awful.menu({items = {
+        {"Power off the computer?", function() run({"systemctl", "poweroff"}) end},
+        {"Cancel", function() end},
+    }})
+    _G.__awesome_poweroff_confirmation = confirmation
+    confirmation:show()
+end
 local display_menu = awful.menu({items = {
     {"Internal display only", function() helper("display", "--internal") end},
     {"External HDMI only", function() helper("display", "--hdmi") end},
@@ -223,10 +232,15 @@ main_menu = awful.menu({items = {
     {"Run…", "xfce4-appfinder"},
     {"Kitty", "kitty"}, {"PCManFM", "pcmanfm"}, {"Firefox", "firefox"},
     {"Audacious", "audacious"}, {"Gajim", "gajim"}, {"KeePassXC", "keepassxc"},
+    {"Monitor", function() dismiss_start_menu(); run({"kitty", "--title", "System Monitor", "btop"}) end},
     {"Volume Control", "pavucontrol"},
+    {"Quake 1", function() dismiss_start_menu(); run({home .. "/Games/quake-remastered/vkquake.sh"}) end},
+    {"Quake 2", function() dismiss_start_menu(); run({home .. "/Games/quake2/q2pro.sh"}) end},
     {"Reload Awesome", awesome.restart},
     {"Display outputs", function() dismiss_start_menu(); display_menu:show() end},
     {"Log Out…", confirm_quit},
+    {"Sleep", function() dismiss_start_menu(); run({"systemctl", "suspend"}) end},
+    {"Poweroff", confirm_poweroff},
 }})
 local main_menu_keygrabber = main_menu._keygrabber
 local start_key_pending = false

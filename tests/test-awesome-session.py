@@ -86,7 +86,7 @@ def main():
         actions_file = directory / "actions"
         actions_file.touch()
         section_state_file = testhome / ".local/state/awesome/sidebar-sections"
-        default_sidebar_order = "order=calendar,todo,system-status,codex,crypto,weather,now-playing,quick-launch,wallpaper\n"
+        default_sidebar_order = "order=calendar,todo,system-status,codex,crypto,weather,now-playing,wallpaper\n"
         section_state_file.parent.mkdir(parents=True)
         section_state_file.write_text("crypto\n")
         env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}", TEST_ACTIONS=str(actions_file), AWESOME_TEST_MODE="1", NO_AT_BRIDGE="1", GIO_USE_VFS="local",
@@ -198,8 +198,8 @@ def main():
                 assert 'floating' in lua('return require("awful").layout.getname(require("awful").layout.get(screen[1]))')
                 wait('return screen[1].workarea.y', '30')
                 assert 'true' in lua('local p=screen[1].panel; return p.visible and p.height == 30 and p.position == "top"')
-                assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and b.visible and not s.panel_clock_container.visible and s.sidebar_header and s.sidebar_header.forced_height == 26 and s.sidebar_mode == 3 and b.ontop and b:struts().right == 300 and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_quake2_button and s.sidebar_sleep_button and s.sidebar_trash_icon and s.sidebar_trash_state and s.sidebar_trash_timer.timeout == 30 and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_weather_text and s.sidebar_crypto_timer.timeout == 60 and s.sidebar_codex_card.forced_height == nil and s.sidebar_codex_timer.timeout == 60 and s.sidebar_audio_header == nil and s.sidebar_wallpaper_preview and s.sidebar_todo_card and #s.sidebar_todo_entries == 5 and s.sidebar_todo_entries[5] == "Fifth item" and s.sidebar_calendar_card and not s.sidebar_date_calendar and s.sidebar_calendar_grid and s.sidebar_calendar_weekday_order == "MTWTFSS" and #s.sidebar_calendar_entries == 7 and s.sidebar_calendar_entries[1].day == "past" and s.sidebar_calendar_entries[2].time == "08:15-09:00" and s.sidebar_calendar_entries[3].text == "visit: Today appointment" and s.sidebar_calendar_entries[6].text == "Third future event" and s.sidebar_todo_timer.timeout == 60 and s.sidebar_calendar_timer.timeout == 60 and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width-300 and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
-                assert 'true' in lua('local s=screen[1]; return table.concat(s.sidebar_content_order, ",") == "calendar,todo,system-status,codex,crypto,weather,now-playing,quick-launch,wallpaper"')
+                assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and b.visible and not s.panel_clock_container.visible and s.sidebar_header and s.sidebar_header.forced_height == 26 and s.sidebar_mode == 3 and b.ontop and b:struts().right == 300 and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_trash_status and s.sidebar_trash_icon and s.sidebar_trash_state and s.sidebar_trash_timer.timeout == 30 and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_weather_text and s.sidebar_crypto_timer.timeout == 60 and s.sidebar_codex_card.forced_height == nil and s.sidebar_codex_timer.timeout == 60 and s.sidebar_audio_header == nil and s.sidebar_wallpaper_preview and s.sidebar_todo_card and #s.sidebar_todo_entries == 5 and s.sidebar_todo_entries[5] == "Fifth item" and s.sidebar_calendar_card and not s.sidebar_date_calendar and s.sidebar_calendar_grid and s.sidebar_calendar_weekday_order == "MTWTFSS" and #s.sidebar_calendar_entries == 7 and s.sidebar_calendar_entries[1].day == "past" and s.sidebar_calendar_entries[2].time == "08:15-09:00" and s.sidebar_calendar_entries[3].text == "visit: Today appointment" and s.sidebar_calendar_entries[6].text == "Third future event" and s.sidebar_todo_timer.timeout == 60 and s.sidebar_calendar_timer.timeout == 60 and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width-300 and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
+                assert 'true' in lua('local s=screen[1]; return table.concat(s.sidebar_content_order, ",") == "calendar,todo,system-status,codex,crypto,weather,now-playing,wallpaper"')
                 assert 'true' in lua('local s=screen[1]; return s.sidebar_sections.crypto.collapsed')
                 click_sidebar_title("crypto")
                 wait('return tostring(screen[1].sidebar_sections.crypto.collapsed)', '"false"')
@@ -208,9 +208,8 @@ def main():
                 subprocess.run(["awesome-client", "awesome.restart()"], env=env,
                                capture_output=True, text=True, timeout=5)
                 wait('return table.concat(screen[1].sidebar_content_order, ",")',
-                     '"calendar,todo,system-status,codex,crypto,weather,now-playing,quick-launch,wallpaper"')
+                     '"calendar,todo,system-status,codex,crypto,weather,now-playing,wallpaper"')
                 assert 'true' in lua('local s=screen[1]; for _,section in pairs(s.sidebar_sections) do if section.collapsed then return false end end; return true')
-                assert 'true' in lua('local s=screen[1]; local a,b=s.sidebar_quake2_button,s.sidebar_sleep_button; return a.forced_width == b.forced_width and a.forced_height == b.forced_height and a.border_color ~= b.border_color and b.border_color == "#70c98b"')
                 assert 'true' in lua('local s=screen[1]; if s.sidebar_stats_card.forced_height ~= nil or #s.sidebar_progress_bars ~= 8 then return false end; for _,b in ipairs(s.sidebar_progress_bars) do if b.forced_height ~= 7 then return false end end; return true')
                 wait('return screen[1].sidebar_crypto_prices.BTC.text.."|"..screen[1].sidebar_crypto_prices.ETH.text.."|"..screen[1].sidebar_crypto_prices.LTC.text', '"97.123|3.456|123,45"')
                 lua('screen[1].sidebar_scroll_by(screen[1].sidebar_scroll_max()/2)')
@@ -243,7 +242,7 @@ def main():
                 target = sidebar_title_point("system-status")
                 assert source and target, f"Could not locate visible reorder titles: {source}, {target}"
                 drag_between(source, target)
-                first_reordered = "todo,calendar,system-status,codex,crypto,weather,now-playing,quick-launch,wallpaper"
+                first_reordered = "todo,calendar,system-status,codex,crypto,weather,now-playing,wallpaper"
                 wait('return table.concat(screen[1].sidebar_content_order, ",")', f'"{first_reordered}"')
                 assert 'true' in lua('return not screen[1].sidebar_sections.calendar.collapsed')
                 first_order_state = f"order={first_reordered}\ncrypto\n"
@@ -279,7 +278,7 @@ def main():
                     time.sleep(0.12)
                 finally:
                     subprocess.run(["xdotool", "mouseup", "1"], env=env, check=True, timeout=3)
-                second_reordered = "calendar,system-status,codex,crypto,weather,now-playing,quick-launch,wallpaper,todo"
+                second_reordered = "calendar,system-status,codex,crypto,weather,now-playing,wallpaper,todo"
                 wait('return table.concat(screen[1].sidebar_content_order, ",")', f'"{second_reordered}"')
                 assert section_state_file.read_text() == f"order={second_reordered}\n"
                 subprocess.run(["awesome-client", "awesome.restart()"], env=env,

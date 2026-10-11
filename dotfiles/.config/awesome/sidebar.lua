@@ -493,17 +493,6 @@ local function network_stats()
     return rx, tx
 end
 
-local function launcher(text, command, dismiss_menu, accent)
-    local button = style_button(wibox.widget {
-        label(text, accent or palette.teal, 10, true, "center"),
-        forced_width = 112, forced_height = 34,
-        bg = button_gradient, border_width = 1, border_color = accent or palette.bevel_light,
-        widget = wibox.container.background,
-    }, dismiss_menu)
-    button:buttons(gears.table.join(awful.button({}, 1, function() awful.spawn(command) end)))
-    return button
-end
-
 local function action_button(text, callback, dismiss_menu)
     local button = style_button(wibox.widget {
         {label(text, palette.teal, 14, true, "center"),
@@ -882,6 +871,36 @@ function sidebar.create(s, dismiss_menu)
         end)
     end
 
+    local trash_icon = make_trash_icon()
+    local trash_state = label("UNKNOWN", palette.amber, 8, true)
+    local trash_status = wibox.widget {
+        label("Trash", palette.text, 10, false), trash_icon, trash_state, spacing = 6,
+        layout = wibox.layout.fixed.horizontal,
+    }
+    local function refresh_trash_status()
+        local full
+        local ok, enumerator = pcall(function()
+            return Gio.File.new_for_uri("trash:///"):enumerate_children("standard::name", 0)
+        end)
+        if ok and enumerator then
+            local read_ok, child = pcall(function() return enumerator:next_file() end)
+            pcall(function() enumerator:close() end)
+            if read_ok then full = child ~= nil end
+        end
+        trash_icon.full = full == true
+        trash_icon:emit_signal("widget::redraw_needed")
+        local text, color = full == nil and "UNKNOWN" or (full and "FULL" or "EMPTY"),
+            full == nil and palette.amber or (full and palette.green or palette.muted)
+        trash_state.markup = string.format(
+            "<span foreground='%s' size='8pt' weight='bold'>%s</span>", color, text)
+        s.sidebar_trash_full = full
+    end
+    refresh_trash_status()
+    trash_status:buttons(gears.table.join(awful.button({}, 1, function()
+        awful.spawn({"pcmanfm", "trash:///"})
+    end)))
+    if dismiss_menu then trash_status:connect_signal("button::press", dismiss_menu) end
+
     local volume_control = wibox.layout.fixed.vertical()
     volume_control.spacing = 4
     local stats_body = wibox.widget {
@@ -889,7 +908,7 @@ function sidebar.create(s, dismiss_menu)
         memory_text, memory_bar,
         battery_text, battery_bar,
         mouse_battery_text, mouse_battery_bar,
-        root_text, root_bar,
+        root_text, root_bar, trash_status,
         volume_control, network_text,
         spacing = compact_spacing, layout = wibox.layout.fixed.vertical,
     }
@@ -1222,61 +1241,6 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_calendar_previous_button = calendar_previous
     s.sidebar_calendar_next_button = calendar_next
 
-    local trash_icon = make_trash_icon()
-    local trash_state = label("UNKNOWN", palette.amber, 8, true)
-    local trash_status = wibox.widget {
-        trash_icon, trash_state, spacing = 3,
-        layout = wibox.layout.fixed.horizontal,
-    }
-    local function refresh_trash_status()
-        local full
-        local ok, enumerator = pcall(function()
-            return Gio.File.new_for_uri("trash:///"):enumerate_children("standard::name", 0)
-        end)
-        if ok and enumerator then
-            local read_ok, child = pcall(function() return enumerator:next_file() end)
-            pcall(function() enumerator:close() end)
-            if read_ok then full = child ~= nil end
-        end
-        trash_icon.full = full == true
-        trash_icon:emit_signal("widget::redraw_needed")
-        local text, color = full == nil and "UNKNOWN" or (full and "FULL" or "EMPTY"),
-            full == nil and palette.amber or (full and palette.green or palette.muted)
-        trash_state.markup = string.format(
-            "<span foreground='%s' size='8pt' weight='bold'>%s</span>", color, text)
-        s.sidebar_trash_full = full
-    end
-    refresh_trash_status()
-    trash_status:buttons(gears.table.join(awful.button({}, 1, function()
-        awful.spawn({"pcmanfm", "trash:///"})
-    end)))
-    if dismiss_menu then trash_status:connect_signal("button::press", dismiss_menu) end
-
-    local quake2_button = launcher("Quake 2", {os.getenv("HOME") .. "/Games/quake2/q2pro.sh"}, dismiss_menu)
-    local sleep_button = launcher("Sleep", {"systemctl", "suspend"}, dismiss_menu, palette.green)
-    local quick_body = wibox.widget {
-        {
-            {
-                launcher("Terminal", {"kitty"}, dismiss_menu), launcher("Files", {"pcmanfm"}, dismiss_menu),
-                spacing = 8, layout = wibox.layout.fixed.horizontal,
-            }, halign = "center", widget = wibox.container.place,
-        },
-        {
-            {
-                launcher("Monitor", {"kitty", "--title", "System Monitor", "btop"}, dismiss_menu),
-                launcher("Finder", {"xfce4-appfinder"}, dismiss_menu),
-                spacing = 8, layout = wibox.layout.fixed.horizontal,
-            }, halign = "center", widget = wibox.container.place,
-        },
-        {
-            {quake2_button, sleep_button, spacing = 8,
-                layout = wibox.layout.fixed.horizontal},
-            halign = "center", widget = wibox.container.place,
-        },
-        spacing = 6, layout = wibox.layout.fixed.vertical,
-    }
-    local quick_card = collapsible_card("quick-launch", "QUICK LAUNCH", quick_body, nil, trash_status)
-
     local scrollbar_height = 12
     local sidebar_height = math.max(1, s.geometry.height - 30)
     local scroll_max = 0
@@ -1303,7 +1267,6 @@ function sidebar.create(s, dismiss_menu)
         {id = "crypto", widget = crypto_card},
         {id = "weather", widget = weather_card},
         {id = "now-playing", widget = media_card},
-        {id = "quick-launch", widget = quick_card},
         {id = "wallpaper", widget = wallpaper_card},
     }
     local content_sections, default_by_id, seen = {}, {}, {}
@@ -1639,7 +1602,6 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_stats_card = stats_card
     s.sidebar_progress_bars = {cpu_bar, memory_bar, battery_bar, mouse_battery_bar, root_bar, volume_bar, codex_5h.bar, codex_7d.bar}
     s.sidebar_volume, s.sidebar_volume_text = volume_control, volume_text
-    s.sidebar_quake2_button, s.sidebar_sleep_button = quake2_button, sleep_button
     s.sidebar_trash_icon, s.sidebar_trash_state = trash_icon, trash_state
     s.sidebar_trash_status, s.sidebar_trash_refresh = trash_status, refresh_trash_status
     s.sidebar_todo_entries, s.sidebar_todo_card = todo_entries, todo_card
