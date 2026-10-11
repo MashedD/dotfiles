@@ -25,11 +25,11 @@ local card_gradient = gears.color {
 }
 local sidebar_title_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
-    stops = {{0, "#80bfff"}, {0.16, "#438ee5"}, {0.48, "#216bd0"}, {0.76, "#174eaa"}, {1, "#123979"}},},{
+    stops = {{0, "#80bfff"}, {0.16, "#438ee5"}, {0.48, "#216bd0"}, {0.76, "#174eaa"}, {1, "#123979"}},
 }
 local section_header_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#8fc3ff"}, {0.16, "#5598ed"}, {0.5, "#3475d0"}, {1, "#1a4788"}},},{
+    stops = {{0, "#8fc3ff"}, {0.16, "#5598ed"}, {0.5, "#3475d0"}, {1, "#1a4788"}},
 }
 local button_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
@@ -521,11 +521,19 @@ function sidebar.create(s, dismiss_menu)
     local state_root = os.getenv("XDG_STATE_HOME")
         or ((os.getenv("HOME") or ".") .. "/.local/state")
     local section_state_path = state_root .. "/awesome/sidebar-sections"
-    local collapsed_ids = {}
+    local collapsed_ids, saved_order_ids = {}, {}
     local saved_sections = read(section_state_path) or ""
     for id in saved_sections:gmatch("[^\r\n]+") do
         id = id:gsub("^%s+", ""):gsub("%s+$", "")
-        if id:match("^[%w-]+$") then collapsed_ids[id] = true end
+        local order = id:match("^order=(.*)$")
+        if order then
+            for section_id in order:gmatch("[^,]+") do
+                section_id = section_id:gsub("^%s+", ""):gsub("%s+$", "")
+                if section_id:match("^[%w-]+$") then saved_order_ids[#saved_order_ids + 1] = section_id end
+            end
+        elseif id:match("^[%w-]+$") then
+            collapsed_ids[id] = true
+        end
     end
     local section_order, sections_by_id = {}, {}
     local function save_section_state()
@@ -534,12 +542,19 @@ function sidebar.create(s, dismiss_menu)
         local temporary = section_state_path .. ".tmp"
         local file = io.open(temporary, "w")
         if not file then return end
+        file:write("order=")
+        for index, section in ipairs(section_order) do
+            if index > 1 then file:write(",") end
+            file:write(section.id)
+        end
+        file:write("\n")
         for _, section in ipairs(section_order) do
             if section.collapsed then file:write(section.id, "\n") end
         end
         file:close()
         if not os.rename(temporary, section_state_path) then os.remove(temporary) end
     end
+    local begin_section_drag
     local function collapsible_card(id, title_text, body, expanded_height, trailing_widget)
         local header, title, marker = section_header(title_text, trailing_widget)
         local body_container = wibox.widget {
@@ -571,7 +586,10 @@ function sidebar.create(s, dismiss_menu)
             save_section_state()
             if dismiss_menu then dismiss_menu() end
         end
-        title:buttons(gears.table.join(awful.button({}, 1, toggle)))
+        section.toggle_action = toggle
+        title:buttons(gears.table.join(awful.button({}, 1, function()
+            if begin_section_drag then begin_section_drag(section) else toggle() end
+        end)))
         marker:buttons(gears.table.join(awful.button({}, 1, toggle)))
         section.set_expanded_height = function(height)
             section.expanded_height = height
@@ -1265,6 +1283,7 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_scroll_position = 0
     local scroll_content_height, scroll_viewport_height = 1, 1
     local scroll_view, scrollbar, panel, sidebar_column, scrollbar_panel
+    local sidebar_layout_context, sidebar_content_width
     local function set_scroll_offset(offset)
         s.sidebar_scroll_position = math.max(0, math.min(scroll_max, offset))
         if scroll_view then
@@ -1276,7 +1295,7 @@ function sidebar.create(s, dismiss_menu)
     local function scroll_by(delta)
         set_scroll_offset(s.sidebar_scroll_position + delta)
     end
-    local content_sections = {
+    local default_content_sections = {
         {id = "calendar", widget = calendar_card},
         {id = "todo", widget = todo_card},
         {id = "system-status", widget = stats_card},
@@ -1287,6 +1306,19 @@ function sidebar.create(s, dismiss_menu)
         {id = "quick-launch", widget = quick_card},
         {id = "wallpaper", widget = wallpaper_card},
     }
+    local content_sections, default_by_id, seen = {}, {}, {}
+    for _, entry in ipairs(default_content_sections) do default_by_id[entry.id] = entry end
+    local function append_ordered_section(id)
+        local entry = default_by_id[id]
+        if entry and not seen[id] then
+            content_sections[#content_sections + 1] = entry
+            section_order[#section_order + 1] = sections_by_id[id]
+            seen[id] = true
+        end
+    end
+    section_order = {}
+    for _, id in ipairs(saved_order_ids) do append_ordered_section(id) end
+    for _, entry in ipairs(default_content_sections) do append_ordered_section(entry.id) end
     local content = wibox.layout.fixed.vertical()
     content.spacing = 0
     for _, section in ipairs(content_sections) do content:add(section.widget) end
@@ -1309,7 +1341,6 @@ function sidebar.create(s, dismiss_menu)
             cr:set_source(gradient)
             cr:rectangle(0, height - fade_height, width, fade_height)
             cr:fill()
-            gradient:destroy()
         end
         if s.sidebar_scroll_position > 1 then
             local gradient = cairo.LinearPattern.create(0, 0, 0, fade_height)
@@ -1318,7 +1349,6 @@ function sidebar.create(s, dismiss_menu)
             cr:set_source(gradient)
             cr:rectangle(0, 0, width, fade_height)
             cr:fill()
-            gradient:destroy()
         end
         cr:restore()
     end
@@ -1365,6 +1395,7 @@ function sidebar.create(s, dismiss_menu)
     sidebar_column = wibox.widget.base.make_widget()
     sidebar_column.fit = function(_, _, width, height) return width, height end
     sidebar_column.layout = function(_, context, width, height)
+        sidebar_layout_context, sidebar_content_width = context, width
         local header_height = header.forced_height
         local clock_height = clock_card.forced_height
         local fixed_height = header_height + clock_height
@@ -1429,6 +1460,161 @@ function sidebar.create(s, dismiss_menu)
         },
         bg = sidebar_gradient, widget = wibox.container.background,
     }
+    local function refresh_content_order()
+        content:reset()
+        s.sidebar_content_order = {}
+        for _, entry in ipairs(content_sections) do
+            content:add(entry.widget)
+            s.sidebar_content_order[#s.sidebar_content_order + 1] = entry.id
+        end
+        content:emit_signal("widget::layout_changed")
+        sidebar_column:emit_signal("widget::layout_changed")
+        panel:emit_signal("widget::layout_changed")
+    end
+    local function drag_target(y, dragged)
+        local viewport_top = panel.y + header.forced_height + clock_card.forced_height
+        local content_y = y - viewport_top + s.sidebar_scroll_position
+        local heights, dragged_height = {}, 0
+        for _, entry in ipairs(content_sections) do
+            local card_height = entry.widget.forced_height
+            if not card_height and sidebar_layout_context then
+                local _, fitted_height = wibox.widget.base.fit_widget(
+                    content, sidebar_layout_context, entry.widget, sidebar_content_width, 2^20)
+                card_height = fitted_height
+            end
+            card_height = card_height or 0
+            heights[entry.id] = card_height
+            if entry.id == dragged.id then dragged_height = card_height end
+        end
+        local before_dragged = 0
+        for _, entry in ipairs(content_sections) do
+            if entry.id == dragged.id then break end
+            before_dragged = before_dragged + heights[entry.id]
+        end
+        if content_y > before_dragged then content_y = content_y - dragged_height end
+        local height, index, last = 0, 1, nil
+        for _, entry in ipairs(content_sections) do
+            if entry.id ~= dragged.id then
+                local card_height = heights[entry.id]
+                if content_y < height + card_height / 2 then return index, entry, true end
+                height = height + card_height
+                index, last = index + 1, entry
+            end
+        end
+        return index, last, false
+    end
+    begin_section_drag = function(dragged)
+        local origin = mouse.coords()
+        local dragging, last_y, edge_direction = false, origin.y, 0
+        local drop_index, target_section
+        local highlighted
+        local function update_highlight(y)
+            local new_index, new_entry, before = drag_target(y, dragged)
+            local new_target = new_entry and sections_by_id[new_entry.id] or nil
+            if highlighted and highlighted ~= new_target then
+                highlighted.header.border_color = "#588cd4"
+                highlighted.marker.markup = string.format(
+                    "<span foreground='%s' size='10pt' weight='bold'>%s</span>",
+                    "#d9f7f4", highlighted.collapsed and "▸" or "▾")
+                highlighted.header:emit_signal("widget::redraw_needed")
+                highlighted.marker:emit_signal("widget::redraw_needed")
+            end
+            target_section, drop_index, highlighted = new_target, new_index, new_target
+            dragged.header.border_color = "#ffffff"
+            if highlighted then highlighted.header.border_color = "#b8dcff" end
+            dragged.header:emit_signal("widget::redraw_needed")
+            if highlighted then highlighted.header:emit_signal("widget::redraw_needed") end
+            if target_section then
+                local arrow = before and "↑" or "↓"
+                target_section.marker.markup = string.format(
+                    "<span foreground='%s' size='10pt' weight='bold'>%s</span>", "#ffffff", arrow)
+                target_section.marker:emit_signal("widget::redraw_needed")
+            end
+        end
+        local function clear_highlight()
+            dragged.header.border_color = "#588cd4"
+            dragged.header:emit_signal("widget::redraw_needed")
+            if highlighted then
+                highlighted.header.border_color = "#588cd4"
+                highlighted.marker.markup = string.format(
+                    "<span foreground='%s' size='10pt' weight='bold'>%s</span>",
+                    "#d9f7f4", highlighted.collapsed and "▸" or "▾")
+                highlighted.header:emit_signal("widget::redraw_needed")
+                highlighted.marker:emit_signal("widget::redraw_needed")
+            end
+        end
+        local auto_scroll = gears.timer {
+            timeout = 0.05,
+            callback = function()
+                if not dragging or edge_direction == 0 then return end
+                set_scroll_offset(s.sidebar_scroll_position + edge_direction * 9)
+                update_highlight(last_y)
+            end,
+        }
+        local dragged_entry
+        for _, entry in ipairs(content_sections) do
+            if entry.id == dragged.id then dragged_entry = entry; break end
+        end
+        local function finish_drag(commit)
+            auto_scroll:stop()
+            edge_direction = 0
+            dragging = false
+            clear_highlight()
+            if not commit or not drop_index then return end
+            local reordered, others = {}, {}
+            for _, entry in ipairs(content_sections) do
+                if entry.id ~= dragged.id then others[#others + 1] = entry end
+            end
+            drop_index = math.max(1, math.min(#others + 1, drop_index))
+            for index, entry in ipairs(others) do
+                if index == drop_index then reordered[#reordered + 1] = dragged_entry end
+                reordered[#reordered + 1] = entry
+            end
+            if drop_index == #others + 1 then reordered[#reordered + 1] = dragged_entry end
+            local changed = false
+            for index, entry in ipairs(reordered) do
+                if content_sections[index].id ~= entry.id then changed = true end
+            end
+            if changed then
+                for index, entry in ipairs(reordered) do content_sections[index] = entry end
+                for index = #content_sections, #reordered + 1, -1 do content_sections[index] = nil end
+                section_order = {}
+                for _, entry in ipairs(content_sections) do section_order[#section_order + 1] = sections_by_id[entry.id] end
+                refresh_content_order()
+                save_section_state()
+            end
+        end
+        mousegrabber.run(function(pointer)
+            last_y = pointer.y
+            if pointer.buttons[1] then
+                if not dragging then
+                    local dx, dy = pointer.x - origin.x, pointer.y - origin.y
+                    if dx * dx + dy * dy >= 49 then
+                        dragging = true
+                        auto_scroll:start()
+                    end
+                end
+                if dragging then
+                    local viewport_top = panel.y + header.forced_height + clock_card.forced_height
+                    local viewport_bottom = viewport_top + scroll_view.forced_height
+                    edge_direction = 0
+                    if pointer.x >= panel.x and pointer.x <= panel.x + panel.width then
+                        if pointer.y < viewport_top + 28 then edge_direction = -1
+                        elseif pointer.y > viewport_bottom - 28 then edge_direction = 1 end
+                    end
+                    update_highlight(pointer.y)
+                end
+                return true
+            end
+            if dragging then
+                update_highlight(pointer.y)
+                finish_drag(true)
+            else
+                dragged.toggle_action()
+            end
+            return false
+        end, "fleur")
+    end
     panel:connect_signal("button::press", function(_, _, _, button)
         if dismiss_menu then dismiss_menu() end
         local delta = button == 4 and -32 or (button == 5 and 32 or nil)

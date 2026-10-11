@@ -6,15 +6,15 @@ local beautiful = require("beautiful")
 local panel = {}
 local panel_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
-    stops = {{0, "#80bfff"}, {0.16, "#438ee5"}, {0.48, "#216bd0"}, {0.76, "#174eaa"}, {1, "#123979"}},},{
+    stops = {{0, "#80bfff"}, {0.16, "#438ee5"}, {0.48, "#216bd0"}, {0.76, "#174eaa"}, {1, "#123979"}},
 }
 local panel_item_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#588bc5"}, {0.2, "#3f6ea7"}, {0.6, "#2b5488"}, {1, "#1c3c68"}},},{
+    stops = {{0, "#588bc5"}, {0.2, "#3f6ea7"}, {0.6, "#2b5488"}, {1, "#1c3c68"}},
 }
 local panel_focus_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#b8dcff"}, {0.16, "#579fee"}, {0.48, "#2876d4"}, {0.76, "#194f9f"}, {1, "#123979"}},},{
+    stops = {{0, "#b8dcff"}, {0.16, "#579fee"}, {0.48, "#2876d4"}, {0.76, "#194f9f"}, {1, "#123979"}},
 }
 local function glass_clock(widget)
     return wibox.widget {

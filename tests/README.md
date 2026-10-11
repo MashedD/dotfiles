@@ -13,8 +13,9 @@ The Awesome runtime test uses a private Xvfb display and private D-Bus bus,
 disables real autostart, and uses a temporary HOME/runtime directory. It
 checks the native 30px panel/strut, date, volume controls (mocked audio commands),
 Start menu, calendar, XEmbed tray ownership, wallpaper, plain corner resizing,
-borderless maximization/fullscreen, floating clients/titlebars, four tags, send-and-follow,
-snapping, show-desktop, close/reload, Win+P output menu, Win+Shift+Q confirmation/cancel,
+borderless maximization/fullscreen, floating clients/titlebars, four tags,
+persistent sidebar fold/order and drag auto-scroll, send-and-follow, snapping,
+show-desktop, close/reload, Win+P output menu, Win+Shift+Q confirmation/cancel,
 and actual Win+L/i3lock.
 Requires Xvfb, awesome, awesome-client, xmessage, xdotool, xprop, i3lock and
 dbus-run-session. Only test-display i3lock processes are terminated afterward;
