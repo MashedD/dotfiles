@@ -294,7 +294,7 @@ main_menu = awful.menu({items = {
     {"Display outputs", function() dismiss_start_menu(); display_menu:show() end,
         menu_icon("video-display")},
     {new = menu_separator},
-    {"Quake 1", function() dismiss_start_menu(); run({home .. "/Games/quake-remastered/vkquake.sh"}) end,
+    {"Quake 1", function() dismiss_start_menu(); run({home .. "/Games/quake-rerelease/vkquake.sh"}) end,
         menu_icon("applications-games")},
     {"Quake 2", function() dismiss_start_menu(); run({home .. "/Games/quake2/q2pro.sh"}) end,
         menu_icon("input-gaming")},
