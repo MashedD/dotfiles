@@ -234,7 +234,21 @@ local function menu_separator(_, args)
             widget = wibox.container.margin,
         },
         width = args.theme.width, height = 5, theme = theme,
+        is_separator = true,
     }
+end
+local function next_selectable_menu_item(menu, step)
+    local count = #menu.items
+    if count == 0 then return nil end
+    local index = menu.sel or (step > 0 and 0 or 1)
+    for _ = 1, count do
+        index = index + step
+        if index < 1 then index = count end
+        if index > count then index = 1 end
+        local item = menu.items[index]
+        if item and not item.is_separator then return index end
+    end
+    return nil
 end
 local legacy_menu_icons = "/usr/share/icons/AdwaitaLegacy/32x32/legacy/"
 local legacy_menu_fallbacks = {
@@ -308,6 +322,15 @@ main_menu = awful.menu({items = {
 local main_menu_keygrabber = main_menu._keygrabber
 local start_key_pending = false
 main_menu._keygrabber = function(modifiers, key_name, event)
+    if event == "press" and gears.table.hasitem(awful.menu.menu_keys.up, key_name) then
+        local sel_new = next_selectable_menu_item(main_menu, -1)
+        if sel_new then main_menu:item_enter(sel_new) end
+        return
+    elseif event == "press" and gears.table.hasitem(awful.menu.menu_keys.down, key_name) then
+        local sel_new = next_selectable_menu_item(main_menu, 1)
+        if sel_new then main_menu:item_enter(sel_new) end
+        return
+    end
     if key_name == "Super_L" or key_name == "Super_R" then
         if event == "press" then
             start_key_pending = true
