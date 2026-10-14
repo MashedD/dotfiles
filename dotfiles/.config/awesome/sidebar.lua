@@ -9,27 +9,27 @@ local gstring = require("gears.string")
 local sidebar = {}
 
 local palette = {
-    bg = "#07110d", card = "#101a15", line = "#29434a",
-    bevel_light = "#4c7180", bevel_shadow = "#050b07",
+    bg = "#07110dcc", card = "#101a15c8", line = "#6fb7c0aa",
+    bevel_light = "#9ee8f0bb", bevel_shadow = "#02080588",
     text = "#c7d5cb", muted = "#819289", teal = "#70c5bd",
     green = "#70c98b", neon = "#00ff41", amber = "#d6bd72",
 }
 
 local sidebar_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {300, 0},
-    stops = {{0, "#09150f"}, {0.38, "#14271b"}, {0.78, "#1b3022"}, {1, "#0a1710"}},
+    stops = {{0, "#06110dcc"}, {0.32, "#123326b8"}, {0.72, "#1d4b34a8"}, {1, "#07160f92"}},
 }
 local card_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 180},
-    stops = {{0, "#1b302e"}, {0.16, "#172a28"}, {0.58, "#12231e"}, {1, "#0d1915"}},
+    stops = {{0, "#e7ffffff"}, {0.04, "#2b5b58c8"}, {0.22, "#17332fb8"}, {0.68, "#0f211ba8"}, {1, "#08130f96"}},
 }
 local sidebar_title_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
-    stops = {{0, "#80bfff"}, {0.16, "#438ee5"}, {0.48, "#216bd0"}, {0.76, "#174eaa"}, {1, "#123979"}},
+    stops = {{0, "#f2ffffff"}, {0.09, "#9ee4ffe5"}, {0.42, "#2d91e3c8"}, {0.74, "#155eb5b4"}, {1, "#0b326f9c"}},
 }
 local section_header_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#8fc3ff"}, {0.16, "#5598ed"}, {0.5, "#3475d0"}, {1, "#1a4788"}},
+    stops = {{0, "#ffffffff"}, {0.12, "#a4dcffe2"}, {0.48, "#3e8fe0c8"}, {1, "#164688a8"}},
 }
 local button_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
@@ -163,14 +163,14 @@ local function section_header(text, trailing_widget)
     })
     local header = wibox.widget {
         {
-            {forced_height = 1, bg = "#b7ddff", widget = wibox.container.background},
+            {forced_height = 1, bg = "#efffffff", widget = wibox.container.background},
             {
                 {contents, left = 2, right = 2, top = 1, bottom = 1,
                     widget = wibox.container.margin},
                 forced_height = 20, bg = section_header_gradient,
                 widget = wibox.container.background,
             },
-            {forced_height = 1, bg = "#123979", widget = wibox.container.background},
+            {forced_height = 1, bg = "#123979aa", widget = wibox.container.background},
             layout = wibox.layout.fixed.vertical,
         },
         forced_height = 24, bg = section_header_gradient,
@@ -615,13 +615,13 @@ function sidebar.create(s, dismiss_menu)
     header_title.font = "Segoe UI bold 9"
     local header = wibox.widget {
         {
-            {forced_height = 1, bg = "#c5f7fb", widget = wibox.container.background},
+            {forced_height = 1, bg = "#f2ffffff", widget = wibox.container.background},
             {
                 {header_title, left = 10, right = 6, widget = wibox.container.margin},
                 forced_height = 23, bg = sidebar_title_gradient,
                 widget = wibox.container.background,
             },
-            {forced_height = 1, bg = "#123f5e", widget = wibox.container.background},
+            {forced_height = 1, bg = "#123f5eaa", widget = wibox.container.background},
             layout = wibox.layout.fixed.vertical,
         },
         forced_height = 26, bg = sidebar_title_gradient,
@@ -1414,12 +1414,12 @@ function sidebar.create(s, dismiss_menu)
         width = sidebar_width, height = sidebar_height,
         x = s.geometry.x + s.geometry.width - sidebar_width, y = s.geometry.y + 30,
         bg = sidebar_gradient, fg = palette.text,
-        border_width = 0,
+        border_width = 0, opacity = 0.94,
         shape = gears.shape.rectangle, restrict_workarea = false,
     }
     panel:setup {
         {
-            {forced_width = 2, bg = palette.teal, widget = wibox.container.background},
+            {forced_width = 2, bg = "#9afff0dd", widget = wibox.container.background},
             sidebar_column,
             layout = wibox.layout.fixed.horizontal,
         },

@@ -6,15 +6,15 @@ local beautiful = require("beautiful")
 local panel = {}
 local panel_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
-    stops = {{0, "#80bfff"}, {0.16, "#438ee5"}, {0.48, "#216bd0"}, {0.76, "#174eaa"}, {1, "#123979"}},
+    stops = {{0, "#d8fbffff"}, {0.08, "#92d8ffcc"}, {0.36, "#2d8ee5b8"}, {0.72, "#1457aaa8"}, {1, "#092a6090"}},
 }
 local panel_item_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#588bc5"}, {0.2, "#3f6ea7"}, {0.6, "#2b5488"}, {1, "#1c3c68"}},
+    stops = {{0, "#e9ffffff"}, {0.14, "#8fcaf0c8"}, {0.58, "#2f679fae"}, {1, "#12345f9a"}},
 }
 local panel_focus_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#b8dcff"}, {0.16, "#579fee"}, {0.48, "#2876d4"}, {0.76, "#194f9f"}, {1, "#123979"}},
+    stops = {{0, "#ffffffff"}, {0.13, "#b7e8ffdd"}, {0.48, "#3c9be8c4"}, {0.78, "#185caeb0"}, {1, "#0c356d9a"}},
 }
 local function glass_clock(widget)
     return wibox.widget {
@@ -138,10 +138,11 @@ function panel.create(s, menu, activate, window_menu)
     s.panel = awful.wibar {
         position = "top", screen = s, height = 30, bg = panel_gradient, fg = "#f2fffb",
         border_width = 0, ontop = true, restrict_workarea = true,
+        type = "dock",
     }
     s.panel:setup {
         {
-            {forced_height = 1, bg = "#c2fff5", widget = wibox.container.background},
+            {forced_height = 1, bg = "#eaffffff", widget = wibox.container.background},
             {
                 {
                     {
@@ -154,7 +155,7 @@ function panel.create(s, menu, activate, window_menu)
                     left = 2, right = 2, top = 1, bottom = 1,
                     widget = wibox.container.margin,
                 },
-                {forced_height = 1, bg = "#73c6e1", widget = wibox.container.background},
+                {forced_height = 1, bg = "#73c6e199", widget = wibox.container.background},
                 layout = wibox.layout.fixed.vertical,
             },
             layout = wibox.layout.fixed.vertical,

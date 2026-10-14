@@ -15,27 +15,27 @@ local test_mode = os.getenv("AWESOME_TEST_MODE") == "1"
 
 local titlebar_focus_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 26},
-    stops = {{0, "#80bfff"}, {0.16, "#438ee5"}, {0.48, "#216bd0"}, {0.76, "#174eaa"}, {1, "#123979"}},
+    stops = {{0, "#f2ffffff"}, {0.09, "#9de4ffe5"}, {0.42, "#2d91e3c8"}, {0.74, "#155eb5b4"}, {1, "#0b326f9c"}},
 }
 local titlebar_normal_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 26},
-    stops = {{0, "#8eacd2"}, {0.2, "#6588bc"}, {0.55, "#405f96"}, {1, "#233e6e"}},
+    stops = {{0, "#edf7ffff"}, {0.13, "#9ebde1cf"}, {0.52, "#4f72a7b2"}, {1, "#1b355f98"}},
 }
 local titlebar_button_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 20},
-    stops = {{0, "#e5f2ff"}, {0.18, "#a5cbf2"}, {0.55, "#4d8fcf"}, {1, "#245b9c"}},
+    stops = {{0, "#ffffffff"}, {0.18, "#bde5ffe6"}, {0.55, "#5599d8d0"}, {1, "#1d579aa8"}},
 }
 local titlebar_button_hover = gears.color {
     type = "linear", from = {0, 0}, to = {0, 20},
-    stops = {{0, "#ffffff"}, {0.2, "#d3eaff"}, {0.6, "#78b8f0"}, {1, "#3479bd"}},
+    stops = {{0, "#ffffffff"}, {0.2, "#e6f6ffff"}, {0.6, "#83c5f5e6"}, {1, "#2b78bfc0"}},
 }
 local titlebar_close_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 20},
-    stops = {{0, "#fff2e9"}, {0.2, "#f5b19a"}, {0.58, "#d65c4a"}, {1, "#7f2928"}},
+    stops = {{0, "#fff7f2ff"}, {0.2, "#ffc2ade8"}, {0.58, "#df624dd4"}, {1, "#812927b4"}},
 }
 local titlebar_close_hover = gears.color {
     type = "linear", from = {0, 0}, to = {0, 20},
-    stops = {{0, "#fffaf1"}, {0.2, "#ffd1ae"}, {0.58, "#f17d63"}, {1, "#a8342e"}},
+    stops = {{0, "#ffffffff"}, {0.2, "#ffe0c5ff"}, {0.58, "#ff8569e8"}, {1, "#aa352ecc"}},
 }
 local menu_glass_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 340},
@@ -66,7 +66,7 @@ beautiful.init({
     menu_bg_normal = menu_glass_gradient, menu_fg_normal = "#eaf6fb",
     menu_bg_focus = menu_selection_gradient, menu_fg_focus = "#ffffff",
     menu_border_width = 1, menu_border_color = "#8bdff0",
-    useless_gap = 0, bg_systray = "#c0c0c0", systray_icon_spacing = 2,
+    useless_gap = 0, bg_systray = "#d8fbffcc", systray_icon_spacing = 2,
     maximized_hide_border = true, fullscreen_hide_border = true,
 })
 awful.layout.layouts = { awful.layout.suit.floating, awful.layout.suit.tile }
@@ -668,7 +668,8 @@ client.connect_signal("request::titlebars", function(c)
     end, false, "titlebar_minimize")
     local maximize_button = control("□", function() maximize(c) end, false, "titlebar_maximize")
     local close_button = control("×", function() dismiss_start_menu(); c:kill() end, true, "titlebar_close")
-    awful.titlebar(c, {size = 26}):setup {
+    awful.titlebar(c, {size = 26,
+        bg_normal = titlebar_normal_gradient, bg_focus = titlebar_focus_gradient}):setup {
         {
             {icon, forced_width = 18, widget = wibox.container.constraint},
             margins = 2, widget = wibox.container.margin,
@@ -703,7 +704,7 @@ client.connect_signal("request::titlebars", function(c)
         end
     end)))
     awful.titlebar(c, {position = "bottom", size = 10,
-        bg_normal = "#c0c0c0", bg_focus = "#c0c0c0"}):setup {
+        bg_normal = "#d7eef5aa", bg_focus = "#d7eef5bb"}):setup {
         nil, nil,
         {grip, width = 16, strategy = "exact", widget = wibox.container.constraint},
         layout = wibox.layout.align.horizontal,
