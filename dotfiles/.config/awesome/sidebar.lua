@@ -6,12 +6,13 @@ local beautiful = require("beautiful")
 local Gio = require("lgi").Gio
 local cairo = require("lgi").cairo
 local gstring = require("gears.string")
+local menubar = require("menubar")
 local sidebar = {}
 
 local palette = {
     bg = "#07110dcc", card = "#101a15c8", line = "#6fb7c0aa",
     bevel_light = "#9ee8f0bb", bevel_shadow = "#02080588",
-    text = "#c7d5cb", muted = "#819289", teal = "#70c5bd",
+    text = "#d7e5dc", muted = "#a3b5aa", teal = "#70c5bd",
     green = "#70c98b", neon = "#00ff41", amber = "#d6bd72",
 }
 
@@ -29,7 +30,7 @@ local sidebar_title_gradient = gears.color {
 }
 local section_header_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#ffffffff"}, {0.12, "#a4dcffe2"}, {0.48, "#3e8fe0c8"}, {1, "#164688a8"}},
+    stops = {{0, "#ffffffff"}, {0.12, "#a4dcffe2"}, {0.48, "#377abbb8"}, {1, "#164688a8"}},
 }
 local button_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
@@ -323,7 +324,7 @@ local function make_analog_clock()
     return clock
 end
 
-local section_padding, section_vertical_padding = 6, 8
+local section_padding, section_vertical_padding = 6, 5
 local compact_spacing, list_spacing = 3, 4
 local function card(widget, height)
     local surface = wibox.widget {
@@ -360,7 +361,7 @@ local function style_button(button, dismiss_menu)
     return button
 end
 
-local progress_bar_height = 7
+local progress_bar_height = 8
 local function progress(color)
     return wibox.widget {
         max_value = 100, value = 0, forced_height = progress_bar_height,
@@ -505,6 +506,44 @@ local function action_button(text, callback, dismiss_menu)
     return button
 end
 
+local function quick_launch_button(text, icon_name, callback, dismiss_menu)
+    local app_icon = wibox.widget.imagebox()
+    app_icon.forced_width, app_icon.forced_height, app_icon.resize = 16, 16, true
+    local icon_ok, icon_path = pcall(menubar.utils.lookup_icon, icon_name)
+    local fallback_icons = {
+        ["utilities-terminal"] = "utilities-terminal.png",
+        ["system-file-manager"] = "system-file-manager.png",
+        ["utilities-system-monitor"] = "utilities-system-monitor.png",
+        ["system-run"] = "system-run.png",
+        ["web-browser"] = "web-browser.png",
+        ["audio-volume-high"] = "audio-volume-high.png",
+        ["applications-games"] = "applications-games.png",
+        ["input-gaming"] = "applications-games.png",
+        ["system-suspend"] = "/usr/share/icons/hicolor/48x48/actions/xfsm-suspend.png",
+    }
+    if not icon_ok or type(icon_path) ~= "string" or not gears.filesystem.file_readable(icon_path) then
+        local fallback = fallback_icons[icon_name]
+        icon_path = fallback and (fallback:sub(1, 1) == "/" and fallback
+            or "/usr/share/icons/AdwaitaLegacy/32x32/legacy/" .. fallback) or nil
+    end
+    if icon_path and gears.filesystem.file_readable(icon_path) then
+        app_icon.image = icon_path
+    end
+    local contents = wibox.layout.fixed.horizontal()
+    contents.spacing = 4
+    contents:add(app_icon)
+    contents:add(label(text, "#d7eee8", 9, true, "center"))
+    local button = style_button(wibox.widget {
+        {contents,
+            halign = "center", valign = "center", widget = wibox.container.place},
+        forced_width = 86, forced_height = 24,
+        bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
+        widget = wibox.container.background,
+    }, dismiss_menu)
+    button:buttons(gears.table.join(awful.button({}, 1, callback)))
+    return button
+end
+
 function sidebar.create(s, dismiss_menu)
     local sidebar_width = 300
     local state_root = os.getenv("XDG_STATE_HOME")
@@ -593,7 +632,7 @@ function sidebar.create(s, dismiss_menu)
 
     local clock = make_analog_clock()
     local digital_time = label("00:00:00", palette.neon, 24, true, "center")
-    local date = label("", palette.teal, 12, true, "center")
+    local date = label("", palette.teal, 13, true, "center")
     local cpu_text = label("CPU  measuring…", palette.text, 10, false)
     local memory_text = label("Memory  reading…", palette.text, 10, false)
     local battery_text = label("Battery  --", palette.text, 10, false)
@@ -872,9 +911,9 @@ function sidebar.create(s, dismiss_menu)
     end
 
     local trash_icon = make_trash_icon()
-    local trash_state = label("UNKNOWN", palette.amber, 8, true)
+    local trash_state = label("UNKNOWN", palette.amber, 9, true)
     local trash_status = wibox.widget {
-        label("Trash", palette.text, 10, false), trash_icon, trash_state, spacing = 6,
+        trash_icon, trash_state, spacing = 4,
         layout = wibox.layout.fixed.horizontal,
     }
     local function refresh_trash_status()
@@ -892,7 +931,7 @@ function sidebar.create(s, dismiss_menu)
         local text, color = full == nil and "UNKNOWN" or (full and "FULL" or "EMPTY"),
             full == nil and palette.amber or (full and palette.green or palette.muted)
         trash_state.markup = string.format(
-            "<span foreground='%s' size='8pt' weight='bold'>%s</span>", color, text)
+            "<span foreground='%s' size='9pt' weight='bold'>%s</span>", color, text)
         s.sidebar_trash_full = full
     end
     refresh_trash_status()
@@ -901,6 +940,41 @@ function sidebar.create(s, dismiss_menu)
     end)))
     if dismiss_menu then trash_status:connect_signal("button::press", dismiss_menu) end
 
+    local home = os.getenv("HOME") or ""
+    local launch_rows = wibox.layout.fixed.vertical()
+    launch_rows.spacing = 2
+    local function launch_row(items)
+        local row = wibox.layout.fixed.horizontal()
+        row.spacing = 4
+        for _, item in ipairs(items) do
+            row:add(quick_launch_button(item[1], item[2], function() awful.spawn(item[3]) end, dismiss_menu))
+        end
+        return wibox.widget {
+            row, halign = "center", valign = "center", widget = wibox.container.place,
+        }
+    end
+    launch_rows:add(launch_row({
+        {"Terminal", "utilities-terminal", {"kitty"}},
+        {"Files", "system-file-manager", {"pcmanfm"}},
+        {"Monitor", "utilities-system-monitor", {"kitty", "--title", "System Monitor", "btop"}},
+    }))
+    launch_rows:add(launch_row({
+        {"Finder", "system-run", {"xfce4-appfinder"}},
+        {"Firefox", "web-browser", {"firefox"}},
+        {"Volume", "audio-volume-high", {"pavucontrol"}},
+    }))
+    launch_rows:add(launch_row({
+        {"Quake 1", "applications-games", {home .. "/Games/quake-rerelease/vkquake.sh"}},
+        {"Quake 2", "input-gaming", {home .. "/Games/quake2/q2pro.sh"}},
+        {"Sleep", "system-suspend", {"systemctl", "suspend"}},
+    }))
+    local quick_launch_body = wibox.widget {
+        launch_rows,
+        layout = wibox.layout.fixed.vertical,
+    }
+    local quick_launch_card = collapsible_card(
+        "quick-launch", "QUICK LAUNCH", quick_launch_body, nil, trash_status)
+
     local volume_control = wibox.layout.fixed.vertical()
     volume_control.spacing = 4
     local stats_body = wibox.widget {
@@ -908,14 +982,14 @@ function sidebar.create(s, dismiss_menu)
         memory_text, memory_bar,
         battery_text, battery_bar,
         mouse_battery_text, mouse_battery_bar,
-        root_text, root_bar, trash_status,
+        root_text, root_bar,
         volume_control, network_text,
         spacing = compact_spacing, layout = wibox.layout.fixed.vertical,
     }
     local stats_card = collapsible_card("system-status", "SYSTEM STATUS", stats_body)
 
     local function codex_window_row(period)
-        local summary = label(period .. " unavailable", palette.muted, 8, false)
+        local summary = label(period .. " unavailable", palette.muted, 9, false)
         local bar = progress(palette.green)
         bar.forced_height = progress_bar_height
         return wibox.widget {
@@ -925,7 +999,7 @@ function sidebar.create(s, dismiss_menu)
     end
     local codex_5h_widget, codex_5h = codex_window_row("5h")
     local codex_7d_widget, codex_7d = codex_window_row("7d")
-    local codex_resets = label("--", palette.teal, 8, false)
+    local codex_resets = label("--", palette.teal, 9, false)
     codex_resets.wrap = "word_char"
     local codex_body = wibox.widget {
         codex_5h_widget, codex_7d_widget, codex_resets,
@@ -945,12 +1019,12 @@ function sidebar.create(s, dismiss_menu)
             local reset_text = pretty_reset_dates and reset_dates ~= "--"
                 and pretty_reset_dates or "--"
             codex_resets.markup = string.format(
-                "<span foreground='%s' size='8pt'>%s</span>", palette.teal, gstring.xml_escape(reset_text))
+                "<span foreground='%s' size='9pt'>%s</span>", palette.teal, gstring.xml_escape(reset_text))
             local five_left, five_reset, week_left, week_reset = display:match(
                 "5h%s+(%d+)%%@([%a]+%s+%d%d:%d%d)%s+7d%s+(%d+)%%@([%a]+%s+%d%d:%d%d)")
             if five_left then
                 codex_5h.summary.markup = string.format(
-                    "<span foreground='%s'>5h  %s%% left · %s</span>", palette.text, five_left, five_reset)
+                    "<span foreground='%s' size='9pt'>5h  %s%% left · %s</span>", palette.text, five_left, five_reset)
                 codex_5h.remaining = tonumber(five_left) or 0
                 codex_5h.bar.value = codex_5h.remaining
             else
@@ -960,7 +1034,7 @@ function sidebar.create(s, dismiss_menu)
             end
             if week_left then
                 codex_7d.summary.markup = string.format(
-                    "<span foreground='%s'>7d  %s%% left · %s</span>", palette.text, week_left, week_reset)
+                    "<span foreground='%s' size='9pt'>7d  %s%% left · %s</span>", palette.text, week_left, week_reset)
                 codex_7d.remaining = tonumber(week_left) or 0
                 codex_7d.bar.value = codex_7d.remaining
             else
@@ -997,7 +1071,7 @@ function sidebar.create(s, dismiss_menu)
             local value = code == 0 and tonumber(stdout:match("Volume:%s*([%d.]+)")) or nil
             local muted = stdout:find("MUTED", 1, true) ~= nil
             volume_text.markup = string.format(
-                "<span foreground='%s' size='8pt'>Volume  %s</span>",
+                "<span foreground='%s' size='9pt'>Volume  %s</span>",
                 muted and palette.amber or palette.text,
                 value and (muted and "Mute" or string.format("%.0f%%", value * 100)) or "--")
             volume_bar.value = value and math.floor(value * 100 + 0.5) or 0
@@ -1064,15 +1138,15 @@ function sidebar.create(s, dismiss_menu)
         local date_text = entry.day == "today" and ("TODAY · " .. short_date)
             or (entry.date == yesterday and ("YDAY · " .. short_date)
                 or os.date("%a · %d.%m", entry.timestamp):upper())
-        local date_label = label(date_text, date_color, 8, true)
-        local time_label = label(entry.time or "ALL DAY", time_color, 8, false)
+        local date_label = label(date_text, date_color, 9, true)
+        local time_label = label(entry.time or "ALL DAY", time_color, 9, false)
         local metadata = wibox.widget {
             date_label, time_label, spacing = 1,
             layout = wibox.layout.fixed.vertical,
         }
         metadata.forced_width = 82
         local event_label = wibox.widget {
-            markup = string.format("<span foreground='%s' weight='%s'>%s</span>",
+            markup = string.format("<span foreground='%s' size='10pt' weight='%s'>%s</span>",
                 event_color, weight, gstring.xml_escape(entry.text)),
             wrap = "word_char", valign = "top", widget = wibox.widget.textbox,
         }
@@ -1082,7 +1156,7 @@ function sidebar.create(s, dismiss_menu)
                 {
                     {metadata, event_label, spacing = 7,
                         layout = wibox.layout.fixed.horizontal},
-                    left = 6, right = 5, top = 4, bottom = 4,
+                    left = 6, right = 5, top = 3, bottom = 3,
                     widget = wibox.container.margin,
                 },
                 layout = wibox.layout.fixed.horizontal,
@@ -1166,8 +1240,8 @@ function sidebar.create(s, dismiss_menu)
         weekday_row.spacing = 2
         for _, name in ipairs(calendar_weekday_order) do
             weekday_row:add(wibox.widget {
-                label(name, palette.muted, 8, true, "center"),
-                forced_width = 36, forced_height = 17, widget = wibox.container.background,
+                label(name, palette.muted, 9, true, "center"),
+                forced_width = 36, forced_height = 16, widget = wibox.container.background,
             })
         end
         calendar_grid:add(weekday_row)
@@ -1191,7 +1265,7 @@ function sidebar.create(s, dismiss_menu)
                         or (has_events and palette.teal or palette.text)
                     local cell = wibox.widget {
                         label(tostring(day_number), day_color, 9, is_selected or has_events, "center"),
-                        forced_width = 36, forced_height = 27,
+                    forced_width = 36, forced_height = 24,
                         bg = is_selected and "#1d5944" or (has_events and "#10291f" or "#0e1d17"),
                         border_width = is_selected and 1 or 0,
                         border_color = palette.neon, widget = wibox.container.background,
@@ -1264,6 +1338,7 @@ function sidebar.create(s, dismiss_menu)
     local default_content_sections = {
         {id = "calendar", widget = calendar_card},
         {id = "todo", widget = todo_card},
+        {id = "quick-launch", widget = quick_launch_card},
         {id = "system-status", widget = stats_card},
         {id = "codex", widget = codex_card},
         {id = "crypto", widget = crypto_card},
@@ -1281,9 +1356,43 @@ function sidebar.create(s, dismiss_menu)
             seen[id] = true
         end
     end
+    local function insert_missing_default(entry)
+        if seen[entry.id] then return end
+        local insert_at, reached_entry = nil, false
+        if entry.id == "quick-launch" then
+            for index, current in ipairs(content_sections) do
+                if current.id == "todo" then
+                    insert_at = index + 1
+                    break
+                end
+            end
+        else
+            for _, default_entry in ipairs(default_content_sections) do
+                if default_entry.id == entry.id then
+                    reached_entry = true
+                elseif reached_entry and seen[default_entry.id] then
+                    for index, current in ipairs(content_sections) do
+                        if current.id == default_entry.id then
+                            insert_at = index
+                            break
+                        end
+                    end
+                    if insert_at then break end
+                end
+            end
+        end
+        insert_at = insert_at or (#content_sections + 1)
+        table.insert(content_sections, insert_at, entry)
+        table.insert(section_order, insert_at, sections_by_id[entry.id])
+        seen[entry.id] = true
+    end
     section_order = {}
-    for _, id in ipairs(saved_order_ids) do append_ordered_section(id) end
-    for _, entry in ipairs(default_content_sections) do append_ordered_section(entry.id) end
+    for _, id in ipairs(saved_order_ids) do
+        -- Quick Launch is a new default section; put it near TODO on first migration
+        -- instead of treating its previous appended position as a user reorder.
+        if id ~= "quick-launch" then append_ordered_section(id) end
+    end
+    for _, entry in ipairs(default_content_sections) do insert_missing_default(entry) end
     local content = wibox.layout.fixed.vertical()
     content.spacing = 0
     for _, section in ipairs(content_sections) do content:add(section.widget) end
