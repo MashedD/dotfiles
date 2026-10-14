@@ -4,6 +4,55 @@ local gears = require("gears")
 local wibox = require("wibox")
 local beautiful = require("beautiful")
 local panel = {}
+
+local task_order = setmetatable({}, {__mode = "k"})
+local next_task_order = 0
+
+local function ordered_task_source()
+    local clients = client.get()
+    for _, c in ipairs(clients) do
+        if not task_order[c] then
+            next_task_order = next_task_order + 1
+            task_order[c] = next_task_order
+        end
+    end
+    table.sort(clients, function(a, b)
+        return (task_order[a] or 0) < (task_order[b] or 0)
+    end)
+    return clients
+end
+
+local function reorder_task_clients(s, dragged, drop_index, visible_clients)
+    if not dragged or not drop_index or not visible_clients then return false end
+    local reordered, from_index = {}, nil
+    for index, c in ipairs(visible_clients) do
+        if c == dragged then from_index = index else reordered[#reordered + 1] = c end
+    end
+    if not from_index then return false end
+    drop_index = math.max(1, math.min(#reordered + 1, drop_index))
+    table.insert(reordered, drop_index, dragged)
+    if reordered[from_index] == visible_clients[from_index] then return false end
+
+    local rank, seen = 0, {}
+    for _, c in ipairs(reordered) do
+        rank = rank + 1
+        task_order[c], seen[c] = rank, true
+    end
+    local remainder = {}
+    for _, c in ipairs(client.get()) do
+        if c.screen == s and not seen[c] then remainder[#remainder + 1] = c end
+    end
+    table.sort(remainder, function(a, b)
+        return (task_order[a] or 0) < (task_order[b] or 0)
+    end)
+    for _, c in ipairs(remainder) do
+        rank = rank + 1
+        task_order[c] = rank
+    end
+    next_task_order = math.max(next_task_order, rank)
+    if s.tasklist and s.tasklist._do_tasklist_update then s.tasklist._do_tasklist_update() end
+    return true
+end
 local panel_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
     stops = {{0, "#d8fbffff"}, {0.08, "#92d8ffcc"}, {0.36, "#2d8ee5b8"}, {0.72, "#1457aaa8"}, {1, "#092a6090"}},
@@ -81,6 +130,7 @@ function panel.create(s, menu, activate, window_menu)
     }
     s.tasklist = awful.widget.tasklist {
         screen = s, filter = awful.widget.tasklist.filter.currenttags,
+        source = ordered_task_source,
         style = {bg_normal = panel_item_gradient, fg_normal = "#d6e7e3",
             bg_focus = panel_focus_gradient, fg_focus = "#f2fffb",
             bg_minimize = panel_item_gradient, fg_minimize = "#9ab6b0"},
@@ -113,6 +163,28 @@ function panel.create(s, menu, activate, window_menu)
                 widget = wibox.container.background,
             },
             width = 160, strategy = "exact", widget = wibox.container.constraint,
+            create_callback = function(self, c, index, clients)
+                self._tasklist_index, self._tasklist_clients = index, clients
+                self:connect_signal("button::press", function(_, lx, _, button)
+                    if button ~= 1 then return end
+                    local origin = mouse.coords()
+                    local left = origin.x - (lx or 0)
+                    local item_width = self.width or self.forced_width or 160
+                    local spacing = 2
+                    mousegrabber.run(function(pointer)
+                        if pointer.buttons[1] then return true end
+                        local dx, dy = pointer.x - origin.x, pointer.y - origin.y
+                        if dx * dx + dy * dy >= 49 then
+                            local drop_index = math.floor((pointer.x - left) / (item_width + spacing)) + 1
+                            reorder_task_clients(s, c, drop_index, self._tasklist_clients)
+                        end
+                        return false
+                    end, "fleur")
+                end)
+            end,
+            update_callback = function(self, _, index, clients)
+                self._tasklist_index, self._tasklist_clients = index, clients
+            end,
         },
     }
 
