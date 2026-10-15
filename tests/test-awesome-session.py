@@ -32,6 +32,7 @@ def main():
         (testhome / ".local/share/wallpapers").mkdir(parents=True)
         (testhome / "Pictures/Wallpapers").mkdir(parents=True)
         (testhome / "Documents").mkdir()
+        (testhome / ".local/share/applications").mkdir(parents=True)
         programs = testhome / "Programs"
         programs.mkdir()
         old_trezor = programs / "Trezor-Suite-25.0.0-old.AppImage"
@@ -119,6 +120,14 @@ def main():
                     assert result.returncode == 0, result.stderr
                     assert "Error" not in result.stdout, result.stdout
                     return result.stdout
+
+                def capture(name):
+                    if not os.environ.get("AWESOME_TEST_SCREENSHOTS"):
+                        return
+                    shots = Path(os.environ["AWESOME_TEST_SCREENSHOTS"])
+                    shots.mkdir(parents=True, exist_ok=True)
+                    time.sleep(0.15)
+                    subprocess.run(["import", "-window", "root", str(shots / f"{name}.png")], env=env, check=True, timeout=5)
 
                 def wait(code, expected):
                     deadline = time.monotonic() + 8
@@ -442,7 +451,9 @@ def main():
                     xlib.XCloseDisplay(display)
                 subprocess.run(["xdotool", "mousemove", "30", "15", "click", "1"], env=env, check=True)
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
-                assert 'true' in lua('local m=screen[1].start_menu; return m.x == screen[1].geometry.x and m.y == screen[1].geometry.y + screen[1].panel.height and m.theme.width == 270 and m.theme.height == 28 and m.theme.border_width == 1 and m.theme.bg_normal ~= "#c0c0c0"')
+                assert 'true' in lua('local m=screen[1].start_menu; local b=require("beautiful"); return m.x == screen[1].geometry.x and m.y == screen[1].geometry.y + screen[1].panel.height and m.theme.width == 270 and m.theme.height == 28 and m.theme.border_width == 1 and m.theme.bg_normal == b.menu_bg_normal and m.theme.bg_focus == b.menu_bg_focus and m.theme.fg_focus == b.menu_fg_focus')
+                lua('screen[1].start_menu:item_enter(1)')
+                capture("start-menu")
                 press('Escape')
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"false"')
                 subprocess.run(["xdotool", "mousemove", "900", "700", "click", "1"], env=env, check=True)
@@ -462,8 +473,15 @@ def main():
                 assert 'false' in lua('return tostring(screen[1].start_menu.wibox.visible)')
                 subprocess.run(["xdotool", "mousemove", "1258", "15", "click", "1"], env=env, check=True)
                 wait('return tostring(screen[1].panel_calendar.visible)', '"true"')
+                capture("panel-calendar")
                 subprocess.run(["xdotool", "click", "1"], env=env, check=True)
                 wait('return tostring(screen[1].panel_calendar.visible)', '"false"')
+                lua('_G.__polish_drawins=0; for _,d in ipairs(root.drawins()) do if d.visible then __polish_drawins=__polish_drawins+1 end end; require("menubar").show()')
+                wait('local n=0; for _,d in ipairs(root.drawins()) do if d.visible then n=n+1 end end; return tostring(n>__polish_drawins)', '"true"')
+                assert 'true' in lua('local b=require("beautiful"); return b.menubar_bg_normal==b.menu_bg_normal and b.menubar_bg_focus==b.menu_bg_focus and b.menubar_fg_normal==b.menu_fg_normal and require("menubar").prompt_args.bg_cursor=="#a8f0bd"')
+                capture("applications-menu")
+                press('Escape')
+                wait('local n=0; for _,d in ipairs(root.drawins()) do if d.visible then n=n+1 end end; return tostring(n==__polish_drawins)', '"true"')
                 desktops = subprocess.run(["xprop", "-root", "_NET_NUMBER_OF_DESKTOPS"], env=env,
                                           capture_output=True, text=True, check=True, timeout=3).stdout
                 assert desktops.strip().endswith("= 4"), desktops
@@ -473,6 +491,9 @@ def main():
                 wait('local n=0; for _,c in ipairs(client.get()) do if c.class == "Xmessage" then n=n+1 end end; return n', '2')
                 titlebar_state = lua('local r=""; for _,c in ipairs(client.get()) do if c.class == "Xmessage" then local top=c._private and c._private.titlebars and c._private.titlebars.top; r=r..tostring(c.floating)..":"..tostring(top and top.args.size)..":"..tostring(c.y)..";" end end; return r')
                 assert titlebar_state.count("true:26:") == 2, (titlebar_state, logfile.read_text())
+                press('alt+space')
+                capture("window-menu")
+                press('Escape')
                 if os.environ.get("AWESOME_TEST_SCREENSHOTS"):
                     shots = Path(os.environ["AWESOME_TEST_SCREENSHOTS"])
                     shots.mkdir(parents=True, exist_ok=True)
@@ -584,11 +605,15 @@ def main():
                 assert wm.poll() is None, logfile.read_text()
                 press('super+p')
                 wait('return tostring(__awesome_display_menu.wibox.visible)', '"true"')
-                assert 'true' in lua('local m=__awesome_display_menu; return m.theme.width == 270 and m.theme.height == 28 and m.theme.border_width == 1 and m.theme.bg_normal ~= "#c0c0c0"')
+                assert 'true' in lua('local m=__awesome_display_menu; local b=require("beautiful"); return m.theme.width == 270 and m.theme.height == 28 and m.theme.border_width == 1 and m.theme.bg_normal==b.menu_bg_normal and m.theme.bg_focus==b.menu_bg_focus and m.theme.fg_focus==b.menu_fg_focus')
+                lua('__awesome_display_menu:item_enter(2)')
+                capture("display-menu")
                 press('Escape')
                 wait('return tostring(__awesome_display_menu.wibox.visible)', '"false"')
                 press('super+shift+q')
                 wait('return tostring(__awesome_quit_confirmation.wibox.visible)', '"true"')
+                assert 'true' in lua('local m=__awesome_quit_confirmation; local b=require("beautiful"); return m.theme.bg_normal==b.menu_bg_normal and m.theme.bg_focus==b.menu_bg_focus')
+                capture("quit-confirmation")
                 press('Escape')
                 wait('return tostring(__awesome_quit_confirmation.wibox.visible)', '"false"')
                 assert wm.poll() is None
@@ -628,6 +653,7 @@ def main():
                 assert 'true' in lua('local d=screen[1].sidebar_data; _G.__polish_requests=d.collectors.crypto.requests; screen.fake_add(1280,0,800,600); return screen[2].sidebar_data==d and d.collectors.crypto.requests==__polish_requests and screen[2].sidebar_crypto_prices.BTC.text==screen[1].sidebar_crypto_prices.BTC.text')
                 assert 'true' in lua('screen[2]:fake_remove(); local d=screen[1].sidebar_data; local n=0; for _ in pairs(d.collectors.crypto.listeners) do n=n+1 end; return screen.count()==1 and n==1 and d.collectors.crypto.timer~=nil')
                 assert 'sidebar collector:' not in logfile.read_text(), logfile.read_text()
+                assert 'could not be parsed' not in logfile.read_text(), logfile.read_text()
                 lua('awesome.quit()')
                 assert wm.wait(timeout=5) == 0
                 print("PASS: sidebar drag reorder/persistence/edge-scroll, native panel/widgets, Start/calendar/tray, wallpaper, fullscreen, workspaces, menus, reload and lock")

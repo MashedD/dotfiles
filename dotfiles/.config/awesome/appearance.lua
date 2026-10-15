@@ -8,9 +8,12 @@ appearance.palette = {
     green = "#a8f0bd", neon = "#00ff41", amber = "#ffd36e", red = "#ff8e89",
     title = "#f2fffb", inactive = "#d6e7e3", minimized = "#c1d1dd",
     active_border = "#b4e8ff", inactive_border = "#527797",
+    menu_border = "#73a7c5", menu_separator = "#527b96", menu_base = "#183d5b",
 }
-appearance.fonts = {body = "Microsoft Sans Serif 8", title = "Segoe UI bold 9"}
+appearance.fonts = {body = "Microsoft Sans Serif 8", title = "Segoe UI bold 9", menu = "Segoe UI 9"}
 appearance.stops = {
+    -- Whole-popup surface: no broad pale highlight behind the first menu rows.
+    menu = {{0, "#204665"}, {0.45, "#183d5b"}, {1, "#102b43"}},
     blue = {{0, "#d8fbff"}, {0.035, "#83bddb"}, {0.10, "#245a86"},
         {0.50, "#174a77"}, {1, "#0c2b50"}},
     selected = {{0, "#efffff"}, {0.035, "#a8dcf0"}, {0.10, "#286794"},

@@ -30,6 +30,7 @@ local function sample(stops, position, wallpaper)
     return out
 end
 for name, foregrounds in pairs({
+    menu = {'text','title','muted'},
     blue = {'title','text','green','amber'}, selected = {'title'},
     inactive = {'inactive','minimized'}, card = {'text','muted','teal'},
     forest = {'text','muted'},
@@ -37,7 +38,7 @@ for name, foregrounds in pairs({
     for _,foreground in ipairs(foregrounds) do
         for _,wallpaper in ipairs({0,1}) do
             -- Highlights are decorative; text begins below the top 10%.
-            for step=10,100 do
+            for step=(name == 'menu' and 0 or 10),100 do
                 local c = contrast(rgb(appearance.palette[foreground]),sample(appearance.stops[name],step/100,wallpaper))
                 assert(c >= 4.5, string.format('%s/%s at %d%%: %.2f',name,foreground,step,c))
             end

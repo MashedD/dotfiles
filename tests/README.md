@@ -37,6 +37,10 @@ ImageMagick and run:
 AWESOME_TEST_SCREENSHOTS=/tmp/awesome-polish-shots python3 tests/test-awesome-session.py
 ```
 
+Captures include Start, display selection, window actions, quit confirmation,
+Applications, and the panel calendar, alongside the light/dark surface checks.
+The runtime test verifies menu palette inheritance and rejects Pango color errors.
+
 Only test-display i3lock processes are terminated afterward;
 the live WM/display and lock are never modified.
 

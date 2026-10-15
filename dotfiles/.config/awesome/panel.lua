@@ -2,7 +2,6 @@
 local awful = require("awful")
 local gears = require("gears")
 local wibox = require("wibox")
-local beautiful = require("beautiful")
 local appearance = dofile((awesome.conffile:match("^(.*)/") or ".") .. "/appearance.lua")
 local palette = appearance.palette
 local panel = {}
@@ -200,10 +199,18 @@ function panel.create(s, menu, activate, window_menu)
     clock.forced_width = 58
     clock.align = "center"
     local calendar = awful.widget.calendar_popup.month {
-        font = beautiful.font, start_sunday = false, week_numbers = false,
-        bg = "#173b50", fg = "#e4f3ed", border_width = 1, border_color = "#70c5bd",
-        style_month = {bg_color = "#204e68", fg_color = "#f2fffb", padding = 5},
-        style_focus = {bg_color = "#287ca5", fg_color = "#ffffff"},
+        font = appearance.fonts.menu, start_sunday = false, week_numbers = false,
+        bg = appearance.gradient("menu", 340), fg = palette.text,
+        border_width = 1, border_color = palette.menu_border,
+        style_month = {bg_color = appearance.gradient("menu", 340), fg_color = palette.text, padding = 5,
+            border_width = 1, border_color = palette.menu_border},
+        style_header = {bg_color = palette.menu_base, fg_color = palette.title, border_width = 0},
+        style_weekday = {bg_color = palette.menu_base, fg_color = palette.muted, border_width = 0},
+        style_normal = {bg_color = palette.menu_base, fg_color = palette.text, border_width = 0},
+        style_weeknumber = {bg_color = palette.menu_base, fg_color = palette.muted, border_width = 0},
+        -- Keep the gradient on the container, not in a Pango background attribute.
+        style_focus = {bg_color = appearance.gradient("selected", 24), fg_color = palette.title,
+            markup = "<b>%s</b>", border_width = 1, border_color = palette.active_border},
     }
     calendar:attach(clock, "tr", {on_hover = false})
     clock:connect_signal("button::press", dismiss_menu)
