@@ -16,6 +16,42 @@ assert(close_to(interaction.transition_value(middle, 0, 10.4, 0.6, 10.4), middle
 assert(close_to(interaction.transition_value(middle, 0, 10.4, 0.6, 10.7), 20))
 assert(close_to(interaction.transition_value(middle, 0, 10.4, 0.6, 11.1), 0))
 assert(interaction.transition_value(80, 0, 20, 0, 20) == 0)
+assert(close_to(interaction.elapsed_distance(180, 0.05), 9))
+assert(close_to(interaction.elapsed_distance(-180, 0.05), -9))
+assert(interaction.elapsed_distance(180, 0) == 0)
+assert(interaction.elapsed_distance(180, -1) == 0)
+assert(interaction.elapsed_distance(180, 10) == 45)
+assert(interaction.elapsed_distance(-180, 10) == -45)
+local function travel(intervals)
+    local now, total = 0, 0
+    local motion = interaction.scroll_motion(function() return now end)
+    motion.set_direction(1)
+    for _, interval in ipairs(intervals) do
+        now = now + interval
+        total = total + motion.step()
+    end
+    return total
+end
+assert(close_to(travel({0.05, 0.05, 0.05, 0.05}), travel({0.01, 0.09, 0.1})))
+local now = 0
+local motion = interaction.scroll_motion(function() return now end)
+assert(motion.step() == 0)
+motion.set_direction(1)
+now = 0.05; assert(close_to(motion.step(), 9))
+now = 0.06; motion.set_direction(1) -- Unchanged direction must not reset time.
+now = 0.1; assert(close_to(motion.step(), 9))
+motion.set_direction(0)
+now = 20; assert(motion.step() == 0)
+motion.set_direction(1)
+now = 20.05; assert(close_to(motion.step(), 9))
+now = 25; motion.set_direction(-1) -- Reverse without accumulated catch-up.
+now = 25.05; assert(close_to(motion.step(), -9))
+now = 26; assert(close_to(motion.step(), -45))
+motion.reset() -- Completion/cancellation discard direction and baseline.
+now = 40; assert(motion.step() == 0)
+motion.set_direction(1)
+now = 40.025; assert(close_to(motion.step(), 4.5))
+now = 39; assert(motion.step() == 0)
 local paint_count, last_paint = 0, nil
 local paint = interaction.deduplicate_paint(function(pressed, hovered)
     paint_count = paint_count + 1; last_paint = tostring(pressed)..":"..tostring(hovered)

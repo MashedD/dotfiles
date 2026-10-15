@@ -50,6 +50,26 @@ end
 function M.monotonic_time()
     return require("lgi").GLib.get_monotonic_time() / 1000000
 end
+-- Preserve 180 px/s edge scrolling while bounding catch-up after a stall.
+function M.elapsed_distance(rate, elapsed)
+    return rate * math.max(0, math.min(0.25, elapsed))
+end
+function M.scroll_motion(clock)
+    clock = clock or M.monotonic_time
+    local direction, last = 0, nil
+    return {
+        reset = function() direction, last = 0, nil end,
+        set_direction = function(value)
+            if value ~= direction then direction, last = value, clock() end
+        end,
+        step = function()
+            local now = clock()
+            local distance = last and M.elapsed_distance(180 * direction, now - last) or 0
+            last = now
+            return distance
+        end,
+    }
+end
 function M.deduplicate_paint(paint)
     local last_pressed, last_hovered
     return function(pressed, hovered)

@@ -7,7 +7,7 @@
 - Terminal: kitty
 - Launcher: xfce4-appfinder
 - File manager and desktop: pcmanfm
-- Wallpaper: Awesome and the lock screen use the current selected wallpaper (default `aurora-longhorn.png`, abstract Aurora; no logo).
+- Wallpaper: Awesome and the lock screen use the current selected wallpaper (default `aurora-cabin.png`, bundled cabin image).
 - Notifications: dunst
 - Clipboard history: clipmenu only when installed; Win+V. Clipman is explicitly disabled; do not add it as a fallback.
 - Authentication agent: lxqt-policykit

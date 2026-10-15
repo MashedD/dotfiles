@@ -102,11 +102,8 @@ def main():
         codex_helper.chmod(0o755)
         shutil.copy2(ROOT / "dotfiles/.local/share/wallpapers/lock-win98-tux.png",
                      testhome / ".local/share/wallpapers/lock-win98-tux.png")
-        aurora_fixture = ROOT / "dotfiles/.local/share/wallpapers/aurora-longhorn.png"
-        if not aurora_fixture.exists():
-            # The generated PNG is optional in a source-only checkout.
-            aurora_fixture = ROOT / "dotfiles/.local/share/wallpapers/lock-win98-tux.png"
-        shutil.copy2(aurora_fixture, testhome / ".local/share/wallpapers/aurora-longhorn.png")
+        aurora_fixture = ROOT / "dotfiles/.local/share/wallpapers/aurora-cabin.png"
+        shutil.copy2(aurora_fixture, testhome / ".local/share/wallpapers/aurora-cabin.png")
         shutil.copy2(aurora_fixture, testhome / "Pictures/Wallpapers/pictures-wallpaper.png")
         icon_source = Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share"))) / "icons/hicolor/32x32/apps/vax-tux-start.png"
         icon_target = testhome / ".local/share/icons/hicolor/32x32/apps/vax-tux-start.png"
@@ -537,7 +534,7 @@ def main():
                                            capture_output=True, text=True, check=True, timeout=3).stdout
                 assert "PIXMAP" in wallpaper, wallpaper
                 wait('return screen[1].sidebar_root_text.text', 'Free /')
-                assert 'aurora-longhorn.png' in lua('return screen[1].sidebar_wallpaper_name.text')
+                assert 'aurora-cabin.png' in lua('return screen[1].sidebar_wallpaper_name.text')
                 next_buttons = lua('local b=screen[1].sidebar_wallpaper_next; return tostring(screen[1].sidebar_wallpaper_count)..":"..tostring(#b:buttons())..":"..tostring(b._sidebar_release_binding~=nil)')
                 assert '3:0:true' in next_buttons, next_buttons
                 lua('screen[1].sidebar_wallpaper_next_action()')
@@ -547,7 +544,7 @@ def main():
                 wallpaper_name = lua('return tostring(screen[1].sidebar_wallpaper_index)..":"..screen[1].sidebar_wallpaper_name.text')
                 assert '3:pictures-wallpaper.png' in wallpaper_name, wallpaper_name
                 lua('screen[1].sidebar_wallpaper_previous_action(); screen[1].sidebar_wallpaper_previous_action(); screen[1].sidebar_wallpaper_apply()')
-                assert (testhome / ".local/state/awesome/wallpaper").read_text().strip().endswith("aurora-longhorn.png")
+                assert (testhome / ".local/state/awesome/wallpaper").read_text().strip().endswith("aurora-cabin.png")
                 # Release outside cancels; release inside activates precisely once.
                 wall_point = widget_point('screen[1].sidebar_wallpaper_next', scroll=10000, x=270)
                 wx, wy = wall_point

@@ -12,14 +12,26 @@ HELPER = Path(__file__).resolve().parents[1] / "dotfiles/.local/bin/desktop-lock
 
 class LockTest(unittest.TestCase):
     def test_foreground_lock_and_color_fallback(self):
-        for conversion_ok in (True, False):
-            with self.subTest(conversion_ok=conversion_ok), tempfile.TemporaryDirectory() as directory:
+        for conversion_ok, selection in [(ok, choice) for ok in (True, False)
+                                         for choice in ('default', 'selected', 'missing')]:
+            with self.subTest(conversion_ok=conversion_ok, selection=selection), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 bin_dir = root / "bin"
                 bin_dir.mkdir()
                 assets = root / ".local/share/wallpapers"
                 assets.mkdir(parents=True)
-                (assets / "aurora-longhorn.png").write_bytes(b"mock image")
+                default = assets / "aurora-cabin.png"
+                default.write_bytes(b"mock image")
+                expected_image = default
+                if selection != 'default':
+                    selected = root / 'Pictures/selected.png'
+                    if selection == 'selected':
+                        selected.parent.mkdir(parents=True)
+                        selected.write_bytes(b'selected image')
+                        expected_image = selected
+                    state = root / '.local/state/awesome/wallpaper'
+                    state.parent.mkdir(parents=True)
+                    state.write_text(str(selected) + '\n')
                 commands = {
                     "xdpyinfo": '#!/bin/sh\necho "  dimensions:  1280x800 pixels"\n',
                     "magick": ('#!/bin/sh\nprintf "%s\\n" "$@" > "$TEST_MAGICK_LOG"\nfor last; do :; done\necho mock > "$last"\n'
@@ -55,7 +67,7 @@ sleep 1
                         self.assertIn("--nofork", calls[0])
                         self.assertIn("-i " if conversion_ok else "--color=008080", calls[0])
                         magick_args = (root / "magick-args").read_text().splitlines()
-                        self.assertEqual(magick_args[0], str(assets / "aurora-longhorn.png"))
+                        self.assertEqual(magick_args[0], str(expected_image))
                         self.assertEqual((root / "fd-result").read_text().strip(), "inherited")
                         self.assertEqual(list(root.glob("i3lock-bg.*.png")), [])
                     finally:

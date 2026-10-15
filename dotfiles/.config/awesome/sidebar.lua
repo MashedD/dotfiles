@@ -1113,6 +1113,7 @@ function sidebar.create(s, dismiss_menu)
         local cancelled = false
         local origin = mouse.coords()
         local dragging, last_y, edge_direction = false, origin.y, 0
+        local scroll_motion = interaction.scroll_motion()
         local drop_index, target_section
         local highlighted
         local function update_highlight(y)
@@ -1154,7 +1155,7 @@ function sidebar.create(s, dismiss_menu)
             timeout = 0.05,
             callback = function()
                 if not dragging or edge_direction == 0 then return end
-                set_scroll_offset(s.sidebar_scroll_position + edge_direction * 9)
+                set_scroll_offset(s.sidebar_scroll_position + scroll_motion.step())
                 update_highlight(last_y)
             end,
         }
@@ -1165,6 +1166,7 @@ function sidebar.create(s, dismiss_menu)
         local function finish_drag(commit)
             if auto_scroll.started then auto_scroll:stop() end
             edge_direction = 0
+            scroll_motion.reset()
             dragging = false
             clear_highlight()
             if not commit or not drop_index then return end
@@ -1205,6 +1207,7 @@ function sidebar.create(s, dismiss_menu)
                     local dx, dy = pointer.x - origin.x, pointer.y - origin.y
                     if dx * dx + dy * dy >= 49 then
                         dragging = true
+                        scroll_motion.reset()
                         auto_scroll:start()
                     end
                 end
@@ -1216,6 +1219,7 @@ function sidebar.create(s, dismiss_menu)
                         if pointer.y < viewport_top + 28 then edge_direction = -1
                         elseif pointer.y > viewport_bottom - 28 then edge_direction = 1 end
                     end
+                    scroll_motion.set_direction(edge_direction)
                     update_highlight(pointer.y)
                 end
                 return true

@@ -51,7 +51,10 @@ This checks window readiness, not authentication or input-grab security.
 It also checks weather/crypto/quota stale-data retention and recovery, genuine zero
 quota values, escaped reset text, and shared collectors when a second screen is
 added and removed. All weather requests use a mocked curl; no network is needed.
-Optional generated wallpaper PNGs use a test-only fallback fixture when absent.
+The default cabin PNG is bundled and copied directly into the private home; a
+missing default is a test failure, not silently substituted with another image.
+Edge scrolling uses elapsed time at 180 px/s with a 250 ms catch-up cap; Lua tests
+cover irregular timing, direction changes, inactive edges and lifecycle resets.
 
 `test-desktop-check.py` uses isolated command/theme/font fixtures to verify quiet and
 verbose output, warning/failure exits, validator diagnostics and read-only behavior.

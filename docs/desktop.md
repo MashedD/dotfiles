@@ -115,7 +115,8 @@ volume using the same helper as the media keys. The complete 65×25 Start image
 is rendered at native size without a duplicate text label. The native systray appears only
 on the primary monitor; snixembed bridges SNI applications. LXPanel is no
 longer autostarted. All normal/dialog windows still float with click-to-focus.
-The Tux wallpaper is rendered by `gears.wallpaper` and reapplied on monitor
+The selected wallpaper (bundled cabin PNG by default) is rendered by
+`gears.wallpaper` and reapplied on monitor
 geometry changes; neither feh nor a wallpaper daemon is started.
 
 ```sh
@@ -230,7 +231,7 @@ and wallpaper rendering. User applications that were not autostarted before
 
 Win+L and xss-lock share the lock helper. It passes the sleep descriptor to
 i3lock, waits until unlock, prevents competing lock instances, uses a private
-temporary Tux image and removes it afterward. If conversion fails, it still
+temporary image of the selected/default wallpaper and removes it afterward. If conversion fails, it still
 locks with Win98 teal. The ten-minute X11 idle timer and suspend locking remain.
 
 After changing deployed configuration:

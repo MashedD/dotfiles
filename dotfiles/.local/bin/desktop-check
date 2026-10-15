@@ -57,8 +57,7 @@ for config in awesome/rc.lua awesome/panel.lua awesome/autostart picom/picom.con
 done
 validate awesome -k -c "$config_home/awesome/rc.lua"
 validate picom --config "$config_home/picom/picom.conf" --diagnostics
-check_file asset "$HOME/.local/share/wallpapers/aurora-longhorn.png"
-check_file asset "$HOME/.local/share/wallpapers/win98-teal.svg"
+check_file asset "$HOME/.local/share/wallpapers/aurora-cabin.png"
 check_file asset "$data_home/icons/hicolor/32x32/apps/vax-tux-start.png"
 for file in gtk-2.0/gtkrc gtk-3.0/gtk.css index.theme; do
   check_file theme "$data_home/themes/VAX/$file"

@@ -32,7 +32,7 @@ class HealthCheckTests(unittest.TestCase):
         for name in ['awesome/rc.lua', 'awesome/panel.lua', 'awesome/autostart',
                      'picom/picom.conf', 'X11/xinitrc']:
             self.file(self.config / name)
-        for name in ['aurora-longhorn.png', 'win98-teal.svg']:
+        for name in ['aurora-cabin.png']:
             self.file(self.home / '.local/share/wallpapers' / name)
         for name in ['icons/hicolor/32x32/apps/vax-tux-start.png',
                      'icons/hicolor/32x32/apps/vax-tux-start.png.vax-generated',
@@ -115,6 +115,15 @@ esac
         self.assertIn('awesome/panel.lua', result.stdout)
         self.assertIn('2 required failure(s)', result.stdout)
         self.assertNotIn('not found', result.stderr)
+
+    def test_missing_default_wallpaper_is_required(self):
+        (self.home / '.local/share/wallpapers/aurora-cabin.png').unlink()
+        result = self.invoke()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('asset', result.stdout)
+        self.assertIn('aurora-cabin.png', result.stdout)
+        self.assertIn('1 required failure(s)', result.stdout)
+        self.assertNotIn('win98-teal', result.stdout)
 
     def test_optional_warnings_and_disabled_clipboard(self):
         (self.bin / 'firefox').unlink()

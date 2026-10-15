@@ -23,13 +23,11 @@ absence of a repository reference does not prove it is unused. Nothing was remov
 
 ## Concrete follow-up findings
 
-- **Missing wallpapers:** `aurora-longhorn.png` and `win98-teal.svg` are absent
-  both from the current asset directory and their deployed home paths. The checker
-  still requires both. Awesome and `desktop-lock` reference the Aurora PNG;
-  Awesome retains `lock-win98-tux.png` as fallback. Do not remove the Tux image as
-  “legacy”: it is also a private-session fixture. Decide separately whether to
-  generate/restore the desired assets or revise those expectations; no wallpaper
-  behavior was changed here.
+- **Wallpaper assets resolved:** the default is now the bundled `aurora-cabin.png`,
+  copied byte-for-byte from the selected picture. Explicit wallpaper state remains
+  authoritative and was not rewritten. The unused Aurora SVG was removed and the
+  obsolete `win98-teal.svg` checker requirement dropped. `lock-win98-tux.png` remains
+  an active emergency fallback and private-session fixture, not a deletion candidate.
 - **User-specific paths still deploy:** zsh's `.opencode` PATH, MC hotlist/panel
   directory, and Code's Python interpreter/Godot settings contain `/home/user/...`.
   These are portability review candidates, not evidence the applications are unused.
@@ -40,10 +38,11 @@ absence of a repository reference does not prove it is unused. Nothing was remov
 - **Autostart check:** current Awesome/X11 launchers reference no removed WM or
   Wayland daemon. The only deployed XDG autostart file is the Clipman disabling
   override. External NetworkManager and systemd services remain outside this audit.
-- **Health report:** the real default and verbose checks both exit 1 for the two
-  missing assets. Clipboard history is unavailable and Liberation Sans is used as
-  the supported font fallback; these are warnings, not required failures.
+- **Health report:** the two missing-default-asset failures are resolved by the
+  bundled cabin image and corrected checker requirements. Clipboard history may be
+  unavailable and Liberation Sans is the supported font fallback; these remain
+  warnings rather than required failures.
 
-Recommended cleanup order: resolve asset expectations first; then review the
-machine-local PCManFM reference copies and per-application state with actual usage.
+Next cleanup candidates: review the machine-local PCManFM reference copies and
+per-application state with actual usage.
 No additional deletion is justified solely by this inventory.
