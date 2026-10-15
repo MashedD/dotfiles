@@ -2,6 +2,7 @@
 local awful = require("awful")
 local gears = require("gears")
 local wibox = require("wibox")
+local cairo = require("lgi").cairo
 local appearance = dofile((awesome.conffile:match("^(.*)/") or ".") .. "/appearance.lua")
 local palette = appearance.palette
 local panel = {}
@@ -76,7 +77,7 @@ local function separator()
     }
 end
 
-function panel.create(s, menu, activate, window_menu)
+function panel.create(s, menu, activate, window_menu, interaction)
     local function dismiss_menu()
         if menu and menu.wibox and menu.wibox.visible then menu:hide() end
     end
@@ -88,23 +89,58 @@ function panel.create(s, menu, activate, window_menu)
     -- Render at native size, without a second label or shrinking it to 22px.
     icon.forced_width, icon.forced_height, icon.resize = 65, 25, false
     local start = icon
+    local start_normal_image = icon._private.image
+    local start_pressed_image
+    if start_normal_image then
+        local ok, image = pcall(function()
+            local width, height = start_normal_image:get_width(), start_normal_image:get_height()
+            local copy = cairo.ImageSurface(cairo.Format.ARGB32, width, height)
+            local cr = cairo.Context(copy)
+            cr:set_source_surface(start_normal_image, 0, 0)
+            cr:paint()
+            cr:set_operator(cairo.Operator.ATOP)
+            cr:set_source_rgba(0.0, 0.11, 0.035, 0.78)
+            cr:paint()
+            cr = nil
+            copy:flush()
+            return copy
+        end)
+        if ok then start_pressed_image = image end
+    end
     local function toggle_start_menu()
         menu:toggle({coords = {x = s.geometry.x, y = s.geometry.y + 30}})
     end
-    start:buttons(gears.table.join(awful.button({}, 1, toggle_start_menu)))
+    local start_ui = interaction and interaction.lifetime()
+    if interaction then
+        start:buttons(gears.table.join(awful.button({}, 1, function() end)))
+        interaction.bind_button(start, {
+            valid = function() return s.valid and start.visible ~= false end,
+            activate = toggle_start_menu,
+            paint = function(pressed)
+                if start_pressed_image then start.image = pressed and start_pressed_image or start_normal_image end
+            end,
+        }, start_ui)
+        s:connect_signal("removed", function() start_ui.destroy() end)
+    else
+        start:buttons(gears.table.join(awful.button({}, 1, toggle_start_menu)))
+    end
     s.start_button, s.start_menu = start, menu
+    s.start_normal_image, s.start_pressed_image = start_normal_image, start_pressed_image
 
+    local tag_view_buttons = awful.button({}, 1, nil, function(t) dismiss_menu(); t:view_only() end)
+    local tag_move_buttons = awful.button({"Mod4"}, 1, nil, function(t)
+        dismiss_menu()
+        if client.focus then client.focus:move_to_tag(t) end
+    end)
+    s.taglist_left_release_buttons, s.taglist_move_release_buttons = tag_view_buttons, tag_move_buttons
     s.taglist = awful.widget.taglist {
         screen = s, filter = awful.widget.taglist.filter.all,
         style = {bg_focus = panel_focus_gradient, fg_focus = palette.title,
             bg_empty = panel_item_gradient, fg_empty = palette.inactive,
             bg_occupied = panel_item_gradient, fg_occupied = palette.inactive},
         buttons = gears.table.join(
-            awful.button({}, 1, function(t) dismiss_menu(); t:view_only() end),
-            awful.button({"Mod4"}, 1, function(t)
-                dismiss_menu()
-                if client.focus then client.focus:move_to_tag(t) end
-            end),
+            tag_view_buttons,
+            tag_move_buttons,
             -- Up returns to the previous desktop; down advances to the next.
             awful.button({}, 4, function(t) awful.tag.viewprev(t.screen) end),
             awful.button({}, 5, function(t) awful.tag.viewnext(t.screen) end)

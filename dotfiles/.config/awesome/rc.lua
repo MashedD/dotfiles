@@ -360,7 +360,7 @@ local update_sidebar_mode
 awful.screen.connect_for_each_screen(function(s)
     awful.tag({"1", "2", "3", "4"}, s, awful.layout.suit.floating)
     wallpaper(s)
-    panel.create(s, main_menu, activate, window_menu)
+    panel.create(s, main_menu, activate, window_menu, interaction)
     sidebar.create(s, dismiss_start_menu)
     s.sidebar_mode = 3
     if update_sidebar_mode then update_sidebar_mode(s) end
