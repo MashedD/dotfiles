@@ -144,12 +144,20 @@ function M.create(options)
     function component.tick(timestamp)
         if ui.disposed then return end
         timestamp = timestamp or os.time()
-        clock.current_time = os.date("*t", timestamp)
-        clock:emit_signal("widget::redraw_needed")
-        digital.markup = string.format("<span foreground='%s' size='24pt' weight='bold'>%s</span>",
-            palette.neon, os.date("%H:%M:%S", timestamp))
-        date.markup = string.format("<span foreground='%s' size='12pt' weight='bold'>%s</span>",
-            palette.teal, os.date("%A  •  %d %B %Y", timestamp))
+        local now = os.date("*t", timestamp)
+        local second = os.date("%H:%M:%S", timestamp)
+        local day = os.date("%Y-%m-%d", timestamp)
+        if component.last_second ~= second then
+            component.last_second = second
+            clock.current_time = now
+            clock:emit_signal("widget::redraw_needed")
+            digital.markup = string.format("<span foreground='%s' size='24pt' weight='bold'>%s</span>", palette.neon, second)
+        end
+        if component.last_day ~= day then
+            component.last_day = day
+            date.markup = string.format("<span foreground='%s' size='12pt' weight='bold'>%s</span>",
+                palette.teal, os.date("%A  •  %d %B %Y", timestamp))
+        end
     end
     function component.destroy()
         if ui.disposed then return end

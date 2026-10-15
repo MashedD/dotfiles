@@ -8,12 +8,28 @@ function M.new(runtime)
         return c.state.updated ~= nil and (c.state.error ~= nil
             or runtime.now() - c.state.updated >= 2 * c.interval)
     end
-    local function publish(c)
-        c.state.stale = stale(c)
+    local function equal(a, b)
+        if a == b then return true end
+        if type(a) ~= "table" or type(b) ~= "table" then return false end
+        -- Sample timestamps are metadata; they alone do not represent new data.
+        for key, value in pairs(a) do
+            if key ~= "now" and not equal(value, b[key]) then return false end
+        end
+        for key in pairs(b) do
+            if key ~= "now" and a[key] == nil then return false end
+        end
+        return true
+    end
+    local function notify(c)
         for listener in pairs(c.listeners) do
             local ok, err = pcall(listener, c.state)
             if not ok and runtime.log then runtime.log(err) end
         end
+    end
+    local function publish_if_changed(c, old_stale, old_error, old_value)
+        c.state.stale = stale(c)
+        if old_stale ~= c.state.stale or old_error ~= c.state.error
+            or not equal(old_value, c.state.value) then notify(c) end
     end
     function service.define(name, interval, fetch)
         assert(not collectors[name], "duplicate collector: " .. name)
@@ -22,7 +38,9 @@ function M.new(runtime)
     function service.refresh(name)
         local c = assert(collectors[name], name)
         if not next(c.listeners) then return end
-        publish(c) -- age a previous snapshot even while a request is pending
+        local old_stale, old_error, old_value = c.state.stale, c.state.error, c.state.value
+        c.state.stale = stale(c)
+        if old_stale ~= c.state.stale then notify(c) end
         if c.pending then return end
         c.pending = true
         c.requests = (c.requests or 0) + 1
@@ -30,12 +48,13 @@ function M.new(runtime)
         local function done(value, err)
             if completed or generation ~= c.generation then return end
             completed, c.pending = true, false
+            old_stale, old_error, old_value = c.state.stale, c.state.error, c.state.value
             if value ~= nil then
                 c.state.value, c.state.updated, c.state.error = value, runtime.now(), nil
             else
                 c.state.error = err or "Unavailable"
             end
-            publish(c)
+            publish_if_changed(c, old_stale, old_error, old_value)
         end
         local ok, err = pcall(c.fetch, done)
         if not ok then done(nil, tostring(err)) end
@@ -43,7 +62,9 @@ function M.new(runtime)
     function service.subscribe(name, listener)
         local c = assert(collectors[name], name)
         c.listeners[listener] = true
-        publish(c)
+        c.state.stale = stale(c)
+        local ok, err = pcall(listener, c.state)
+        if not ok and runtime.log then runtime.log(err) end
         if not c.timer then
             c.timer = runtime.timer {timeout = c.interval, autostart = true,
                 callback = function() service.refresh(name) end}

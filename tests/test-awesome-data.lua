@@ -45,6 +45,38 @@ assert(a.value.remaining == 33 and not a.stale)
 third:stop(); third:stop()
 assert(timers[2].stopped)
 
+-- Existing screens are not rebroadcast on subscribe or on unchanged results.
+local count_service, pending = module.new {
+    now = function() return now end,
+    timer = function(options) options.stop = function(self) self.stopped = true end; return options end,
+}
+count_service.define("values", 10, function(done) pending = done end)
+local count_a, count_b = 0, 0
+local stop_a = count_service.subscribe("values", function() count_a = count_a + 1 end)
+assert(count_a == 1)
+pending({level = 5, flags = {muted = false}, now = 1})
+assert(count_a == 2)
+local stop_b = count_service.subscribe("values", function() count_b = count_b + 1 end)
+assert(count_a == 2 and count_b == 1, "new subscriber gets current state; existing listener is quiet")
+count_service.refresh("values")
+pending({level = 5, flags = {muted = false}, now = 2})
+assert(count_a == 2 and count_b == 1, "identical values and sample timestamps only advance freshness")
+now = now + 25
+count_service.refresh("values")
+assert(count_a == 3 and count_b == 2, "fresh to stale transition notifies exactly once")
+pending({level = 5, flags = {muted = false}})
+assert(count_a == 4 and count_b == 3, "stale recovery notifies exactly once")
+count_service.refresh("values")
+pending(nil, "down")
+assert(count_a == 5 and count_b == 4)
+count_service.refresh("values")
+pending(nil, "down")
+assert(count_a == 5 and count_b == 4, "repeated error is not rebroadcast")
+count_service.refresh("values")
+pending(nil, "different")
+assert(count_a == 6 and count_b == 5, "different error notifies")
+stop_a:stop(); stop_b:stop()
+
 assert(module.parse_weather('{"current":{"temperature_2m":12.3,"apparent_temperature":11,"weather_code":3,"wind_speed_10m":9}}').temperature == 12.3)
 assert(not module.parse_weather('{"current":{"temperature_2m":12}}'))
 assert(not module.parse_weather('bad response'))

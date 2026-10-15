@@ -38,7 +38,9 @@ function M.lifetime()
         group.add(function() object:disconnect_signal(signal, callback) end)
     end
     function group.tip(widget, text)
-        local tip = awful.tooltip {objects = {widget}, text = text, delay_show = 0.5}
+        local args = {objects = {widget}, delay_show = 0.5}
+        if type(text) == "function" then args.timer_function = text else args.text = text end
+        local tip = awful.tooltip(args)
         group.tooltips[#group.tooltips + 1] = tip
         group.add(function()
             tip.hide() -- also stops Awesome's private delayed-show timer
@@ -68,7 +70,7 @@ function M.bind_button(widget, options, group)
     local function cancel()
         if grabbing then mousegrabber.stop() end
         grabbing, hovering = false, false
-        if watchdog then watchdog:stop() end
+        if watchdog and watchdog.started then watchdog:stop() end
         state.cancel()
     end
     group.connect(widget, "mouse::enter", function() hovering = true; state.move(true) end)
@@ -82,7 +84,7 @@ function M.bind_button(widget, options, group)
         grabbing = true
         mousegrabber.run(function(pointer)
             if not grabbing or not options.valid() or group.disposed then
-                grabbing = false; state.cancel(); watchdog:stop(); return false
+                grabbing = false; state.cancel(); if watchdog.started then watchdog:stop() end; return false
             end
             local inside = pointer.x >= bounds.x and pointer.x < bounds.x + bounds.width
                 and pointer.y >= bounds.y and pointer.y < bounds.y + bounds.height
@@ -90,7 +92,7 @@ function M.bind_button(widget, options, group)
             state.move(inside)
             if pointer.buttons[1] then return true end
             grabbing = false
-            watchdog:stop()
+            if watchdog.started then watchdog:stop() end
             state.release(1, inside)
             return false
         end, "left_ptr")

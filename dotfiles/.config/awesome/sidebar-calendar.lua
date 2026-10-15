@@ -115,9 +115,7 @@ function M.create(options)
             bg = options.button_normal, border_width = 1, border_color = palette.bevel_light,
             widget = wibox.container.background,
         }
-        widget:buttons(gears.table.join(awful.button({}, 1, callback)))
-        ui.connect(widget, "mouse::enter", function() widget.bg = options.button_hover end)
-        ui.connect(widget, "mouse::leave", function() widget.bg = options.button_normal end)
+        if options.bind then options.bind(widget, callback) else widget:buttons(gears.table.join(awful.button({}, 1, callback))) end
         ui.tip(widget, tooltip)
         return widget
     end

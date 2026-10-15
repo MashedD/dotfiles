@@ -78,8 +78,8 @@ function M.create(options)
     function component.cancel_drag()
         if dragging then mousegrabber.stop() end
         dragging, hovered = false, false
-        watch:stop()
-        if release_timer then release_timer:stop() end
+        if watch.started then watch:stop() end
+        if release_timer and release_timer.started then release_timer:stop() end
         options.on_suppress(false)
         update_state()
     end
@@ -137,14 +137,15 @@ function M.create(options)
         mousegrabber.run(function(pointer)
             local panel = options.panel()
             if not dragging or not s.valid or not panel.visible or ui.disposed then
-                dragging = false; watch:stop(); options.on_suppress(false); update_state(); return false
+                dragging = false; if watch.started then watch:stop() end; options.on_suppress(false); update_state(); return false
             end
             from_pointer(pointer.x)
             if pointer.buttons[1] then return true end
             dragging = false
             hovered = pointer.x >= bar_panel.x and pointer.x < bar_panel.x + bar_panel.width
                 and pointer.y >= bar_panel.y and pointer.y < bar_panel.y + bar_panel.height
-            watch:stop(); update_state()
+            if watch.started then watch:stop() end
+            update_state()
             release_timer = gears.timer.start_new(0.18, function() options.on_suppress(false); return false end)
             return false
         end, "sb_h_double_arrow")

@@ -7,6 +7,7 @@ lua tests/test-awesome-appearance.lua
 lua tests/test-awesome-data.lua
 lua tests/test-awesome-interaction.lua
 lua tests/test-awesome-calendar.lua
+lua tests/test-awesome-launch.lua
 python3 tests/test-awesome-session.py
 python3 tests/test-awesome-session.py --composited
 python3 tests/test-awesome-autostart.py
@@ -30,7 +31,7 @@ Optional generated wallpaper PNGs use a test-only fallback fixture when absent.
 The Lua-only tests validate shared surface contrast over light/dark backgrounds,
 trash semantic colors, response parsing, collector lifecycle, overlapping-request
 prevention, command deadlines/spawn failures, stale aging, late results, release-to-activate
-state transitions, and calendar document parsing. Contrast checks include the actual
+state transitions, executable lookup, spawn/notification failures, and calendar parsing. Contrast checks include the actual
 sidebar window opacity as well as surface alpha.
 Run them from the repository root with Lua 5.3 or later.
 
@@ -45,8 +46,12 @@ AWESOME_TEST_SCREENSHOTS=/tmp/awesome-polish-shots python3 tests/test-awesome-se
 Captures include Start, display selection, window actions, quit confirmation,
 Applications, the panel calendar, stale-data tooltips, and titlebar hover controls,
 alongside the light/dark surface checks. The runtime test verifies menu palette
-inheritance, tooltip colors/borders, titlebar control geometry and hover restoration,
-and rejects Pango color errors. Real pointer tests cover release-inside, release-outside,
+inheritance, tooltip colors/borders, release-to-activate buttons, component teardown,
+titlebar control geometry and hover restoration, and rejects Pango color errors.
+`tests/helpers/awesome-ui.lua` contains private-session inspection helpers; it is loaded
+and cached only in the isolated Awesome process, then naturally reloaded after a
+complete process restart. Sidebar values notify/render only on visible changes; a shared
+clock tick remains independent of resource/system polling. Real pointer tests cover release-inside, release-outside,
 leave/re-enter, right-click rejection, hidden decorations, client destruction during a
 press, delayed tooltip visibility without focus changes, and removing a screen during
 a scrollbar drag (including delayed-tooltip cancellation and idempotent teardown).

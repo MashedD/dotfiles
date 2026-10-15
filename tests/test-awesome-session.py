@@ -110,6 +110,7 @@ def main():
             "wpctl": '#!/bin/sh\necho "Volume: 0.42"\n',
             "curl": '#!/bin/sh\nwhile IFS= read -r line; do printf "%s\\n" "$line"; done < "$TEST_WEATHER_RESPONSE"\n',
             "pavucontrol": '#!/bin/sh\necho mixer >> "$TEST_ACTIONS"\n',
+            "playerctl": '#!/bin/sh\nprintf "playerctl %s\\n" "$*" >> "$TEST_ACTIONS"\n',
             "xdg-open": '#!/bin/sh\nprintf "open %s\\n" "$*" >> "$TEST_ACTIONS"\n',
         }.items():
             executable = bin_dir / name
@@ -127,7 +128,8 @@ def main():
         env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}", TEST_ACTIONS=str(actions_file), TEST_WEATHER_RESPONSE=str(weather_response), AWESOME_TEST_MODE="1", AWESOME_TEST_WEATHER="1", NO_AT_BRIDGE="1", GIO_USE_VFS="local",
                    HOME=str(testhome), XDG_CONFIG_HOME=str(testhome / ".config"),
                    XDG_DATA_HOME=str(testhome / ".local/share"),
-                   XDG_STATE_HOME=str(testhome / ".local/state"), XDG_RUNTIME_DIR=str(directory))
+                   XDG_STATE_HOME=str(testhome / ".local/state"), XDG_RUNTIME_DIR=str(directory),
+                   AWESOME_TEST_HELPERS=str(ROOT / "tests/helpers"))
         lock_pids = []
         env.pop("XAUTHORITY", None)
         server = subprocess.Popen(["Xvfb", "-displayfd", "1", "-screen", "0", "1280x800x24",
@@ -159,6 +161,24 @@ def main():
                     assert "Error" not in result.stdout, result.stdout
                     return result.stdout
 
+                def helper(expression):
+                    prefix = 'local h=package.loaded.__awesome_test_ui; if not h then h=dofile(os.getenv("AWESOME_TEST_HELPERS").."/awesome-ui.lua"); package.loaded.__awesome_test_ui=h end; '
+                    return lua(prefix + expression)
+
+                def pointer(*args):
+                    subprocess.run(["xdotool", *map(str, args)], env=env, check=True, timeout=3)
+                    time.sleep(0.08)
+
+                def widget_point(expression, scroll=0, x=150):
+                    if scroll:
+                        lua(f'screen[1].sidebar_scroll_by({scroll})')
+                    position = lua('local s=screen[1]; local target=' + expression + '; local x=' + str(x) + '; '
+                        'for y=0,s.sidebar.height-1 do for _,v in ipairs(s.sidebar:find_widgets(x,y)) do if v.widget==target then '
+                        'return tostring(s.sidebar.x+x)..":"..tostring(s.sidebar.y+y) end end end; return "missing"')
+                    match = re.search(r'(\d+):(\d+)', position)
+                    assert match, f"Could not locate widget {expression}: {position}"
+                    return tuple(map(int, match.groups()))
+
                 def capture(name):
                     if not os.environ.get("AWESOME_TEST_SCREENSHOTS"):
                         return
@@ -178,7 +198,7 @@ def main():
                         except (AssertionError, subprocess.TimeoutExpired):
                             pass
                         time.sleep(0.1)
-                    diagnostic = lua('local r=""; for _,c in ipairs(client.get()) do r=r..tostring(c.class)..":"..c.type..":"..c.x..","..c.y..","..c.width..","..c.height..":screen="..c.screen.index..":visible="..tostring(c:isvisible()); for k,v in pairs(c:struts()) do r=r..":"..k.."="..v end; r=r.."\\n" end; return r')
+                    diagnostic = helper('local r=""; for _,c in ipairs(client.get()) do r=r..tostring(c.class)..":"..c.type..":"..c.x..","..c.y..","..c.width..","..c.height..":screen="..c.screen.index..":visible="..tostring(c:isvisible()); for k,v in pairs(c:struts()) do r=r..":"..k.."="..v end; r=r.."\\n" end; return r')
                     raise AssertionError(f"Expected {expected!r}: {code}\n{last}\n{diagnostic}\n{logfile.read_text()}")
 
                 def click_sidebar_title(section_id):
@@ -418,7 +438,11 @@ def main():
                 current_month = lua('return screen[1].sidebar_calendar_month()').strip().split('"')[1]
                 lua('screen[1].sidebar_calendar_next_action()')
                 wait('return tostring(screen[1].sidebar_calendar_month() ~= os.date("%Y-%m"))', '"true"')
-                lua('screen[1].sidebar_calendar_previous_action()')
+                calendar_month_before = lua('return screen[1].sidebar_calendar_month()').strip().split('"')[1]
+                calendar_next = widget_point('screen[1].sidebar_calendar_next_button', scroll=-10000, x=270)
+                pointer("mousemove", *calendar_next, "click", 1)
+                wait('return tostring(screen[1].sidebar_calendar_month() ~= ' + repr(calendar_month_before) + ')', '"true"')
+                lua('screen[1].sidebar_calendar_previous_action(); screen[1].sidebar_calendar_previous_action()')
                 wait('return screen[1].sidebar_calendar_month()', f'"{current_month}"')
                 lua('screen[1].sidebar_calendar_select_date(os.date("%Y-%m-%d"))')
                 assert 'true:true' in lua('local s=screen[1]; local n=0; for _,entry in ipairs(s.sidebar_calendar_entries) do if entry.date == s.sidebar_calendar_selected_date() then n=n+1 end end; return tostring(s.sidebar_calendar_day_cells()[s.sidebar_calendar_selected_date()] ~= nil)..":"..tostring(n == 2)')
@@ -445,13 +469,20 @@ def main():
                 press('super+shift+s')
                 hidden_sidebar = lua('local s=screen[1]; return tostring(s.sidebar_mode)..":"..tostring(s.sidebar.visible)..":"..tostring(s.panel_clock_container.visible)..":"..tostring(s.sidebar:struts().right)..":"..s.workarea.width..":"..s.geometry.width')
                 assert '0:false:true:0:1280:1280' in hidden_sidebar, hidden_sidebar
+                press('super+shift+s'); press('super+shift+s'); press('super+shift+s')
+                quick_position = widget_point('screen[1].sidebar_quick_launch_buttons.Terminal.widget', x=60)
+                qx, qy = quick_position[0] + 43, quick_position[1] + 12
+                pointer("mousemove", qx, qy, "mousedown", 1)
+                assert 'true' in lua('return screen[1].sidebar_quick_launch_buttons.Terminal.widget._sidebar_release_binding.state.armed')
+                pointer("mousemove", 400, 700, "mouseup", 1)
+                assert 'true' in lua('local b=screen[1].sidebar_quick_launch_buttons.Terminal.widget; return not b._sidebar_release_binding.state.armed and #b:buttons()==0')
                 wallpaper = subprocess.run(["xprop", "-root", "_XROOTPMAP_ID"], env=env,
                                            capture_output=True, text=True, check=True, timeout=3).stdout
                 assert "PIXMAP" in wallpaper, wallpaper
                 wait('return screen[1].sidebar_root_text.text', 'Free /')
                 assert 'aurora-longhorn.png' in lua('return screen[1].sidebar_wallpaper_name.text')
-                next_buttons = lua('return tostring(screen[1].sidebar_wallpaper_count)..":"..#screen[1].sidebar_wallpaper_next:buttons()')
-                assert '3:4' in next_buttons, next_buttons
+                next_buttons = lua('local b=screen[1].sidebar_wallpaper_next; return tostring(screen[1].sidebar_wallpaper_count)..":"..tostring(#b:buttons())..":"..tostring(b._sidebar_release_binding~=nil)')
+                assert '3:0:true' in next_buttons, next_buttons
                 lua('screen[1].sidebar_wallpaper_next_action()')
                 wallpaper_name = lua('return tostring(screen[1].sidebar_wallpaper_index)..":"..screen[1].sidebar_wallpaper_name.text')
                 assert '2:lock-win98-tux.png' in wallpaper_name, wallpaper_name
@@ -460,6 +491,21 @@ def main():
                 assert '3:pictures-wallpaper.png' in wallpaper_name, wallpaper_name
                 lua('screen[1].sidebar_wallpaper_previous_action(); screen[1].sidebar_wallpaper_previous_action(); screen[1].sidebar_wallpaper_apply()')
                 assert (testhome / ".local/state/awesome/wallpaper").read_text().strip().endswith("aurora-longhorn.png")
+                # Release outside cancels; release inside activates precisely once.
+                wall_point = widget_point('screen[1].sidebar_wallpaper_next', scroll=10000, x=270)
+                wx, wy = wall_point
+                pointer("mousemove", wx, wy, "mousedown", 1)
+                assert 'true' in lua('return screen[1].sidebar_wallpaper_next._sidebar_release_binding.state.armed')
+                pointer("mousemove", 400, 700, "mouseup", 1)
+                assert '1:' in lua('return tostring(screen[1].sidebar_wallpaper_index)..":"..tostring(not screen[1].sidebar_wallpaper_next._sidebar_release_binding.state.armed)')
+                pointer("mousemove", wx, wy, "click", 1)
+                wait('return tostring(screen[1].sidebar_wallpaper_index)', '"2"')
+                media_previous = widget_point('screen[1].sidebar_media_buttons.previous', scroll=10000, x=105)
+                pointer("mousemove", *media_previous, "click", 1)
+                deadline = time.monotonic() + 5
+                while time.monotonic() < deadline and "playerctl previous" not in actions_file.read_text():
+                    time.sleep(0.05)
+                assert "playerctl previous" in actions_file.read_text(), actions_file.read_text()
                 wait('return tostring(screen[1].sidebar_volume_text.markup):find("42%", 1, true) and "42%" or "pending"', '"42%"')
                 assert '9pt' in lua('return screen[1].sidebar_volume_text.markup')
                 assert 'true' in lua('local p=screen[1].panel_clock; local s=screen[1].sidebar_clock; return p.text:match("%d%d:%d%d") ~= nil and p.forced_width == 58 and type(s.draw) == "function" and s.current_time.hour ~= nil and s.current_time.min ~= nil and s.current_time.sec ~= nil and screen[1].sidebar_clock_mode == "analog" and not screen[1].sidebar_digital_time.visible and screen[1].sidebar_clock_card.forced_height == 142 and screen[1].sidebar_date.text:find(os.date("%a"), 1, true) ~= nil')
@@ -512,6 +558,8 @@ def main():
                 press('super+1')
                 wait('return screen[1].selected_tag.index', '1')
                 assert 'false' in lua('return tostring(screen[1].start_menu.wibox.visible)')
+                # The panel clock/calendar returns when the sidebar is hidden.
+                press('super+shift+s')
                 subprocess.run(["xdotool", "mousemove", "1258", "15", "click", "1"], env=env, check=True)
                 wait('return tostring(screen[1].panel_calendar.visible)', '"true"')
                 capture("panel-calendar")
@@ -563,7 +611,7 @@ def main():
                 wait('return tostring(__gesture_tip.visible)', '"true"')
                 assert 'true' in lua('return client.focus==__gesture_client')
                 lua('__gesture_tip.hide(); __gesture_tip=nil')
-                control_state = lua('local controls={}; local ids={"titlebar_minimize","titlebar_maximize","titlebar_close"}; for _,child in ipairs(client.focus._private.titlebars.top.drawable.widget:get_all_children()) do if child.get_children_by_id then for _,id in ipairs(ids) do local b=child:get_children_by_id(id)[1]; if b then controls[id]=b end end end end; for _,id in ipairs(ids) do local b=controls[id]; if not b then return id..":missing" end; if b.forced_width~=21 or b.forced_height~=19 or not b.fg then return id..":geometry" end; b:emit_signal("mouse::leave"); local normal=tostring(b.bg); b:emit_signal("mouse::enter"); if tostring(b.bg)==normal then return id..":hover" end; b:emit_signal("mouse::leave"); if tostring(b.bg)~=normal then return id..":restore" end end; _G.__polish_close_button=controls.titlebar_close; return true')
+                control_state = helper('local controls=h.titlebar_controls(client.focus); for _,id in ipairs({"titlebar_minimize","titlebar_maximize","titlebar_close"}) do local b=controls[id]; if not b then return id..":missing" end; if b.forced_width~=21 or b.forced_height~=19 or not b.fg then return id..":geometry" end; b:emit_signal("mouse::leave"); local normal=tostring(b.bg); b:emit_signal("mouse::enter"); if tostring(b.bg)==normal then return id..":hover" end; b:emit_signal("mouse::leave"); if tostring(b.bg)~=normal then return id..":restore" end end; _G.__polish_close_button=controls.titlebar_close; return true')
                 assert 'true' in control_state, control_state
                 lua('__polish_close_button:emit_signal("mouse::enter")')
                 capture("titlebar-close-hover")
@@ -753,7 +801,7 @@ def main():
                 assert 'true' in lua('_G.__removed_ui=screen[2].sidebar_ui; _G.__removed_components=screen[2].sidebar_components; __removed_ui.tooltips[1].show(screen[2].sidebar); screen[2]:fake_remove(); __removed_ui.destroy(); for _,c in pairs(__removed_components) do c.destroy() end; local d=screen[1].sidebar_data; local n=0; for _ in pairs(d.collectors.crypto.listeners) do n=n+1 end; return screen.count()==1 and n==1 and d.collectors.crypto.timer~=nil and __removed_ui.disposed and not mousegrabber.isrunning() and not __removed_components.scroll.bar_panel.visible')
                 pointer("mouseup", 1)
                 time.sleep(0.6)
-                assert 'true' in lua('for _,t in ipairs(__removed_ui.tooltips) do if t.visible then return false end end; for _,component in pairs(__removed_components) do for _,t in ipairs(component.ui.tooltips) do if t.visible then return false end end end; return true')
+                assert 'true' in helper('return h.component_disposed(__removed_ui,__removed_components)')
                 assert 'sidebar collector:' not in logfile.read_text(), logfile.read_text()
                 assert 'could not be parsed' not in logfile.read_text(), logfile.read_text()
                 lua('awesome.quit()')

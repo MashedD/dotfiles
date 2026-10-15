@@ -14,6 +14,7 @@ local interaction = dofile(config_dir .. "/interaction.lua")
 local clock_component = dofile(config_dir .. "/sidebar-clock.lua")
 local calendar_component = dofile(config_dir .. "/sidebar-calendar.lua")
 local scroll_component = dofile(config_dir .. "/sidebar-scroll.lua")
+local launcher = dofile(config_dir .. "/sidebar-launch.lua")
 local weather_enabled = os.getenv("AWESOME_TEST_MODE") ~= "1" or os.getenv("AWESOME_TEST_WEATHER") == "1"
 local palette = appearance.palette
 local sidebar_gradient = appearance.forest(300)
@@ -73,6 +74,18 @@ local function label(text, color, size, bold, align)
         align = align or "left", valign = "center", widget = wibox.widget.textbox,
     }
 end
+
+local function set_cached(widget, property, value)
+    if widget._sidebar_cache == nil then widget._sidebar_cache = {} end
+    if widget._sidebar_cache[property] == value then return false end
+    widget._sidebar_cache[property] = value
+    widget[property] = value
+    return true
+end
+local function set_text(widget, value) return set_cached(widget, "text", value) end
+local function set_markup(widget, value) return set_cached(widget, "markup", value) end
+local function set_visible(widget, value) return set_cached(widget, "visible", value) end
+local function set_value(widget, value) return set_cached(widget, "value", value) end
 
 local function section_header(text, trailing_widget)
     local title = label(text, palette.title, 10, true, "center")
@@ -307,6 +320,9 @@ local function network_stats()
     return rx, tx
 end
 
+-- Clock ticks are cheap and shared; they never trigger system probes.
+data.define("clock", 1, function(done) done(os.time()) end)
+
 -- Widget-independent sampling, shared by every screen subscriber.
 data.define("stats", 1, function(done)
     local root_total, root_free = filesystem_stats()
@@ -318,7 +334,7 @@ data.define("stats", 1, function(done)
         rx = rx, tx = tx, now = os.time()})
 end)
 
-local function action_button(text, callback, dismiss_menu)
+local function action_button(text, callback, dismiss_menu, bind)
     local button = style_button(wibox.widget {
         {label(text, palette.teal, 14, true, "center"),
             halign = "center", valign = "center", widget = wibox.container.place},
@@ -326,11 +342,11 @@ local function action_button(text, callback, dismiss_menu)
         bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
         widget = wibox.container.background,
     }, dismiss_menu)
-    button:buttons(gears.table.join(awful.button({}, 1, callback)))
+    if bind then bind(button, callback) else button:buttons(gears.table.join(awful.button({}, 1, callback))) end
     return button
 end
 
-local function quick_launch_button(text, icon_name, callback, dismiss_menu)
+local function quick_launch_button(text, icon_name, callback, dismiss_menu, bind)
     local app_icon = wibox.widget.imagebox()
     app_icon.forced_width, app_icon.forced_height, app_icon.resize = 16, 16, true
     local icon_ok, icon_path = pcall(menubar.utils.lookup_icon, icon_name)
@@ -364,16 +380,37 @@ local function quick_launch_button(text, icon_name, callback, dismiss_menu)
         bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
         widget = wibox.container.background,
     }, dismiss_menu)
-    button:buttons(gears.table.join(awful.button({}, 1, callback)))
+    if bind then bind(button, callback) else button:buttons(gears.table.join(awful.button({}, 1, callback))) end
     return button
 end
 
 function sidebar.create(s, dismiss_menu)
     local ui = interaction.lifetime()
+    local section_order, sections_by_id = {}, {}
+    local panel
     s.sidebar_ui = ui
+    local function bind_sidebar_action(widget, callback, section_id, extra_valid)
+        local normal = button_gradient
+        local binding = interaction.bind_button(widget, {
+            activate = callback,
+            valid = function()
+                local section = section_id and sections_by_id[section_id]
+                return not ui.disposed and s.valid and s.sidebar_mode > 0 and s.sidebar
+                    and s.sidebar.visible and panel and (not section or not section.collapsed)
+                    and (not extra_valid or extra_valid())
+            end,
+            paint = function(pressed, hovered)
+                widget.bg = pressed and button_pressed_gradient or (hovered and button_hover_gradient or normal)
+                widget.border_color = pressed and palette.neon or (hovered and palette.teal or palette.bevel_light)
+            end,
+        }, ui)
+        widget._sidebar_release_binding = binding
+        return binding
+    end
     local make_action_button = action_button
     local function action_button(text, callback, dismiss)
-        local widget = make_action_button(text, callback, dismiss)
+        local widget = make_action_button(text, callback, dismiss,
+            function(button, activate) bind_sidebar_action(button, activate, "now-playing") end)
         ui.tip(widget, ({["«"] = "Previous track", ["▶"] = "Play / pause", ["»"] = "Next track"})[text])
         return widget
     end
@@ -395,7 +432,6 @@ function sidebar.create(s, dismiss_menu)
             collapsed_ids[id] = true
         end
     end
-    local section_order, sections_by_id = {}, {}
     local function save_section_state()
         local directory = section_state_path:match("^(.*)/")
         if not directory or not pcall(gears.filesystem.make_directories, directory) then return end
@@ -536,14 +572,15 @@ function sidebar.create(s, dismiss_menu)
         local file = io.open(wallpaper_state, "w")
         if file then file:write(path, "\n"); file:close() end
     end
-    local function small_button(text, callback)
+    local function small_button(text, callback, tooltip)
         local button = style_button(wibox.widget {
             label(text, palette.muted, 11, true, "center"),
             forced_width = 26, forced_height = 20,
             bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
             widget = wibox.container.background,
         }, dismiss_menu)
-        button:buttons(gears.table.join(awful.button({}, 1, callback)))
+        bind_sidebar_action(button, callback, "wallpaper")
+        ui.tip(button, tooltip)
         return button
     end
     local function show_previous_wallpaper()
@@ -558,18 +595,16 @@ function sidebar.create(s, dismiss_menu)
             update_wallpaper_preview()
         end
     end
-    local previous_wallpaper = small_button("‹", show_previous_wallpaper)
-    local next_wallpaper = small_button("›", show_next_wallpaper)
-    ui.tip(previous_wallpaper, "Previous wallpaper")
-    ui.tip(next_wallpaper, "Next wallpaper")
+    local previous_wallpaper = small_button("‹", show_previous_wallpaper, "Previous wallpaper")
+    local next_wallpaper = small_button("›", show_next_wallpaper, "Next wallpaper")
+    bind_sidebar_action(preview, apply_wallpaper, "wallpaper")
     ui.tip(preview, "Apply selected wallpaper")
     local wallpaper_controls = wibox.widget {
         previous_wallpaper, wallpaper_name, next_wallpaper,
         spacing = 8, layout = wibox.layout.fixed.horizontal,
     }
     update_wallpaper_preview()
-    preview:buttons(gears.table.join(awful.button({}, 1, apply_wallpaper)))
-    if dismiss_menu then preview:connect_signal("button::press", dismiss_menu) end
+    preview:connect_signal("button::press", function() if dismiss_menu then dismiss_menu() end end)
     local preview_centered = {preview, halign = "center", valign = "center", widget = wibox.container.place}
     local wallpaper_body = wibox.widget {
         preview_centered,
@@ -612,26 +647,26 @@ function sidebar.create(s, dismiss_menu)
                 state.error and ("\n" .. state.error) or ""))
         end}
         return function(state)
-            status.text = state.stale and "STALE" or ""
-            status.visible = state.stale == true
-            body:emit_signal("widget::layout_changed")
+            local changed = set_text(status, state.stale and "STALE" or "")
+            changed = set_visible(status, state.stale == true) or changed
+            if changed then body:emit_signal("widget::layout_changed") end
         end, tooltip
     end
     local function set_weather_icon(icon)
-        weather_icon.markup = string.format("<span foreground='%s' size='22pt'>%s</span>", palette.teal, icon)
+        set_markup(weather_icon, string.format("<span foreground='%s' size='22pt'>%s</span>", palette.teal, icon))
     end
     local function update_weather() data.refresh("weather") end
     local function render_weather(state)
         local value = state.value
         if not value then
             set_weather_icon("·")
-            weather_main.text = "Weather unavailable"
-            weather_detail.text = "Click to try again"
+            set_text(weather_main, "Weather unavailable")
+            set_text(weather_detail, "Click to try again")
             return
         end
         set_weather_icon(weather_icon_for(value.condition))
-        weather_main.text = string.format("%.0f°C  •  %s", value.temperature, weather_description(value.condition))
-        weather_detail.text = string.format("Feels %.0f°C  •  Wind %.0f km/h", value.apparent, value.wind)
+        set_text(weather_main, string.format("%.0f°C  •  %s", value.temperature, weather_description(value.condition)))
+        set_text(weather_detail, string.format("Feels %.0f°C  •  Wind %.0f km/h", value.apparent, value.wind))
     end
     local weather_body = wibox.widget {
         {weather_line, halign = "center", valign = "center", widget = wibox.container.place},
@@ -688,10 +723,10 @@ function sidebar.create(s, dismiss_menu)
         local row = wibox.widget.textbox()
         local function update()
             local underline = entry.hovered and " underline='single'" or ""
-            row.markup = string.format(
+            set_markup(row, string.format(
                 "<span foreground='%s' size='9pt' weight='bold'%s>%s</span> " ..
                     "<span foreground='%s' size='9pt' weight='bold'%s>%s</span>",
-                palette.teal, underline, symbol, palette.green, underline, entry.text)
+                palette.teal, underline, symbol, palette.green, underline, entry.text))
         end
         entry.set = function(value)
             entry.text = value
@@ -734,8 +769,8 @@ function sidebar.create(s, dismiss_menu)
         trash_icon:emit_signal("widget::redraw_needed")
         local text, color = full == nil and "UNKNOWN" or (full and "FULL" or "EMPTY"),
             appearance.trash_color(full)
-        trash_state.markup = string.format(
-            "<span foreground='%s' size='9pt' weight='bold'>%s</span>", color, text)
+        set_markup(trash_state, string.format(
+            "<span foreground='%s' size='9pt' weight='bold'>%s</span>", color, text))
         s.sidebar_trash_full = full
     end
     trash_status:buttons(gears.table.join(awful.button({}, 1, function()
@@ -750,7 +785,15 @@ function sidebar.create(s, dismiss_menu)
         local row = wibox.layout.fixed.horizontal()
         row.spacing = 4
         for _, item in ipairs(items) do
-            row:add(quick_launch_button(item[1], item[2], function() awful.spawn(item[3]) end, dismiss_menu))
+            local entry = {label = item[1], argv = item[3], requires = item[4]}
+            local button = quick_launch_button(item[1], item[2], function() launcher.run(entry) end,
+                dismiss_menu, function(widget, activate)
+                    bind_sidebar_action(widget, activate, "quick-launch")
+                end)
+            ui.tip(button, function() return launcher.tooltip(entry) end)
+            s.sidebar_quick_launch_buttons = s.sidebar_quick_launch_buttons or {}
+            s.sidebar_quick_launch_buttons[item[1]] = {widget = button, entry = entry}
+            row:add(button)
         end
         return wibox.widget {
             row, halign = "center", valign = "center", widget = wibox.container.place,
@@ -759,7 +802,7 @@ function sidebar.create(s, dismiss_menu)
     launch_rows:add(launch_row({
         {"Terminal", "utilities-terminal", {"kitty"}},
         {"Files", "system-file-manager", {"pcmanfm"}},
-        {"Monitor", "utilities-system-monitor", {"kitty", "--title", "System Monitor", "btop"}},
+        {"Monitor", "utilities-system-monitor", {"kitty", "--title", "System Monitor", "btop"}, {"kitty", "btop"}},
     }))
     launch_rows:add(launch_row({
         {"Finder", "system-run", {"xfce4-appfinder"}},
@@ -767,8 +810,8 @@ function sidebar.create(s, dismiss_menu)
         {"Volume", "audio-volume-high", {"pavucontrol"}},
     }))
     launch_rows:add(launch_row({
-        {"Quake 1", "applications-games", {home .. "/Games/quake-rerelease/vkquake.sh"}},
-        {"Quake 2", "input-gaming", {home .. "/Games/quake2/q2pro.sh"}},
+        {"Quake 1", "applications-games", {home .. "/Games/quake-rerelease/vkquake.sh"}, {home .. "/Games/quake-rerelease/vkquake.sh"}},
+        {"Quake 2", "input-gaming", {home .. "/Games/quake2/q2pro.sh"}, {home .. "/Games/quake2/q2pro.sh"}},
         {"Sleep", "system-suspend", {"systemctl", "suspend"}},
     }))
     local quick_launch_body = wibox.widget {
@@ -777,6 +820,7 @@ function sidebar.create(s, dismiss_menu)
     }
     local quick_launch_card = collapsible_card(
         "quick-launch", "QUICK LAUNCH", quick_launch_body, nil, trash_status)
+    s.sidebar_launch = launcher
 
     local volume_control = wibox.layout.fixed.vertical()
     volume_control.spacing = 4
@@ -815,26 +859,27 @@ function sidebar.create(s, dismiss_menu)
         for _, row in ipairs({{codex_5h, "5h", "five"}, {codex_7d, "7d", "week"}}) do
             local widget, period, key = row[1], row[2], row[3]
             widget.remaining = value and value[key] or nil
-            widget.bar.visible = value ~= nil
+            set_visible(widget.bar, value ~= nil)
             if value then
-                widget.summary.markup = string.format(
+                set_markup(widget.summary, string.format(
                     "<span foreground='%s' size='9pt'>%s  %d%% left · %s</span>",
-                    palette.text, period, value[key], gstring.xml_escape(value[key .. "_reset"]))
-                widget.bar.value = value[key]
-                widget.bar.color = appearance.remaining_color(value[key])
+                    palette.text, period, value[key], gstring.xml_escape(value[key .. "_reset"])))
+                set_value(widget.bar, value[key])
+                set_cached(widget.bar, "color", appearance.remaining_color(value[key]))
             else
-                widget.summary.text = period .. " usage unavailable"
+                set_text(widget.summary, period .. " usage unavailable")
             end
         end
-        codex_resets.markup = string.format("<span foreground='%s' size='9pt'>%s</span>",
-            palette.muted, gstring.xml_escape(value and value.resets or "--"))
+        set_markup(codex_resets, string.format("<span foreground='%s' size='9pt'>%s</span>",
+            palette.muted, gstring.xml_escape(value and value.resets or "--")))
     end
 
+    local media_previous = action_button("«", function() data.command({"playerctl", "previous"}, function() return true end, function() end) end, dismiss_menu)
+    local media_toggle = action_button("▶", function() data.command({"playerctl", "play-pause"}, function() return true end, function() end) end, dismiss_menu)
+    local media_next = action_button("»", function() data.command({"playerctl", "next"}, function() return true end, function() end) end, dismiss_menu)
     local media_controls = wibox.widget {
-        action_button("«", function() data.command({"playerctl", "previous"}, function() return true end, function() end) end, dismiss_menu),
-        action_button("▶", function() data.command({"playerctl", "play-pause"}, function() return true end, function() end) end, dismiss_menu),
-        action_button("»", function() data.command({"playerctl", "next"}, function() return true end, function() end) end, dismiss_menu),
-        spacing = 8, layout = wibox.layout.fixed.horizontal,
+        media_previous, media_toggle, media_next, spacing = 8,
+        layout = wibox.layout.fixed.horizontal,
     }
     local media_controls_centered = {
         media_controls, halign = "center", valign = "center", widget = wibox.container.place,
@@ -850,11 +895,11 @@ function sidebar.create(s, dismiss_menu)
     local function update_volume() data.refresh("volume") end
     local function render_volume(state)
         local value = not state.error and state.value
-        volume_text.markup = string.format(
+        set_markup(volume_text, string.format(
             "<span foreground='%s' size='9pt'>Volume  %s</span>",
             value and value.muted and palette.amber or palette.text,
-            value and (value.muted and "Mute" or string.format("%.0f%%", value.level * 100)) or "--")
-        volume_bar.value = value and math.floor(value.level * 100 + 0.5) or 0
+            value and (value.muted and "Mute" or string.format("%.0f%%", value.level * 100)) or "--"))
+        set_value(volume_bar, value and math.floor(value.level * 100 + 0.5) or 0)
     end
     local function change_volume(action)
         data.command({os.getenv("HOME") .. "/.local/bin/openbox-volume", action}, function() return true end, update_volume)
@@ -906,6 +951,7 @@ function sidebar.create(s, dismiss_menu)
         path = (os.getenv("HOME") or "") .. "/Documents/calendar.md",
         blocked = function() return suppress_scroll_click end, open = open_calendar_document,
         button_normal = button_gradient, button_hover = button_hover_gradient,
+        bind = function(widget, callback) bind_sidebar_action(widget, callback, "calendar") end,
         wrap = function(body) return collapsible_card("calendar", "CALENDAR", body) end,
         on_entries = function(entries) s.sidebar_calendar_entries = entries end,
     }
@@ -926,7 +972,7 @@ function sidebar.create(s, dismiss_menu)
 
     local sidebar_height = math.max(1, s.geometry.height - 30)
     s.sidebar_scroll_position = 0
-    local scroll_ui, panel
+    local scroll_ui
     local function set_scroll_offset(offset) scroll_ui.set_offset(offset) end
     local function scroll_by(delta) scroll_ui.scroll_by(delta) end
     local default_content_sections = {
@@ -1116,7 +1162,7 @@ function sidebar.create(s, dismiss_menu)
             if entry.id == dragged.id then dragged_entry = entry; break end
         end
         local function finish_drag(commit)
-            auto_scroll:stop()
+            if auto_scroll.started then auto_scroll:stop() end
             edge_direction = 0
             dragging = false
             clear_highlight()
@@ -1146,7 +1192,7 @@ function sidebar.create(s, dismiss_menu)
         end
         cancel_section_drag = function()
             cancelled = true
-            auto_scroll:stop()
+            if auto_scroll.started then auto_scroll:stop() end
             finish_drag(false)
             mousegrabber.stop()
         end
@@ -1174,7 +1220,7 @@ function sidebar.create(s, dismiss_menu)
                 return true
             end
             cancel_section_drag = nil
-            auto_scroll:stop()
+            if auto_scroll.started then auto_scroll:stop() end
             if dragging then
                 update_highlight(pointer.y)
                 finish_drag(true)
@@ -1220,6 +1266,7 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_codex_resets = codex_resets
     s.sidebar_codex_refresh = refresh_codex
     s.sidebar_media_text = media_text
+    s.sidebar_media_buttons = {previous = media_previous, toggle = media_toggle, next = media_next}
     s.sidebar_root_text = root_text
     s.sidebar_weather_text = weather_main
     s.sidebar_wallpaper_preview, s.sidebar_wallpaper_name = preview, wallpaper_name
@@ -1238,11 +1285,24 @@ function sidebar.create(s, dismiss_menu)
     end)
 
     local previous_total, previous_idle, previous_rx, previous_tx, previous_net_time
+    local latest_stats
+    local function update_network(snapshot, at_time)
+        local rx, tx = snapshot and snapshot.rx, snapshot and snapshot.tx
+        if not rx or not tx then return end
+        local now = at_time or snapshot.now
+        if previous_rx and previous_tx and previous_net_time and now > previous_net_time then
+            set_text(network_text, string.format("↓ %s   ↑ %s",
+                rate(math.max(0, rx - previous_rx) / (now - previous_net_time)),
+                rate(math.max(0, tx - previous_tx) / (now - previous_net_time))))
+        else
+            set_text(network_text, "Network  measuring…")
+        end
+        previous_rx, previous_tx, previous_net_time = rx, tx, now
+    end
     local function update_stats(state)
         local snapshot = state.value
         if not snapshot then return end
-        clock_ui.tick()
-
+        latest_stats = snapshot
         local stat = snapshot.stat
         local first_line = stat and stat:match("^([^\n]+)")
         if first_line then
@@ -1254,8 +1314,8 @@ function sidebar.create(s, dismiss_menu)
             if previous_total and total > previous_total then
                 local usage = math.max(0, math.min(100,
                     100 * (1 - (idle - previous_idle) / (total - previous_total))))
-                cpu_text.text = string.format("CPU  %.0f%%", usage)
-                cpu_bar.value = math.floor(usage + 0.5)
+                set_text(cpu_text, string.format("CPU  %.0f%%", usage))
+                set_value(cpu_bar, math.floor(usage + 0.5))
             end
             previous_total, previous_idle = total, idle
         end
@@ -1264,45 +1324,36 @@ function sidebar.create(s, dismiss_menu)
         local mem_available = tonumber(snapshot.meminfo:match("MemAvailable:%s+(%d+)"))
         if mem_total and mem_available and mem_total > 0 then
             local used = mem_total - mem_available
-            memory_text.text = string.format("Memory  %.1f / %.1f GiB", used / 1048576, mem_total / 1048576)
-            memory_bar.value = math.floor(used * 100 / mem_total + 0.5)
+            set_text(memory_text, string.format("Memory  %.1f / %.1f GiB", used / 1048576, mem_total / 1048576))
+            set_value(memory_bar, math.floor(used * 100 / mem_total + 0.5))
         end
 
         local root_total, root_free = snapshot.root_total, snapshot.root_free
         if root_total and root_total > 0 and root_free then
-            root_bar.color = appearance.remaining_color(root_free * 100 / root_total, 10, 5)
-            root_text.text = string.format("Free /  %.1f GiB", root_free / 1073741824)
-            root_bar.value = math.floor((root_total - root_free) * 100 / root_total + 0.5)
+            set_cached(root_bar, "color", appearance.remaining_color(root_free * 100 / root_total, 10, 5))
+            set_text(root_text, string.format("Free /  %.1f GiB", root_free / 1073741824))
+            set_value(root_bar, math.floor((root_total - root_free) * 100 / root_total + 0.5))
         end
 
         local capacity, battery_state, mouse_capacity, mouse_state = snapshot.capacity,
             snapshot.battery_state, snapshot.mouse_capacity, snapshot.mouse_state
-        battery_text.visible, battery_bar.visible = capacity ~= nil, capacity ~= nil
+        local battery_layout_changed = set_visible(battery_text, capacity ~= nil)
+        battery_layout_changed = set_visible(battery_bar, capacity ~= nil) or battery_layout_changed
         if capacity then
-            battery_text.text = string.format("Battery  %d%%  %s", capacity, battery_state)
-            battery_bar.value = capacity
-            battery_bar.color = appearance.remaining_color(capacity)
+            set_text(battery_text, string.format("Battery  %d%%  %s", capacity, battery_state))
+            set_value(battery_bar, capacity)
+            set_cached(battery_bar, "color", appearance.remaining_color(capacity))
         end
-        mouse_battery_text.visible, mouse_battery_bar.visible = mouse_capacity ~= nil, mouse_capacity ~= nil
+        battery_layout_changed = set_visible(mouse_battery_text, mouse_capacity ~= nil) or battery_layout_changed
+        battery_layout_changed = set_visible(mouse_battery_bar, mouse_capacity ~= nil) or battery_layout_changed
         if mouse_capacity then
-            mouse_battery_text.text = string.format("Mouse  %d%%  %s", mouse_capacity, mouse_state or "Unknown")
-            mouse_battery_bar.value = mouse_capacity
-            mouse_battery_bar.color = appearance.remaining_color(mouse_capacity)
+            set_text(mouse_battery_text, string.format("Mouse  %d%%  %s", mouse_capacity, mouse_state or "Unknown"))
+            set_value(mouse_battery_bar, mouse_capacity)
+            set_cached(mouse_battery_bar, "color", appearance.remaining_color(mouse_capacity))
         end
-        stats_card:emit_signal("widget::layout_changed")
+        if battery_layout_changed then stats_card:emit_signal("widget::layout_changed") end
 
-        local rx, tx = snapshot.rx, snapshot.tx
-        if rx and tx then
-            local now = snapshot.now
-            if previous_rx and previous_tx and previous_net_time and now > previous_net_time then
-                network_text.text = string.format("↓ %s   ↑ %s",
-                    rate(math.max(0, rx - previous_rx) / (now - previous_net_time)),
-                    rate(math.max(0, tx - previous_tx) / (now - previous_net_time)))
-            else
-                network_text.text = "Network  measuring…"
-            end
-            previous_rx, previous_tx, previous_net_time = rx, tx, now
-        end
+        update_network(snapshot)
     end
 
     local function bind(name, render, body)
@@ -1315,10 +1366,13 @@ function sidebar.create(s, dismiss_menu)
         handle.tooltip = tooltip -- retain tooltip for the lifetime of this subscriber
         s["sidebar_" .. name .. "_timer"] = handle
     end
+    bind("clock", function(state)
+        if state.value then clock_ui.tick(state.value); update_network(latest_stats, os.time()) end
+    end)
     bind("stats", update_stats)
     bind("volume", render_volume)
     bind("media", function(state)
-        media_text.text = state.value and state.value ~= "" and state.value or "Nothing playing"
+        set_text(media_text, state.value and state.value ~= "" and state.value or "Nothing playing")
     end)
     bind("trash", render_trash)
     s.sidebar_data = data -- inspectable session state for diagnostics and isolated tests
@@ -1339,6 +1393,7 @@ function sidebar.create(s, dismiss_menu)
     end
     ui.connect(s, "removed", function()
         ui.destroy()
+        s.sidebar_clock_timer:stop()
         s.sidebar_stats_timer:stop()
         s.sidebar_volume_timer:stop()
         s.sidebar_media_timer:stop()
