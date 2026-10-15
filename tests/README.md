@@ -5,7 +5,10 @@
 ```sh
 lua tests/test-awesome-appearance.lua
 lua tests/test-awesome-data.lua
+lua tests/test-awesome-interaction.lua
+lua tests/test-awesome-calendar.lua
 python3 tests/test-awesome-session.py
+python3 tests/test-awesome-session.py --composited
 python3 tests/test-awesome-autostart.py
 python3 tests/test-openbox-display.py
 python3 tests/test-screen-lock.py
@@ -26,7 +29,9 @@ Optional generated wallpaper PNGs use a test-only fallback fixture when absent.
 
 The Lua-only tests validate shared surface contrast over light/dark backgrounds,
 trash semantic colors, response parsing, collector lifecycle, overlapping-request
-prevention, command deadlines/spawn failures, stale aging, and late results.
+prevention, command deadlines/spawn failures, stale aging, late results, release-to-activate
+state transitions, and calendar document parsing. Contrast checks include the actual
+sidebar window opacity as well as surface alpha.
 Run them from the repository root with Lua 5.3 or later.
 
 Requires Xvfb, awesome, awesome-client, xmessage, xdotool, xprop, i3lock, timeout and
@@ -41,7 +46,27 @@ Captures include Start, display selection, window actions, quit confirmation,
 Applications, the panel calendar, stale-data tooltips, and titlebar hover controls,
 alongside the light/dark surface checks. The runtime test verifies menu palette
 inheritance, tooltip colors/borders, titlebar control geometry and hover restoration,
-and rejects Pango color errors.
+and rejects Pango color errors. Real pointer tests cover release-inside, release-outside,
+leave/re-enter, right-click rejection, hidden decorations, client destruction during a
+press, delayed tooltip visibility without focus changes, and removing a screen during
+a scrollbar drag (including delayed-tooltip cancellation and idempotent teardown).
+
+### Composited verification
+
+`--composited` additionally requires Picom with an XRender backend. It launches Picom
+on the private Xvfb display using the repository configuration and an XRender backend
+override, waits for `_NET_WM_CM_S0` ownership, and terminates only that process at exit.
+Missing Picom or backend startup failures are explicit test failures, not successful
+or silently skipped composited checks. Production retains GLX; this test validates
+alpha composition, not GPU driver performance. No live compositor is restarted.
+
+```sh
+AWESOME_TEST_SCREENSHOTS=/tmp/awesome-composited-shots python3 tests/test-awesome-session.py --composited
+```
+
+For extraction reviews, run the same command before/after into separate directories.
+Compare geometry and visual states rather than exact hashes: clock hands, CPU/network
+readings, timestamps, and client enumeration order naturally vary between sessions.
 
 Only test-display i3lock processes are terminated afterward;
 the live WM/display and lock are never modified.

@@ -1,6 +1,6 @@
 -- Shared square Aero/Win98 surfaces. Text sits below the narrow glass highlight.
 local gears = require("gears")
-local appearance = {}
+local appearance = {sidebar_opacity = 0.94}
 appearance.palette = {
     bg = "#07110df5", card = "#101a15f5", line = "#446a62",
     bevel_light = "#73a79f", bevel_shadow = "#020805",
@@ -16,6 +16,10 @@ appearance.palette = {
 appearance.fonts = {body = "Microsoft Sans Serif 8", title = "Segoe UI bold 9", menu = "Segoe UI 9"}
 appearance.stops = {
     scrollbar = {{0, "#afdff0"}, {0.14, "#659fc4"}, {0.55, "#3d82b4"}, {1, "#397ca6"}},
+    control_pressed = {{0, "#0a3529"}, {0.5, "#124b3a"}, {1, "#17634f"}},
+    close_pressed = {{0, "#581a21"}, {0.5, "#822727"}, {1, "#a83936"}},
+    scrollbar_hover = {{0, "#d0efff"}, {0.14, "#82b8d8"}, {0.55, "#5194c2"}, {1, "#4488b2"}},
+    scrollbar_drag = {{0, "#e6f7ff"}, {0.14, "#9dcbe5"}, {0.55, "#68a7cf"}, {1, "#5197bd"}},
     control = {{0, "#ddfff2"}, {0.035, "#82d2bc"}, {0.10, "#17634f"},
         {0.55, "#12513e"}, {1, "#0a3529"}},
     control_hover = {{0, "#effff7"}, {0.035, "#a0e8cf"}, {0.10, "#1c7159"},

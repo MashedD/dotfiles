@@ -32,6 +32,7 @@ end
 for name, foregrounds in pairs({
     menu = {'text','title','muted'},
     control = {'title'}, control_hover = {'title'}, close = {'title'}, close_hover = {'title'},
+    control_pressed = {'title'}, close_pressed = {'title'},
     blue = {'title','text','green','amber'}, selected = {'title'},
     inactive = {'inactive','minimized'}, card = {'text','muted','teal'},
     forest = {'text','muted'},
@@ -42,14 +43,25 @@ for name, foregrounds in pairs({
             for step=(name == 'menu' and 0 or 10),100 do
                 local c = contrast(rgb(appearance.palette[foreground]),sample(appearance.stops[name],step/100,wallpaper))
                 assert(c >= 4.5, string.format('%s/%s at %d%%: %.2f',name,foreground,step,c))
+                if name == 'blue' or name == 'selected' or name == 'card' or name == 'forest' then
+                    local fg = rgb(appearance.palette[foreground])
+                    local bg = sample(appearance.stops[name],step/100,wallpaper)
+                    for i=1,3 do
+                        fg[i] = fg[i]*appearance.sidebar_opacity + wallpaper*(1-appearance.sidebar_opacity)
+                        bg[i] = bg[i]*appearance.sidebar_opacity + wallpaper*(1-appearance.sidebar_opacity)
+                    end
+                    assert(contrast(fg,bg) >= 4.5, string.format('Composited %s/%s at %d%%',name,foreground,step))
+                end
             end
         end
     end
 end
 for _, background in ipairs({'scrollbar_track', 'scrollbar_rail'}) do
     for step=0,100 do
-        assert(contrast(sample(appearance.stops.scrollbar, step/100, 0),
-            rgb(appearance.palette[background])) >= 3, 'Scrollbar thumb must stand out from its track')
+        for _, name in ipairs({'scrollbar', 'scrollbar_hover', 'scrollbar_drag'}) do
+            assert(contrast(sample(appearance.stops[name], step/100, 0),
+                rgb(appearance.palette[background])) >= 3, 'Scrollbar thumb must stand out from its track')
+        end
     end
 end
 assert(contrast(rgb(appearance.palette.text), rgb(appearance.palette.menu_base)) >= 4.5)

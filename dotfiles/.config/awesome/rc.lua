@@ -8,6 +8,7 @@ local menubar = require("menubar")
 menubar.utils.terminal = "kitty"
 local config_dir = awesome.conffile:match("^(.*)/") or "."
 local appearance = dofile(config_dir .. "/appearance.lua")
+local interaction = dofile(config_dir .. "/interaction.lua")
 local panel = dofile(config_dir .. "/panel.lua")
 local sidebar = dofile(config_dir .. "/sidebar.lua")
 local home = assert(os.getenv("HOME"))
@@ -355,14 +356,12 @@ local function wallpaper(s)
     end
 end
 local update_sidebar_mode
-local configured_screens = {}
 awful.screen.connect_for_each_screen(function(s)
     awful.tag({"1", "2", "3", "4"}, s, awful.layout.suit.floating)
     wallpaper(s)
     panel.create(s, main_menu, activate, window_menu)
     sidebar.create(s, dismiss_start_menu)
     s.sidebar_mode = 3
-    configured_screens[#configured_screens + 1] = s
     if update_sidebar_mode then update_sidebar_mode(s) end
 end)
 screen.connect_signal("property::geometry", wallpaper)
@@ -389,7 +388,7 @@ update_sidebar_mode = function(s)
     s.sidebar:struts(reserve and {right = s.sidebar.width}
         or {left = 0, right = 0, top = 0, bottom = 0})
 end
-for _, s in ipairs(configured_screens) do update_sidebar_mode(s) end
+for s in screen do update_sidebar_mode(s) end
 
 local function cycle_sidebar_mode(s)
     if not s or not s.sidebar then return end
@@ -607,7 +606,7 @@ client.connect_signal("unmanage", function(c)
 end)
 
 -- Square glass controls keep Win98 geometry with a restrained Aero sheen.
-local function control(label, callback, is_close, widget_id)
+local function control(c, ui, label, callback, is_close, widget_id)
     local text = wibox.widget.textbox(label)
     text.align = "center"
     text.valign = "center"
@@ -620,22 +619,35 @@ local function control(label, callback, is_close, widget_id)
         forced_width = 21, forced_height = 19, id = widget_id,
         widget = wibox.container.background,
     }
-    local function set_hover(hovered)
-        button.bg = is_close
-            and (hovered and titlebar_close_hover or titlebar_close_gradient)
-            or (hovered and titlebar_button_hover or titlebar_button_gradient)
-        button.border_color = hovered and appearance.palette.title
-            or (is_close and appearance.palette.close_border or appearance.palette.control_border)
-    end
-    button:connect_signal("mouse::enter", function() set_hover(true) end)
-    button:connect_signal("mouse::leave", function() set_hover(false) end)
-    button:connect_signal("button::press", function(_, _, _, pressed_button)
-        if pressed_button == 1 then callback() end
-    end)
+    local pressed_bg = appearance.gradient(is_close and "close_pressed" or "control_pressed", 20)
+    local binding = interaction.bind_button(button, {
+        activate = callback,
+        valid = function()
+            if not c.valid or c.fullscreen or c.minimized or not c:isvisible() then return false end
+            local _, height = c:titlebar_top()
+            return height > 0
+        end,
+        paint = function(pressed, hovered)
+            button.bg = pressed and pressed_bg or (is_close
+                and (hovered and titlebar_close_hover or titlebar_close_gradient)
+                or (hovered and titlebar_button_hover or titlebar_button_gradient))
+            button.border_color = (pressed or hovered) and appearance.palette.title
+                or (is_close and appearance.palette.close_border or appearance.palette.control_border)
+        end,
+    }, ui)
+    ui.tip(button, is_close and "Close" or (label == "−" and "Minimize" or "Maximize / restore"))
+    c._private.release_controls = c._private.release_controls or {}
+    c._private.release_controls[widget_id] = binding
     return button
 end
 client.connect_signal("request::titlebars", function(c)
+    if c._private and c._private.titlebar_ui then c._private.titlebar_ui.destroy() end
+    local ui = interaction.lifetime()
+    c._private = c._private or {}
+    c._private.titlebar_ui = ui
+    ui.connect(c, "unmanage", function() ui.destroy() end)
     local click_timer = gears.timer({timeout = 0.5, single_shot = true, callback = function() end})
+    ui.add(function() click_timer:stop() end)
     local drag = gears.table.join(
         awful.button({}, 1, function()
             activate(c)
@@ -650,14 +662,14 @@ client.connect_signal("request::titlebars", function(c)
     title:set_align("left")
     local icon = awful.titlebar.widget.iconwidget(c)
     icon:buttons(gears.table.join(awful.button({}, 1, function() window_menu(c) end)))
-    local minimize_button = control("−", function()
+    local minimize_button = control(c, ui, "−", function()
         dismiss_start_menu()
         gears.timer.delayed_call(function()
             if c.valid then c.minimized = true end
         end)
     end, false, "titlebar_minimize")
-    local maximize_button = control("□", function() maximize(c) end, false, "titlebar_maximize")
-    local close_button = control("×", function() dismiss_start_menu(); c:kill() end, true, "titlebar_close")
+    local maximize_button = control(c, ui, "□", function() maximize(c) end, false, "titlebar_maximize")
+    local close_button = control(c, ui, "×", function() dismiss_start_menu(); c:kill() end, true, "titlebar_close")
     awful.titlebar(c, {size = 26,
         bg_normal = titlebar_normal_gradient, bg_focus = titlebar_focus_gradient}):setup {
         {

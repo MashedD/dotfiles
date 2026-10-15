@@ -2,7 +2,6 @@
 local awful = require("awful")
 local gears = require("gears")
 local wibox = require("wibox")
-local beautiful = require("beautiful")
 local Gio = require("lgi").Gio
 local cairo = require("lgi").cairo
 local gstring = require("gears.string")
@@ -11,6 +10,10 @@ local sidebar = {}
 local config_dir = awesome.conffile:match("^(.*)/") or "."
 local appearance = dofile(config_dir .. "/appearance.lua")
 local data = dofile(config_dir .. "/sidebar-data.lua")
+local interaction = dofile(config_dir .. "/interaction.lua")
+local clock_component = dofile(config_dir .. "/sidebar-clock.lua")
+local calendar_component = dofile(config_dir .. "/sidebar-calendar.lua")
+local scroll_component = dofile(config_dir .. "/sidebar-scroll.lua")
 local weather_enabled = os.getenv("AWESOME_TEST_MODE") ~= "1" or os.getenv("AWESOME_TEST_WEATHER") == "1"
 local palette = appearance.palette
 local sidebar_gradient = appearance.forest(300)
@@ -61,70 +64,6 @@ local function read_sidebar_todo()
     end
     file:close()
     return items
-end
-
-local function read_calendar_entries(include_all)
-    local file = open_document("calendar.md")
-    if not file then return {} end
-    local today = os.date("%Y-%m-%d")
-    local entries, all_entries, previous, current, future = {}, {}, {}, {}, {}
-
-    for line in file:lines() do
-        local year, month, day, description = line:match("^%s*(%d%d%d%d)%-(%d%d)%-(%d%d)%s+(.+)%s*$")
-        if year then
-            year, month, day = tonumber(year), tonumber(month), tonumber(day)
-            if day > 0 and month > 0 and month <= 12 then
-                local timestamp = os.time({year = year, month = month, day = day, hour = 12})
-                if os.date("%Y-%m-%d", timestamp) == string.format("%04d-%02d-%02d", year, month, day) then
-                    local range_start, range_end = description:find("%d%d:%d%d%s*%-%s*%d%d:%d%d")
-                    local time_start, time_end
-                    if range_start then
-                        time_start, time_end = range_start, range_end
-                    else
-                        time_start, time_end = description:find("%d%d:%d%d")
-                    end
-                    local time_text = time_start and description:sub(time_start, time_end):gsub("%s+", "") or nil
-                    local event_text = description
-                    if time_start then
-                        event_text = description:sub(1, time_start - 1) .. description:sub(time_end + 1)
-                        event_text = event_text:gsub(":%s*,", ":", 1):gsub("^%s*[,;:]%s*", "")
-                    end
-                    event_text = event_text:gsub("%s+", " "):gsub("^%s+", "")
-                        :gsub("^%s*[,;:]%s*", ""):gsub("%s*[,;:]%s*$", "")
-                    local entry = {
-                        date = string.format("%04d-%02d-%02d", year, month, day),
-                        timestamp = timestamp, time = time_text, text = event_text,
-                    }
-                    all_entries[#all_entries + 1] = entry
-                    if entry.date < today then
-                        entry.day = "past"
-                        previous[#previous + 1] = entry
-                    elseif entry.date == today then
-                        entry.day = "today"
-                        current[#current + 1] = entry
-                    elseif entry.date > today then
-                        entry.day = "future"
-                        future[#future + 1] = entry
-                    end
-                end
-            end
-        end
-    end
-    file:close()
-
-    local function sort_entries(a, b)
-        if a.date ~= b.date then return a.date < b.date end
-        return (a.time or "") < (b.time or "")
-    end
-    table.sort(all_entries, sort_entries)
-    if include_all then return all_entries end
-    table.sort(previous, sort_entries)
-    table.sort(current, sort_entries)
-    table.sort(future, sort_entries)
-    if #previous > 0 then entries[#entries + 1] = previous[#previous] end
-    for _, entry in ipairs(current) do entries[#entries + 1] = entry end
-    for i = 1, math.min(3, #future) do entries[#entries + 1] = future[i] end
-    return entries
 end
 
 local function label(text, color, size, bold, align)
@@ -196,126 +135,6 @@ local function make_trash_icon()
         cr:stroke()
     end
     return icon
-end
-
-local function make_analog_clock()
-    local clock = wibox.widget.base.make_widget()
-    clock.forced_width, clock.forced_height = 112, 112
-    clock.fit = function() return 112, 112 end
-    clock.current_time = os.date("*t")
-    clock.draw = function(_, _, cr, width, height)
-        local size = math.min(width, height)
-        local cx, cy = width / 2, height / 2
-        local radius = size / 2 - 3
-        local now = clock.current_time or os.date("*t")
-        local pi, tau = math.pi, 2 * math.pi
-
-        cr:set_line_cap(cairo.LineCap.ROUND)
-        cr:arc(cx + 1, cy + 2, radius, 0, tau)
-        cr:set_source_rgba(0, 0, 0, 0.5)
-        cr:fill()
-        cr:arc(cx, cy, radius, 0, tau)
-        cr:set_source_rgba(0.44, 0.77, 0.74, 0.96)
-        cr:set_line_width(2.5)
-        cr:fill_preserve()
-        cr:set_source_rgba(0.78, 1, 0.91, 0.9)
-        cr:set_line_width(1)
-        cr:stroke()
-
-        local face_radius = radius - 4
-        cr:arc(cx, cy, face_radius, 0, tau)
-        cr:save()
-        cr:clip()
-        local face = cairo.RadialPattern.create(cx - face_radius * 0.28, cy - face_radius * 0.34,
-            face_radius * 0.04, cx, cy, face_radius * 1.1)
-        face:add_color_stop_rgba(0, 0.20, 0.65, 0.36, 1)
-        face:add_color_stop_rgba(0.65, 0.06, 0.36, 0.19, 1)
-        face:add_color_stop_rgba(1, 0.01, 0.12, 0.07, 1)
-        cr:set_source(face)
-        cr:paint()
-
-        cr:move_to(cx - face_radius * 0.78, cy - face_radius * 0.19)
-        cr:curve_to(cx - face_radius * 0.58, cy - face_radius * 0.88,
-            cx + face_radius * 0.48, cy - face_radius * 0.90,
-            cx + face_radius * 0.78, cy - face_radius * 0.19)
-        cr:curve_to(cx + face_radius * 0.36, cy - face_radius * 0.43,
-            cx - face_radius * 0.30, cy - face_radius * 0.43,
-            cx - face_radius * 0.78, cy - face_radius * 0.19)
-        cr:close_path()
-        cr:set_source_rgba(0.83, 1, 0.91, 0.13)
-        cr:fill()
-        cr:restore()
-
-        cr:arc(cx, cy, face_radius, 0, tau)
-        cr:set_source_rgba(0.44, 0.77, 0.74, 0.8)
-        cr:set_line_width(1)
-        cr:stroke()
-
-        for index = 0, 59 do
-            local angle = index * tau / 60 - pi / 2
-            local major = index % 5 == 0
-            local inner = face_radius * (major and 0.82 or 0.91)
-            local outer = face_radius * 0.94
-            cr:set_source_rgba(major and 0.74 or 0.58, major and 0.93 or 0.82,
-                major and 0.82 or 0.76, major and 0.98 or 0.78)
-            cr:set_line_width(major and 1.8 or 0.8)
-            cr:move_to(cx + math.cos(angle) * inner, cy + math.sin(angle) * inner)
-            cr:line_to(cx + math.cos(angle) * outer, cy + math.sin(angle) * outer)
-            cr:stroke()
-        end
-
-        cr:select_font_face("Microsoft Sans Serif", cairo.FontSlant.NORMAL, cairo.FontWeight.BOLD)
-        cr:set_font_size(face_radius * 0.19)
-        cr:set_source_rgba(0.88, 1, 0.93, 0.96)
-        for hour = 1, 12 do
-            local angle = hour * tau / 12 - pi / 2
-            local text = tostring(hour)
-            local extents = cr:text_extents(text)
-            local text_radius = face_radius * 0.69
-            local x = cx + math.cos(angle) * text_radius
-            local y = cy + math.sin(angle) * text_radius
-            cr:move_to(x - extents.width / 2 - extents.x_bearing,
-                y - extents.height / 2 - extents.y_bearing)
-            cr:show_text(text)
-        end
-
-        local function hand(angle, length, shaft, head, red, green, blue, alpha)
-            local ux, uy = math.cos(angle), math.sin(angle)
-            local px, py = -uy, ux
-            local base = length * 0.70
-            cr:move_to(cx + px * shaft, cy + py * shaft)
-            cr:line_to(cx + ux * base + px * shaft, cy + uy * base + py * shaft)
-            cr:line_to(cx + ux * (length - head * 0.45), cy + uy * (length - head * 0.45))
-            cr:line_to(cx + ux * length, cy + uy * length)
-            cr:line_to(cx + ux * (length - head * 0.45), cy + uy * (length - head * 0.45))
-            cr:line_to(cx + ux * base - px * shaft, cy + uy * base - py * shaft)
-            cr:line_to(cx - px * shaft, cy - py * shaft)
-            cr:close_path()
-            cr:set_source_rgba(red, green, blue, alpha)
-            cr:fill()
-        end
-        local minute = now.min + now.sec / 60
-        local hour = (now.hour % 12) + minute / 60
-        hand(hour * tau / 12 - pi / 2, face_radius * 0.47, face_radius * 0.045,
-            face_radius * 0.14, 0.88, 1, 0.93, 0.98)
-        hand(minute * tau / 60 - pi / 2, face_radius * 0.68, face_radius * 0.027,
-            face_radius * 0.12, 0.44, 0.77, 0.74, 1)
-        local seconds = now.sec * tau / 60 - pi / 2
-        cr:set_source_rgba(0, 1, 0.25, 1)
-        cr:set_line_width(math.max(1, face_radius * 0.018))
-        cr:move_to(cx - math.cos(seconds) * face_radius * 0.16,
-            cy - math.sin(seconds) * face_radius * 0.16)
-        cr:line_to(cx + math.cos(seconds) * face_radius * 0.76,
-            cy + math.sin(seconds) * face_radius * 0.76)
-        cr:stroke()
-        cr:arc(cx, cy, face_radius * 0.075, 0, tau)
-        cr:set_source_rgba(0.87, 1, 0.93, 1)
-        cr:fill_preserve()
-        cr:set_source_rgba(0.16, 0.45, 0.30, 1)
-        cr:set_line_width(1)
-        cr:stroke()
-    end
-    return clock
 end
 
 local section_padding, section_vertical_padding = 6, 5
@@ -550,6 +369,14 @@ local function quick_launch_button(text, icon_name, callback, dismiss_menu)
 end
 
 function sidebar.create(s, dismiss_menu)
+    local ui = interaction.lifetime()
+    s.sidebar_ui = ui
+    local make_action_button = action_button
+    local function action_button(text, callback, dismiss)
+        local widget = make_action_button(text, callback, dismiss)
+        ui.tip(widget, ({["«"] = "Previous track", ["▶"] = "Play / pause", ["»"] = "Next track"})[text])
+        return widget
+    end
     local sidebar_width = 300
     local state_root = os.getenv("XDG_STATE_HOME")
         or ((os.getenv("HOME") or ".") .. "/.local/state")
@@ -620,6 +447,9 @@ function sidebar.create(s, dismiss_menu)
             if dismiss_menu then dismiss_menu() end
         end
         section.toggle_action = toggle
+        ui.tip(title, "Click to fold / expand · Drag to reorder")
+        ui.tip(marker, "Fold / expand section")
+        ui.add(function() title:buttons({}); marker:buttons({}) end)
         title:buttons(gears.table.join(awful.button({}, 1, function()
             if begin_section_drag then begin_section_drag(section) else toggle() end
         end)))
@@ -635,9 +465,13 @@ function sidebar.create(s, dismiss_menu)
         return section_card, section.set_expanded_height, section
     end
 
-    local clock = make_analog_clock()
-    local digital_time = label("00:00:00", palette.neon, 24, true, "center")
-    local date = label("", palette.teal, 13, true, "center")
+    local clock_ui = clock_component.create {appearance = appearance, interaction = interaction,
+        label = label, card = card, dismiss = dismiss_menu,
+        on_mode = function(mode) s.sidebar_clock_mode = mode end}
+    ui.add(clock_ui.destroy)
+    local clock, digital_time, date = clock_ui.clock, clock_ui.digital, clock_ui.date
+    local clock_card = clock_ui.widget
+    s.sidebar_clock_toggle = clock_ui.toggle
     local cpu_text = label("CPU  measuring…", palette.text, 10, false)
     local memory_text = label("Memory  reading…", palette.text, 10, false)
     local battery_text = label("Battery  --", palette.text, 10, false)
@@ -672,37 +506,6 @@ function sidebar.create(s, dismiss_menu)
         border_width = 1, border_color = "#6bb5ca",
         widget = wibox.container.background,
     }
-    local clock_centered = wibox.widget {
-        clock, halign = "center", valign = "center", widget = wibox.container.place,
-    }
-    local clock_content = wibox.layout.fixed.vertical()
-    clock_content.spacing = 3
-    clock_content:add(date)
-    clock_content:add(clock_centered)
-    clock_content:add(digital_time)
-    digital_time.visible = false
-    local clock_card = card(clock_content, 142)
-    local clock_mode = "analog"
-    local function set_clock_mode(mode)
-        clock_mode = mode
-        clock.visible = mode == "analog"
-        clock_centered.visible = mode == "analog"
-        digital_time.visible = mode == "text"
-        clock_card.forced_height = mode == "analog" and 142 or 66
-        s.sidebar_clock_mode = mode
-    end
-    local function toggle_clock_mode()
-        set_clock_mode(clock_mode == "analog" and "text" or "analog")
-    end
-    local function bind_clock_toggle(widget)
-        widget:buttons(gears.table.join(awful.button({}, 1, toggle_clock_mode)))
-        if dismiss_menu then widget:connect_signal("button::press", dismiss_menu) end
-    end
-    bind_clock_toggle(clock)
-    bind_clock_toggle(digital_time)
-    s.sidebar_clock_toggle = toggle_clock_mode
-    set_clock_mode("analog")
-
     local wallpapers = wallpaper_paths()
     local wallpaper_state = (os.getenv("XDG_STATE_HOME") or os.getenv("HOME") .. "/.local/state")
         .. "/awesome/wallpaper"
@@ -757,6 +560,9 @@ function sidebar.create(s, dismiss_menu)
     end
     local previous_wallpaper = small_button("‹", show_previous_wallpaper)
     local next_wallpaper = small_button("›", show_next_wallpaper)
+    ui.tip(previous_wallpaper, "Previous wallpaper")
+    ui.tip(next_wallpaper, "Next wallpaper")
+    ui.tip(preview, "Apply selected wallpaper")
     local wallpaper_controls = wibox.widget {
         previous_wallpaper, wallpaper_name, next_wallpaper,
         spacing = 8, layout = wibox.layout.fixed.horizontal,
@@ -1095,219 +901,34 @@ function sidebar.create(s, dismiss_menu)
         awful.spawn({"xdg-open", (os.getenv("HOME") or "") .. "/Documents/calendar.md"})
         if dismiss_menu then dismiss_menu() end
     end
-    local calendar_entries = {}
-    local function calendar_row(entry)
-        local now = os.date("*t")
-        local yesterday = os.date("%Y-%m-%d", os.time({year = now.year, month = now.month, day = now.day - 1, hour = 12}))
-        local date_color, time_color, event_color, weight
-        if entry.day == "today" then
-            date_color, time_color, event_color, weight = palette.neon, "#ffe08a", "#ffffff", "bold"
-        elseif entry.day == "future" then
-            date_color, time_color, event_color, weight = palette.teal, palette.green, palette.text, "normal"
-        else
-            date_color, time_color, event_color, weight = palette.muted, palette.muted, palette.muted, "normal"
-        end
-        local short_date = os.date("%d.%m", entry.timestamp)
-        local date_text = entry.day == "today" and ("TODAY · " .. short_date)
-            or (entry.date == yesterday and ("YDAY · " .. short_date)
-                or os.date("%a · %d.%m", entry.timestamp):upper())
-        local date_label = label(date_text, date_color, 9, true)
-        local time_label = label(entry.time or "ALL DAY", time_color, 9, false)
-        local metadata = wibox.widget {
-            date_label, time_label, spacing = 1,
-            layout = wibox.layout.fixed.vertical,
-        }
-        metadata.forced_width = 82
-        local event_label = wibox.widget {
-            markup = string.format("<span foreground='%s' size='10pt' weight='%s'>%s</span>",
-                event_color, weight, gstring.xml_escape(entry.text)),
-            wrap = "word_char", valign = "top", widget = wibox.widget.textbox,
-        }
-        local content = wibox.widget {
-            {
-                {forced_width = 2, bg = date_color, widget = wibox.container.background},
-                {
-                    {metadata, event_label, spacing = 7,
-                        layout = wibox.layout.fixed.horizontal},
-                    left = 6, right = 5, top = 3, bottom = 3,
-                    widget = wibox.container.margin,
-                },
-                layout = wibox.layout.fixed.horizontal,
-            },
-            bg = "#0c1b15", border_width = 1, border_color = "#254238",
-            widget = wibox.container.background,
-        }
-        content:connect_signal("mouse::enter", function() content.bg = "#152b21" end)
-        content:connect_signal("mouse::leave", function() content.bg = "#0c1b15" end)
-        content:buttons(gears.table.join(awful.button({}, 1, open_calendar_document)))
-        return content
-    end
-    local calendar_view_month = os.time({year = tonumber(os.date("%Y")), month = tonumber(os.date("%m")), day = 1, hour = 12})
-    local calendar_selected_date = os.date("%Y-%m-%d")
-    local calendar_month_title = label("", "#edfaff", 10, true, "center")
-    local calendar_selected_title = label("", palette.teal, 9, true)
-    local calendar_grid = wibox.layout.fixed.vertical()
-    calendar_grid.spacing = 2
-    local calendar_grid_centered = {
-        calendar_grid, halign = "center", widget = wibox.container.place,
+    local calendar_ui = calendar_component.create {
+        appearance = appearance, interaction = interaction, label = label,
+        path = (os.getenv("HOME") or "") .. "/Documents/calendar.md",
+        blocked = function() return suppress_scroll_click end, open = open_calendar_document,
+        button_normal = button_gradient, button_hover = button_hover_gradient,
+        wrap = function(body) return collapsible_card("calendar", "CALENDAR", body) end,
+        on_entries = function(entries) s.sidebar_calendar_entries = entries end,
     }
-    local calendar_events_widget = wibox.layout.fixed.vertical()
-    calendar_events_widget.spacing = 3
-    local calendar_weekday_order = {"M", "T", "W", "T", "F", "S", "S"}
-    local calendar_day_cells = {}
-    local render_inline_calendar
-    local function select_calendar_date(date_text)
-        if suppress_scroll_click then return end
-        calendar_selected_date = date_text
-        render_inline_calendar()
-    end
-    local function calendar_action(text, callback)
-        local widget = wibox.widget {
-            label(text, "#d7eee8", 9, true, "center"),
-            forced_width = 30, forced_height = 26,
-            bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
-            widget = wibox.container.background,
-        }
-        widget:buttons(gears.table.join(awful.button({}, 1, callback)))
-        widget:connect_signal("mouse::enter", function() widget.bg = button_hover_gradient end)
-        widget:connect_signal("mouse::leave", function() widget.bg = button_gradient end)
-        return widget
-    end
-    local function shift_calendar_month(delta)
-        local current = os.date("*t", calendar_view_month)
-        calendar_view_month = os.time({year = current.year, month = current.month + delta, day = 1, hour = 12})
-        calendar_selected_date = os.date("%Y-%m-%d", calendar_view_month)
-        render_inline_calendar()
-    end
-    local calendar_previous = calendar_action("◀", function() shift_calendar_month(-1) end)
-    local calendar_next = calendar_action("▶", function() shift_calendar_month(1) end)
-    local calendar_navigation = wibox.layout.align.horizontal()
-    calendar_navigation:set_left(calendar_previous)
-    calendar_navigation:set_middle(calendar_month_title)
-    calendar_navigation:set_right(calendar_next)
-    local calendar_body = wibox.widget {
-        calendar_navigation,
-        calendar_grid_centered,
-        calendar_selected_title,
-        calendar_events_widget,
-        spacing = 5, layout = wibox.layout.fixed.vertical,
-    }
-    local calendar_card = collapsible_card("calendar", "CALENDAR", calendar_body)
-    render_inline_calendar = function()
-        local view = os.date("*t", calendar_view_month)
-        calendar_month_title.text = os.date("%B %Y", calendar_view_month)
-        local selected_timestamp = os.time({
-            year = tonumber(calendar_selected_date:sub(1, 4)),
-            month = tonumber(calendar_selected_date:sub(6, 7)),
-            day = tonumber(calendar_selected_date:sub(9, 10)), hour = 12,
-        })
-        calendar_selected_title.text = os.date("%A · %d %B %Y", selected_timestamp)
-
-        local by_date = {}
-        for _, event in ipairs(calendar_entries) do
-            by_date[event.date] = (by_date[event.date] or 0) + 1
-        end
-        calendar_grid:reset()
-        calendar_day_cells = {}
-        local weekday_row = wibox.layout.fixed.horizontal()
-        weekday_row.spacing = 2
-        for _, name in ipairs(calendar_weekday_order) do
-            weekday_row:add(wibox.widget {
-                label(name, palette.muted, 9, true, "center"),
-                forced_width = 36, forced_height = 16, widget = wibox.container.background,
-            })
-        end
-        calendar_grid:add(weekday_row)
-        local first_weekday = (os.date("*t", calendar_view_month).wday + 5) % 7
-        local days_in_month = tonumber(os.date("%d", os.time({year = view.year, month = view.month + 1, day = 0, hour = 12})))
-        local weeks = math.ceil((first_weekday + days_in_month) / 7)
-        local day = 1
-        for week = 1, weeks do
-            local row = wibox.layout.fixed.horizontal()
-            row.spacing = 2
-            for column = 1, 7 do
-                local index = (week - 1) * 7 + column - 1
-                if index < first_weekday or day > days_in_month then
-                    row:add(wibox.widget {forced_width = 36, forced_height = 27, widget = wibox.container.background})
-                else
-                    local day_number = day
-                    local day_date = string.format("%04d-%02d-%02d", view.year, view.month, day_number)
-                    local is_selected = day_date == calendar_selected_date
-                    local has_events = by_date[day_date] ~= nil
-                    local day_color = day_date == os.date("%Y-%m-%d") and palette.neon
-                        or (has_events and palette.teal or palette.text)
-                    local cell = wibox.widget {
-                        label(tostring(day_number), day_color, 9, is_selected or has_events, "center"),
-                    forced_width = 36, forced_height = 24,
-                        bg = is_selected and "#1d5944" or (has_events and "#10291f" or "#0e1d17"),
-                        border_width = is_selected and 1 or 0,
-                        border_color = palette.neon, widget = wibox.container.background,
-                    }
-                    cell:buttons(gears.table.join(awful.button({}, 1, function()
-                        select_calendar_date(day_date)
-                    end)))
-                    calendar_day_cells[day_date] = cell
-                    row:add(cell)
-                    day = day + 1
-                end
-            end
-            calendar_grid:add(row)
-        end
-
-        calendar_events_widget:reset()
-        local event_count = 0
-        for _, entry in ipairs(calendar_entries) do
-            if entry.date == calendar_selected_date then
-                calendar_events_widget:add(calendar_row(entry))
-                event_count = event_count + 1
-            end
-        end
-        if event_count == 0 then
-            local empty_day = label("No events for this date", palette.muted, 9, false)
-            empty_day:buttons(gears.table.join(awful.button({}, 1, open_calendar_document)))
-            calendar_events_widget:add(empty_day)
-        end
-        calendar_grid:emit_signal("widget::layout_changed")
-        calendar_events_widget:emit_signal("widget::layout_changed")
-        calendar_card:emit_signal("widget::layout_changed")
-    end
-    local function refresh_calendar()
-        calendar_entries = read_calendar_entries(true)
-        s.sidebar_calendar_entries = calendar_entries
-        render_inline_calendar()
-    end
-    refresh_calendar()
+    ui.add(calendar_ui.destroy)
+    local calendar_card, refresh_calendar = calendar_ui.widget, calendar_ui.refresh
     s.sidebar_calendar_refresh = refresh_calendar
-    s.sidebar_calendar_month = function() return os.date("%Y-%m", calendar_view_month) end
-    s.sidebar_calendar_selected_date = function() return calendar_selected_date end
-    s.sidebar_calendar_select_date = select_calendar_date
-    s.sidebar_calendar_previous_action = function() shift_calendar_month(-1) end
-    s.sidebar_calendar_next_action = function() shift_calendar_month(1) end
-    s.sidebar_calendar_weekday_order = table.concat(calendar_weekday_order)
-    s.sidebar_calendar_grid = calendar_grid
-    s.sidebar_calendar_day_cells = function() return calendar_day_cells end
-    s.sidebar_calendar_events_widget = calendar_events_widget
-    s.sidebar_calendar_previous_button = calendar_previous
-    s.sidebar_calendar_next_button = calendar_next
+    s.sidebar_calendar_month = calendar_ui.month
+    s.sidebar_calendar_selected_date = calendar_ui.selected_date
+    s.sidebar_calendar_select_date = calendar_ui.select_date
+    s.sidebar_calendar_previous_action = function() calendar_ui.shift_month(-1) end
+    s.sidebar_calendar_next_action = function() calendar_ui.shift_month(1) end
+    s.sidebar_calendar_weekday_order = calendar_ui.weekday_order
+    s.sidebar_calendar_grid = calendar_ui.grid
+    s.sidebar_calendar_day_cells = calendar_ui.day_cells
+    s.sidebar_calendar_events_widget = calendar_ui.events
+    s.sidebar_calendar_previous_button = calendar_ui.previous
+    s.sidebar_calendar_next_button = calendar_ui.next
 
-    local scrollbar_height = 12
     local sidebar_height = math.max(1, s.geometry.height - 30)
-    local scroll_max = 0
     s.sidebar_scroll_position = 0
-    local scroll_content_height, scroll_viewport_height = 1, 1
-    local scroll_view, scrollbar, panel, sidebar_column, scrollbar_panel
-    local sidebar_layout_context, sidebar_content_width
-    local function set_scroll_offset(offset)
-        s.sidebar_scroll_position = math.max(0, math.min(scroll_max, offset))
-        if scroll_view then
-            scroll_view:emit_signal("widget::layout_changed")
-            scroll_view:emit_signal("widget::redraw_needed")
-        end
-        if scrollbar then scrollbar:emit_signal("widget::redraw_needed") end
-    end
-    local function scroll_by(delta)
-        set_scroll_offset(s.sidebar_scroll_position + delta)
-    end
+    local scroll_ui, panel
+    local function set_scroll_offset(offset) scroll_ui.set_offset(offset) end
+    local function scroll_by(delta) scroll_ui.scroll_by(delta) end
     local default_content_sections = {
         {id = "calendar", widget = calendar_card},
         {id = "todo", widget = todo_card},
@@ -1368,137 +989,25 @@ function sidebar.create(s, dismiss_menu)
     local content = wibox.layout.fixed.vertical()
     content.spacing = 0
     for _, section in ipairs(content_sections) do content:add(section.widget) end
-    scroll_view = wibox.widget.base.make_widget()
-    scroll_view.fit = function(_, _, width, height)
-        return width, math.min(height, scroll_view.forced_height or height)
-    end
-    scroll_view.draw = function() end
-    scroll_view.before_draw_children = function(_, _, cr, width, height)
-        cr:save()
-        cr:rectangle(0, 0, width, height)
-        cr:clip()
-    end
-    scroll_view.after_draw_children = function(_, _, cr, width, height)
-        local fade_height = math.min(38, height)
-        if scroll_max > s.sidebar_scroll_position + 1 then
-            local gradient = cairo.LinearPattern.create(0, height - fade_height, 0, height)
-            gradient:add_color_stop_rgba(0, 0, 0, 0, 0)
-            gradient:add_color_stop_rgba(1, 0, 0, 0, 0.72)
-            cr:set_source(gradient)
-            cr:rectangle(0, height - fade_height, width, fade_height)
-            cr:fill()
-        end
-        if s.sidebar_scroll_position > 1 then
-            local gradient = cairo.LinearPattern.create(0, 0, 0, fade_height)
-            gradient:add_color_stop_rgba(0, 0, 0, 0, 0.72)
-            gradient:add_color_stop_rgba(1, 0, 0, 0, 0)
-            cr:set_source(gradient)
-            cr:rectangle(0, 0, width, fade_height)
-            cr:fill()
-        end
-        cr:restore()
-    end
-    scroll_view.layout = function(_, context, width)
-        return {wibox.widget.base.place_widget_at(content, 0, -s.sidebar_scroll_position,
-            width, scroll_content_height)}
-    end
-    local function thumb_geometry(width)
-        if scroll_max <= 0 then return 0, width end
-        local thumb_width = math.max(24, math.floor(width * scroll_viewport_height / scroll_content_height))
-        thumb_width = math.min(width, thumb_width)
-        local x = (width - thumb_width) * s.sidebar_scroll_position / scroll_max
-        return x, thumb_width
-    end
-    local scrollbar_thumb = appearance.gradient("scrollbar", scrollbar_height)
-    scrollbar = wibox.widget.base.make_widget()
-    scrollbar.visible = false
-    scrollbar.forced_height = 0
-    scrollbar.fit = function(_, _, width) return width, scrollbar_height end
-    scrollbar.draw = function(_, _, cr, width, height)
-        cr:set_source(gears.color(palette.scrollbar_track))
-        cr:rectangle(0, 0, width, height)
-        cr:fill()
-        cr:set_source(gears.color(palette.scrollbar_rail))
-        cr:rectangle(0, math.floor(height / 2) - 2, width, 4)
-        cr:fill()
-        local x, thumb_width = thumb_geometry(width)
-        cr:set_source(scrollbar_thumb)
-        cr:rectangle(x, 1, thumb_width, height - 2)
-        cr:fill()
-        cr:set_source(gears.color(palette.scrollbar_highlight))
-        cr:rectangle(x + 1, 1, math.max(0, thumb_width - 2), 1)
-        cr:fill()
-    end
-    scrollbar_panel = wibox {
-        screen = s, type = "utility", visible = false, ontop = true,
-        width = sidebar_width - 2, height = scrollbar_height,
-        x = s.geometry.x + s.geometry.width - sidebar_width + 2,
-        y = s.geometry.y + s.geometry.height - scrollbar_height,
-        bg = palette.scrollbar_track, border_width = 0, restrict_workarea = false,
+    scroll_ui = scroll_component.create {
+        screen = s, content = content, width = sidebar_width, header = header, clock = clock_card,
+        appearance = appearance, interaction = interaction, panel = function() return panel end,
+        on_scroll = function(offset) s.sidebar_scroll_position = offset end,
+        on_suppress = function(value) suppress_scroll_click = value end,
     }
-    scrollbar_panel:setup {
-        scrollbar, bg = palette.scrollbar_track, widget = wibox.container.background,
-    }
-    sidebar_column = wibox.widget.base.make_widget()
-    sidebar_column.fit = function(_, _, width, height) return width, height end
-    sidebar_column.layout = function(_, context, width, height)
-        sidebar_layout_context, sidebar_content_width = context, width
-        local header_height = header.forced_height
-        local clock_height = clock_card.forced_height
-        local fixed_height = header_height + clock_height
-        local full_viewport_height = math.max(1, height - fixed_height)
-        local _, content_height = wibox.widget.base.fit_widget(
-            sidebar_column, context, content, width, 2^20)
-        local needs_scrollbar = content_height > full_viewport_height
-        local bar_height = needs_scrollbar and scrollbar_height or 0
-        local viewport_height = math.max(1, full_viewport_height - bar_height)
-        local previous_max = scroll_max
-        scroll_content_height, scroll_viewport_height = content_height, viewport_height
-        scroll_max = math.max(0, content_height - viewport_height)
-        s.sidebar_scroll_position = math.max(0, math.min(scroll_max, s.sidebar_scroll_position))
-        scrollbar.visible, scrollbar.forced_height = needs_scrollbar, bar_height
-        scroll_view.forced_height = viewport_height
-        scrollbar_panel.visible = needs_scrollbar and panel ~= nil and panel.visible or false
-        scrollbar_panel.x = (panel and panel.x or (s.geometry.x + s.geometry.width - sidebar_width)) + 2
-        scrollbar_panel.y = (panel and panel.y or (s.geometry.y + 30))
-            + fixed_height + viewport_height
-        scrollbar_panel.width, scrollbar_panel.height = width, scrollbar_height
-        if previous_max ~= scroll_max then scrollbar:emit_signal("widget::redraw_needed") end
-        return {
-            wibox.widget.base.place_widget_at(header, 0, 0, width, header_height),
-            wibox.widget.base.place_widget_at(clock_card, 0, header_height, width, clock_height),
-            wibox.widget.base.place_widget_at(scroll_view, 0, fixed_height, width, viewport_height),
-        }
-    end
-    local function set_scroll_from_pointer(x)
-        local track_x = (panel and panel.x or (s.geometry.x + s.geometry.width - sidebar_width)) + 2
-        local track_width = sidebar_width - 2
-        local thumb_width = select(2, thumb_geometry(track_width))
-        local travel = math.max(1, track_width - thumb_width)
-        local fraction = math.max(0, math.min(1, (x - track_x - thumb_width / 2) / travel))
-        set_scroll_offset(fraction * scroll_max)
-    end
-    scrollbar:buttons(gears.table.join(awful.button({}, 1, function()
-        suppress_scroll_click = true
-        set_scroll_from_pointer(mouse.coords().x)
-        mousegrabber.run(function(pointer)
-            set_scroll_from_pointer(pointer.x)
-            if pointer.buttons[1] then return true end
-            gears.timer.start_new(0.18, function()
-                suppress_scroll_click = false
-                return false
-            end)
-            return false
-        end, "sb_h_double_arrow")
-    end)))
+    ui.add(scroll_ui.destroy)
+    s.sidebar_components = {clock = clock_ui, calendar = calendar_ui, scroll = scroll_ui}
+    local scroll_view, scrollbar, sidebar_column, scrollbar_panel =
+        scroll_ui.view, scroll_ui.bar, scroll_ui.widget, scroll_ui.bar_panel
     panel = wibox {
         screen = s, type = "dock", visible = false, ontop = false,
         width = sidebar_width, height = sidebar_height,
         x = s.geometry.x + s.geometry.width - sidebar_width, y = s.geometry.y + 30,
         bg = sidebar_gradient, fg = palette.text,
-        border_width = 0, opacity = 0.94,
+        border_width = 0, opacity = appearance.sidebar_opacity,
         shape = gears.shape.rectangle, restrict_workarea = false,
     }
+    scroll_ui.attach(panel)
     panel:setup {
         {
             {forced_width = 2, bg = "#9afff0dd", widget = wibox.container.background},
@@ -1524,9 +1033,9 @@ function sidebar.create(s, dismiss_menu)
         local heights, dragged_height = {}, 0
         for _, entry in ipairs(content_sections) do
             local card_height = entry.widget.forced_height
-            if not card_height and sidebar_layout_context then
+            if not card_height and scroll_ui.context then
                 local _, fitted_height = wibox.widget.base.fit_widget(
-                    content, sidebar_layout_context, entry.widget, sidebar_content_width, 2^20)
+                    content, scroll_ui.context, entry.widget, scroll_ui.content_width, 2^20)
                 card_height = fitted_height
             end
             card_height = card_height or 0
@@ -1550,7 +1059,11 @@ function sidebar.create(s, dismiss_menu)
         end
         return index, last, false
     end
+    local cancel_section_drag
+    ui.add(function() if cancel_section_drag then cancel_section_drag() end end)
     begin_section_drag = function(dragged)
+        if mousegrabber.isrunning() or ui.disposed then return end
+        local cancelled = false
         local origin = mouse.coords()
         local dragging, last_y, edge_direction = false, origin.y, 0
         local drop_index, target_section
@@ -1631,7 +1144,14 @@ function sidebar.create(s, dismiss_menu)
                 save_section_state()
             end
         end
+        cancel_section_drag = function()
+            cancelled = true
+            auto_scroll:stop()
+            finish_drag(false)
+            mousegrabber.stop()
+        end
         mousegrabber.run(function(pointer)
+            if cancelled or not s.valid or ui.disposed then finish_drag(false); return false end
             last_y = pointer.y
             if pointer.buttons[1] then
                 if not dragging then
@@ -1653,6 +1173,8 @@ function sidebar.create(s, dismiss_menu)
                 end
                 return true
             end
+            cancel_section_drag = nil
+            auto_scroll:stop()
             if dragging then
                 update_highlight(pointer.y)
                 finish_drag(true)
@@ -1662,7 +1184,7 @@ function sidebar.create(s, dismiss_menu)
             return false
         end, "fleur")
     end
-    panel:connect_signal("button::press", function(_, _, _, button)
+    ui.connect(panel, "button::press", function(_, _, _, button)
         if dismiss_menu then dismiss_menu() end
         local delta = button == 4 and -32 or (button == 5 and 32 or nil)
         if delta and mouse.coords().y >= panel.y + header.forced_height then scroll_by(delta) end
@@ -1672,7 +1194,7 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_scrollbar_panel = scrollbar_panel
     s.sidebar_scroll_by = scroll_by
     s.sidebar_scroll_offset = function() return s.sidebar_scroll_position end
-    s.sidebar_scroll_max = function() return scroll_max end
+    s.sidebar_scroll_max = scroll_ui.max
     s.sidebar_header = header
     s.sidebar_content_order = {}
     for _, section in ipairs(content_sections) do
@@ -1707,7 +1229,7 @@ function sidebar.create(s, dismiss_menu)
         show_previous_wallpaper, show_next_wallpaper
     s.sidebar_wallpaper_apply = apply_wallpaper
     s.sidebar_wallpaper_count = #wallpapers
-    s:connect_signal("property::geometry", function()
+    ui.connect(s, "property::geometry", function()
         if not s.valid then return end
         panel.x = s.geometry.x + s.geometry.width - sidebar_width
         panel.y = s.geometry.y + 30
@@ -1719,12 +1241,7 @@ function sidebar.create(s, dismiss_menu)
     local function update_stats(state)
         local snapshot = state.value
         if not snapshot then return end
-        clock.current_time = os.date("*t")
-        clock:emit_signal("widget::redraw_needed")
-        digital_time.markup = string.format("<span foreground='%s' size='24pt' weight='bold'>%s</span>",
-            palette.neon, os.date("%H:%M:%S"))
-        date.markup = string.format("<span foreground='%s' size='12pt' weight='bold'>%s</span>",
-            palette.teal, os.date("%A  •  %d %B %Y"))
+        clock_ui.tick()
 
         local stat = snapshot.stat
         local first_line = stat and stat:match("^([^\n]+)")
@@ -1820,7 +1337,8 @@ function sidebar.create(s, dismiss_menu)
     else
         weather_main.text = "Weather disabled in test"
     end
-    s:connect_signal("removed", function()
+    ui.connect(s, "removed", function()
+        ui.destroy()
         s.sidebar_stats_timer:stop()
         s.sidebar_volume_timer:stop()
         s.sidebar_media_timer:stop()

@@ -19,9 +19,38 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "dotfiles/.config/awesome/rc.lua"
 
 
+def selection_owner(display_name, name):
+    xlib = ctypes.CDLL("libX11.so.6")
+    xlib.XOpenDisplay.argtypes = [ctypes.c_char_p]
+    xlib.XOpenDisplay.restype = ctypes.c_void_p
+    xlib.XInternAtom.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
+    xlib.XInternAtom.restype = ctypes.c_ulong
+    xlib.XGetSelectionOwner.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+    xlib.XGetSelectionOwner.restype = ctypes.c_ulong
+    xlib.XCloseDisplay.argtypes = [ctypes.c_void_p]
+    display = xlib.XOpenDisplay(display_name.encode())
+    if not display:
+        return 0
+    try:
+        return xlib.XGetSelectionOwner(display, xlib.XInternAtom(display, name.encode(), 0))
+    finally:
+        xlib.XCloseDisplay(display)
+
+
 def main():
     if "--inside" not in sys.argv:
-        return subprocess.call(["dbus-run-session", "--", sys.executable, __file__, "--inside"])
+        return subprocess.call(["dbus-run-session", "--", sys.executable, __file__, "--inside", *sys.argv[1:]])
+    composited = "--composited" in sys.argv
+    picom_config = ROOT / "dotfiles/.config/picom/picom.conf"
+    configuration = picom_config.read_text()
+    for option, value in {"backend": '"glx"', "shadow": "false", "fading": "false",
+                          "corner-radius": "0", "blur-background": "false",
+                          "blur-background-frame": "false", "frame-opacity": "1.0",
+                          "active-opacity": "1.0", "inactive-opacity": "1.0"}.items():
+        assert re.search(rf"^\s*{re.escape(option)}\s*=\s*{re.escape(value)}\s*;", configuration, re.M), option
+    assert not re.search(r"^\s*blur\s*=", configuration, re.M)
+    if composited and not shutil.which("picom"):
+        raise SystemExit("Composited tests require Picom; no composited verification was performed")
     processes = []
     with tempfile.TemporaryDirectory(prefix="awesome-smoke-") as directory:
         directory = Path(directory)
@@ -110,6 +139,15 @@ def main():
             assert number.isdigit(), "Xvfb failed to allocate a display"
             env["DISPLAY"] = ":" + number
             with logfile.open("w") as log:
+                if composited:
+                    compositor = subprocess.Popen(["picom", "--config", str(picom_config),
+                                                   "--backend", "xrender"], env=env, stdout=log, stderr=log)
+                    processes.append(compositor)
+                    deadline = time.monotonic() + 8
+                    while not selection_owner(env["DISPLAY"], "_NET_WM_CM_S0"):
+                        if compositor.poll() is not None or time.monotonic() >= deadline:
+                            raise AssertionError("Private XRender compositor did not start:\n" + logfile.read_text())
+                        time.sleep(0.05)
                 wm = subprocess.Popen(["awesome", "-c", str(CONFIG)], env=env,
                                       stdout=log, stderr=log)
                 processes.append(wm)
@@ -494,7 +532,38 @@ def main():
                 wait('local n=0; for _,c in ipairs(client.get()) do if c.class == "Xmessage" then n=n+1 end end; return n', '2')
                 titlebar_state = lua('local r=""; for _,c in ipairs(client.get()) do if c.class == "Xmessage" then local top=c._private and c._private.titlebars and c._private.titlebars.top; r=r..tostring(c.floating)..":"..tostring(top and top.args.size)..":"..tostring(c.y)..";" end end; return r')
                 assert titlebar_state.count("true:26:") == 2, (titlebar_state, logfile.read_text())
-                control_state = lua('local controls={}; local ids={"titlebar_minimize","titlebar_maximize","titlebar_close"}; for _,child in ipairs(client.focus._private.titlebars.top.drawable.widget:get_all_children()) do if child.get_children_by_id then for _,id in ipairs(ids) do local b=child:get_children_by_id(id)[1]; if b then controls[id]=b end end end end; for _,id in ipairs(ids) do local b=controls[id]; if not b then return id..":missing" end; if b.forced_width~=21 or b.forced_height~=19 or not b.fg then return id..":geometry" end; local normal=tostring(b.bg); b:emit_signal("mouse::enter"); if tostring(b.bg)==normal then return id..":hover" end; b:emit_signal("mouse::leave"); if tostring(b.bg)~=normal then return id..":restore" end end; _G.__polish_close_button=controls.titlebar_close; return true')
+                # Real pointer gestures: mouse-down never activates; release location matters.
+                lua('_G.__gesture_client=client.focus')
+                coordinates = lua('local c=__gesture_client; return (c.x+c.width-36)..":"..(c.y+13)..":"..(c.x-20)')
+                gx, gy, outside_x = re.search(r'"(\d+):(\d+):(\d+)"', coordinates).groups()
+                def pointer(*args):
+                    subprocess.run(["xdotool", *map(str, args)], env=env, check=True, timeout=3)
+                    time.sleep(0.08)
+                pointer("mousemove", gx, gy, "mousedown", 1)
+                assert 'false' in lua('return tostring(__gesture_client.maximized)')
+                capture("titlebar-pressed")
+                pointer("mousemove", outside_x, gy, "mouseup", 1)
+                assert 'false' in lua('return tostring(__gesture_client.maximized)')
+                pointer("mousemove", gx, gy, "click", 3)
+                assert 'false' in lua('return tostring(__gesture_client.maximized)')
+                pointer("mousedown", 1, "mousemove", outside_x, gy, "mousemove", gx, gy, "mouseup", 1)
+                wait('return tostring(__gesture_client.maximized)', '"true"')
+                lua('__gesture_client.maximized=false')
+                wait('return tostring(__gesture_client.maximized)', '"false"')
+                pointer("mousemove", gx, gy, "mousedown", 1)
+                lua('__gesture_client.fullscreen=true')
+                wait('return tostring(not __gesture_client._private.release_controls.titlebar_maximize.state.armed and not mousegrabber.isrunning())', '"true"')
+                pointer("mouseup", 1)
+                lua('__gesture_client.fullscreen=false')
+                # Delayed tooltips neither appear immediately nor steal focus.
+                pointer("mousemove", 10, 600)
+                lua('_G.__gesture_tip=__gesture_client._private.titlebar_ui.tooltips[1]; __gesture_tip.hide(); __gesture_tip.show(__gesture_client)')
+                time.sleep(0.15)
+                assert 'false' in lua('return tostring(__gesture_tip.visible)')
+                wait('return tostring(__gesture_tip.visible)', '"true"')
+                assert 'true' in lua('return client.focus==__gesture_client')
+                lua('__gesture_tip.hide(); __gesture_tip=nil')
+                control_state = lua('local controls={}; local ids={"titlebar_minimize","titlebar_maximize","titlebar_close"}; for _,child in ipairs(client.focus._private.titlebars.top.drawable.widget:get_all_children()) do if child.get_children_by_id then for _,id in ipairs(ids) do local b=child:get_children_by_id(id)[1]; if b then controls[id]=b end end end end; for _,id in ipairs(ids) do local b=controls[id]; if not b then return id..":missing" end; if b.forced_width~=21 or b.forced_height~=19 or not b.fg then return id..":geometry" end; b:emit_signal("mouse::leave"); local normal=tostring(b.bg); b:emit_signal("mouse::enter"); if tostring(b.bg)==normal then return id..":hover" end; b:emit_signal("mouse::leave"); if tostring(b.bg)~=normal then return id..":restore" end end; _G.__polish_close_button=controls.titlebar_close; return true')
                 assert 'true' in control_state, control_state
                 lua('__polish_close_button:emit_signal("mouse::enter")')
                 capture("titlebar-close-hover")
@@ -625,6 +694,20 @@ def main():
                 press('Escape')
                 wait('return tostring(__awesome_quit_confirmation.wibox.visible)', '"false"')
                 assert wm.poll() is None
+                # Closing never happens on mouse-down; destroyed clients cancel their grab.
+                for name in ("AwesomeGestureCancel", "AwesomeGestureRelease"):
+                    processes.append(subprocess.Popen(["xmessage", "-name", name, "-geometry", "300x160", name], env=env, stdout=log, stderr=log))
+                    wait(f'return client.focus and client.focus.instance', name)
+                    coords = lua('_G.__closing_client=client.focus; _G.__closing_group=client.focus._private.titlebar_ui; _G.__closing_binding=client.focus._private.release_controls.titlebar_close; return (client.focus.x+client.focus.width-13)..":"..(client.focus.y+13)')
+                    cx, cy = re.search(r'"(\d+):(\d+)"', coords).groups()
+                    pointer("mousemove", cx, cy, "mousedown", 1)
+                    assert 'true' in lua('return __closing_client.valid and __closing_binding.state.armed')
+                    if name == "AwesomeGestureCancel":
+                        lua('__closing_client:kill()')
+                        wait('return tostring(__closing_group.disposed and not mousegrabber.isrunning())', '"true"')
+                    pointer("mouseup", 1)
+                    wait('return tostring(__closing_group.disposed)', '"true"')
+                    assert 'false' in lua('return tostring(__closing_binding.state.armed)')
                 # Exercise the actual Win+L binding and foreground i3lock, only on Xvfb.
                 press('super+l')
                 deadline = time.monotonic() + 8
@@ -658,12 +741,26 @@ def main():
                 press('Escape')
                 assert wm.poll() is None, 'Escape from quit confirmation must cancel'
                 # A second real screen subscribes without starting duplicate collectors.
-                assert 'true' in lua('local d=screen[1].sidebar_data; _G.__polish_requests=d.collectors.crypto.requests; screen.fake_add(1280,0,800,600); return screen[2].sidebar_data==d and d.collectors.crypto.requests==__polish_requests and screen[2].sidebar_crypto_prices.BTC.text==screen[1].sidebar_crypto_prices.BTC.text')
-                assert 'true' in lua('screen[2]:fake_remove(); local d=screen[1].sidebar_data; local n=0; for _ in pairs(d.collectors.crypto.listeners) do n=n+1 end; return screen.count()==1 and n==1 and d.collectors.crypto.timer~=nil')
+                assert 'true' in lua('local d=screen[1].sidebar_data; _G.__polish_requests=d.collectors.crypto.requests; screen.fake_add(800,0,480,600); return screen[2].sidebar_data==d and d.collectors.crypto.requests==__polish_requests and screen[2].sidebar_crypto_prices.BTC.text==screen[1].sidebar_crypto_prices.BTC.text')
+                wait('return tostring(screen[2].sidebar_scrollbar_panel.visible)', '"true"')
+                bar_point = lua('local b=screen[2].sidebar_scrollbar_panel; return (b.x+30)..":"..(b.y+6)')
+                bx, by = re.search(r'"(\d+):(\d+)"', bar_point).groups()
+                pointer("mousemove", bx, by)
+                wait('return screen[2].sidebar_scrollbar._interaction_state', 'hover')
+                pointer("mousedown", 1)
+                wait('return screen[2].sidebar_scrollbar._interaction_state', 'dragging')
+                capture("scrollbar-dragging")
+                assert 'true' in lua('_G.__removed_ui=screen[2].sidebar_ui; _G.__removed_components=screen[2].sidebar_components; __removed_ui.tooltips[1].show(screen[2].sidebar); screen[2]:fake_remove(); __removed_ui.destroy(); for _,c in pairs(__removed_components) do c.destroy() end; local d=screen[1].sidebar_data; local n=0; for _ in pairs(d.collectors.crypto.listeners) do n=n+1 end; return screen.count()==1 and n==1 and d.collectors.crypto.timer~=nil and __removed_ui.disposed and not mousegrabber.isrunning() and not __removed_components.scroll.bar_panel.visible')
+                pointer("mouseup", 1)
+                time.sleep(0.6)
+                assert 'true' in lua('for _,t in ipairs(__removed_ui.tooltips) do if t.visible then return false end end; for _,component in pairs(__removed_components) do for _,t in ipairs(component.ui.tooltips) do if t.visible then return false end end end; return true')
                 assert 'sidebar collector:' not in logfile.read_text(), logfile.read_text()
                 assert 'could not be parsed' not in logfile.read_text(), logfile.read_text()
                 lua('awesome.quit()')
                 assert wm.wait(timeout=5) == 0
+                if composited:
+                    assert compositor.poll() is None, "Private compositor exited during verification"
+                    print("PASS: private Picom/XRender compositing (production GLX driver behavior not tested)")
                 print("PASS: sidebar drag reorder/persistence/edge-scroll, native panel/widgets, Start/calendar/tray, wallpaper, fullscreen, workspaces, menus, reload and lock")
         finally:
             for pid in lock_pids:
