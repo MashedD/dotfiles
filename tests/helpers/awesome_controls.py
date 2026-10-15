@@ -146,13 +146,13 @@ def verify_titlebar_ontop(*, lua, helper, pointer, wait):
         lua('if __ontop_client and __ontop_client.valid then __ontop_client.ontop=false; __ontop_client.fullscreen=false end; __ontop_client=nil; __ontop_widget=nil; __ontop_normal=nil')
 
 
-def verify_fullscreen_decorations(*, lua, wait, x11_state):
+def verify_fullscreen_decorations(*, lua, wait, x11_state, press, request_x11_state):
     """Check published frame extents as well as outer and actual client geometry."""
     lua('__frame_client=client.focus; __frame_geometry=__frame_client:geometry()')
     def geometry_matches_saved():
         return 'local c=__frame_client; local g=__frame_geometry; return tostring(c.x==g.x and c.y==g.y and c.width==g.width and c.height==g.height)'
     def fullscreen():
-        lua('__frame_client.fullscreen=true')
+        lua('__frame_client.fullscreen=true; __frame_client:emit_signal("request::geometry","fullscreen",{store_geometry=false}); __frame_client:emit_signal("request::geometry","fullscreen",{store_geometry=false})')
         wait('local c=__frame_client; local a=c.screen.geometry; local _,top=c:titlebar_top(); local _,bottom=c:titlebar_bottom(); return tostring(c.fullscreen and top==0 and bottom==0 and c.border_width==0 and c.x==a.x and c.y==a.y and c.width==a.width and c.height==a.height)', '"true"')
         state = x11_state('__frame_client')
         assert state['extents'] == (0, 0, 0, 0), state
@@ -168,16 +168,91 @@ def verify_fullscreen_decorations(*, lua, wait, x11_state):
             fullscreen()
             lua('__frame_client.fullscreen=false')
             normal()
-        lua('__frame_client.maximized=true')
-        wait('local c=__frame_client; local a=c.screen.workarea; return tostring(c.maximized and c.x==a.x and c.y==a.y and c.width==a.width and c.height==a.height)', '"true"')
+        for _ in range(3):
+            lua('__frame_client.maximized=true')
+            wait('local c=__frame_client; local a=c.screen.workarea; return tostring(c.maximized and c.x==a.x and c.y==a.y and c.width==a.width and c.height==a.height)', '"true"')
+            fullscreen()
+            lua('__frame_client.fullscreen=false')
+            wait('local c=__frame_client; local a=c.screen.workarea; local _,top=c:titlebar_top(); local _,bottom=c:titlebar_bottom(); return tostring(c.maximized and top==26 and bottom==0 and c.x==a.x and c.y==a.y and c.width==a.width and c.height==a.height)', '"true"')
+            assert x11_state('__frame_client')['extents'][2:] == (26, 0)
+            lua('__frame_client.maximized=false')
+            normal()  # Real native restore: no direct geometry/border repair.
+        for axis in ('horizontal', 'vertical'):
+            lua(f'__frame_client.maximized_{axis}=true')
+            wait(f'return tostring(__frame_client.maximized_{axis})', '"true"')
+            lua('__partial_geometry=__frame_client:geometry()')
+            fullscreen()
+            lua('__frame_client.fullscreen=false')
+            wait('local c=__frame_client; local g=__partial_geometry; return tostring(c.x==g.x and c.y==g.y and c.width==g.width and c.height==g.height and c.border_width==2)', '"true"')
+            assert 'true' in lua(f'return __frame_client.maximized_{axis} and not __frame_client.maximized')
+            lua(f'__frame_client.maximized_{axis}=false')
+            normal()
+        lua('__frame_client.maximized=true; __frame_client.fullscreen=true; __frame_client.fullscreen=false; __frame_client.maximized=false')
+        normal()  # Deferred fullscreen/decorations work must not re-maximize.
+        lua('__frame_client.ontop=true; __frame_client.sticky=true')
         fullscreen()
+        # Awesome's C fullscreen setter itself clears ontop before geometry
+        # dispatch. Preserve that native result, rather than invent a policy here.
+        lua('__frame_native_ontop=__frame_client.ontop')
         lua('__frame_client.fullscreen=false')
-        wait('local c=__frame_client; local a=c.screen.workarea; local _,top=c:titlebar_top(); local _,bottom=c:titlebar_bottom(); return tostring(c.maximized and top==26 and bottom==0 and c.x==a.x and c.y==a.y and c.width==a.width and c.height==a.height)', '"true"')
-        assert x11_state('__frame_client')['extents'][2:] == (26, 0)
+        normal()
+        assert 'true' in lua('return __frame_client.ontop==__frame_native_ontop and __frame_client.sticky')
+        lua('__frame_client.ontop=false; __frame_client.sticky=false; __frame_native_ontop=nil')
+        # Real EWMH requests still reach native axis merging/maximize handling.
+        max_atoms = ['_NET_WM_STATE_MAXIMIZED_HORZ', '_NET_WM_STATE_MAXIMIZED_VERT']
+        request_x11_state('__frame_client', max_atoms, True)
+        wait('return tostring(__frame_client.maximized)', '"true"')
+        request_x11_state('__frame_client', ['_NET_WM_STATE_FULLSCREEN'], True)
+        wait('return tostring(__frame_client.fullscreen)', '"true"')
+        assert x11_state('__frame_client')['extents'] == (0, 0, 0, 0)
+        request_x11_state('__frame_client', ['_NET_WM_STATE_FULLSCREEN'], False)
+        wait('return tostring(not __frame_client.fullscreen and __frame_client.maximized)', '"true"')
+        # Native 4.3's paired-axis merger ignores two false statuses. Leave that
+        # handler unchanged; use the normal WM API for this final unmaximize.
+        lua('__frame_client.maximized=false')
+        wait('return tostring(not __frame_client.maximized)', '"true"')
+        normal()
+        lua('__frame_client.maximized=true; __frame_client:emit_signal("request::activate","test",{raise=true})')
+        wait('return tostring(__frame_client.maximized)', '"true"')
+        press('alt+F11')
+        wait('return tostring(__frame_client.fullscreen)', '"true"')
+        press('alt+F11')
+        wait('return tostring(not __frame_client.fullscreen and __frame_client.maximized)', '"true"')
+        lua('__frame_client.maximized=false')
+        normal()
+        verify_fullscreen_monitor_restore(lua=lua, wait=wait)
     finally:
-        # Restore the fixture explicitly: this test covers returning to maximized,
-        # not Awesome 4.3's separate nested maximize/fullscreen restore history.
-        lua('if __frame_client and __frame_client.valid then __frame_client.fullscreen=false; __frame_client.maximized=false; __frame_client.border_width=2; __frame_client:geometry(__frame_geometry) end; __frame_client=nil; __frame_geometry=nil')
+        # Failure cleanup only; all restoration assertions above precede this.
+        lua('if __frame_client and __frame_client.valid then __frame_client.fullscreen=false; __frame_client.maximized=false; __frame_client.maximized_horizontal=false; __frame_client.maximized_vertical=false; __frame_client.ontop=false; __frame_client.sticky=false; __frame_client.border_width=2; __frame_client:geometry(__frame_geometry) end; __frame_client=nil; __frame_geometry=nil; __partial_geometry=nil')
+
+
+def verify_fullscreen_monitor_restore(*, lua, wait):
+    lua('__frame_screen=__frame_client.screen; __frame_screen_geometry=__frame_screen.geometry; __frame_home_tag=__frame_screen.selected_tag; __frame_home_tags=__frame_client:tags(); __frame_sidebar_mode=__frame_screen.sidebar_mode; __frame_screen.sidebar_mode=3; __frame_screen.selected_tag:emit_signal("property::selected"); __frame_screen:fake_resize(0,0,800,800); __frame_second=screen.fake_add(800,0,480,600)')
+    bounded = '''local c=__frame_client; local a=c.screen.workarea; return tostring(not c.fullscreen
+        and not c.maximized and c.border_width==2 and c.x>=a.x and c.y>=a.y
+        and c.x+c.width+2*c.border_width<=a.x+a.width and c.y+c.height+2*c.border_width<=a.y+a.height
+        and c.screen.panel.visible and c.screen.sidebar.visible and c.screen.sidebar:struts().right==300)'''
+    try:
+        wait('return tostring(__frame_second.sidebar_mode==3 and __frame_second.sidebar.visible)', '"true"')
+        lua('__frame_client.fullscreen=true; __frame_client:move_to_screen(__frame_second); __frame_client:move_to_tag(__frame_second.selected_tag)' )
+        wait('local c=__frame_client; local a=__frame_second.geometry; return tostring(c.screen==__frame_second and c.fullscreen and c:isvisible() and not c.screen.panel.visible and c.x==a.x and c.y==a.y and c.width==a.width and c.height==a.height)', '"true"')
+        lua('__frame_client.fullscreen=false')
+        wait(bounded, '"true"')
+        assert 'true' in lua('return __frame_client.screen==__frame_second')
+        lua('__frame_client.fullscreen=true; __frame_client:move_to_screen(__frame_screen); __frame_client:move_to_tag(__frame_home_tag); __frame_client.fullscreen=false')
+        wait(bounded, '"true"')
+        assert 'true' in lua('return __frame_client.screen==__frame_screen')
+        lua('__frame_client.maximized=true')
+        wait('return tostring(__frame_client.maximized)', '"true"')
+        lua('__frame_client.fullscreen=true; __frame_client:move_to_screen(__frame_second); __frame_client:move_to_tag(__frame_second.selected_tag); __frame_client.fullscreen=false')
+        wait('local c=__frame_client; local a=__frame_second.workarea; return tostring(c.screen==__frame_second and c.maximized and not c.fullscreen and c.x==a.x and c.y==a.y and c.width==a.width and c.height==a.height)', '"true"')
+        lua('__frame_client.maximized=false')
+        wait(bounded, '"true"')
+    except Exception as error:
+        error.add_note(lua('local c=__frame_client; local a=c.screen.workarea; return "screen="..c.screen.index.." client="..c.x..","..c.y..","..c.width..","..c.height.." border="..c.border_width.." area="..a.x..","..a.y..","..a.width..","..a.height.." panel="..tostring(c.screen.panel.visible).." sidebar="..tostring(c.screen.sidebar.visible)'))
+        raise
+    finally:
+        lua('if __frame_client.valid then __frame_client.fullscreen=false; __frame_client.maximized=false; __frame_client:move_to_screen(__frame_screen) end; if __frame_second and __frame_second.valid then __frame_second:fake_remove() end; local g=__frame_screen_geometry; __frame_screen:fake_resize(g.x,g.y,g.width,g.height); __frame_screen.sidebar_mode=__frame_sidebar_mode; __frame_client:tags(__frame_home_tags); __frame_home_tag:view_only(); __frame_client:emit_signal("request::activate","test",{raise=true}); __frame_home_tag:emit_signal("property::selected"); __frame_second=nil; __frame_screen=nil; __frame_screen_geometry=nil; __frame_sidebar_mode=nil; __frame_home_tag=nil; __frame_home_tags=nil')
 
 
 def verify_fullscreen_workspaces(*, lua, wait):

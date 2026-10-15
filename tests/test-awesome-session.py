@@ -185,6 +185,46 @@ def main():
                     geometry = dict(line.split('=', 1) for line in output.splitlines())
                     return dict(extents=values, geometry=tuple(int(geometry[key]) for key in ('X', 'Y', 'WIDTH', 'HEIGHT')))
 
+                def request_x11_state(expression, names, enabled):
+                    # Send a real EWMH client request only to this private display.
+                    class Data(ctypes.Union):
+                        _fields_ = [('l', ctypes.c_long * 5), ('b', ctypes.c_char * 20)]
+                    class Message(ctypes.Structure):
+                        _fields_ = [('type', ctypes.c_int), ('serial', ctypes.c_ulong),
+                                    ('send_event', ctypes.c_int), ('display', ctypes.c_void_p),
+                                    ('window', ctypes.c_ulong), ('message_type', ctypes.c_ulong),
+                                    ('format', ctypes.c_int), ('data', Data)]
+                    class Event(ctypes.Union):
+                        _fields_ = [('message', Message), ('pad', ctypes.c_long * 24)]
+                    xlib = ctypes.CDLL('libX11.so.6')
+                    xlib.XOpenDisplay.argtypes = [ctypes.c_char_p]
+                    xlib.XOpenDisplay.restype = ctypes.c_void_p
+                    xlib.XDefaultRootWindow.argtypes = [ctypes.c_void_p]
+                    xlib.XDefaultRootWindow.restype = ctypes.c_ulong
+                    xlib.XInternAtom.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
+                    xlib.XInternAtom.restype = ctypes.c_ulong
+                    xlib.XSendEvent.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int, ctypes.c_long, ctypes.POINTER(Event)]
+                    xlib.XFlush.argtypes = [ctypes.c_void_p]
+                    xlib.XCloseDisplay.argtypes = [ctypes.c_void_p]
+                    display = xlib.XOpenDisplay(env['DISPLAY'].encode())
+                    assert display and 1 <= len(names) <= 2
+                    try:
+                        event = Event()
+                        event.message.type = 33
+                        event.message.display = display
+                        event.message.window = int(re.search(r'\d+', lua('return tostring(' + expression + '.window)')).group(0))
+                        event.message.message_type = xlib.XInternAtom(display, b'_NET_WM_STATE', 0)
+                        event.message.format = 32
+                        event.message.data.l[0] = 1 if enabled else 0
+                        for index, name in enumerate(names, 1):
+                            event.message.data.l[index] = xlib.XInternAtom(display, name.encode(), 0)
+                        event.message.data.l[3] = 1
+                        assert xlib.XSendEvent(display, xlib.XDefaultRootWindow(display), 0,
+                                              (1 << 20) | (1 << 19), ctypes.byref(event))
+                        xlib.XFlush(display)
+                    finally:
+                        xlib.XCloseDisplay(display)
+
                 def widget_point(expression, scroll=0, x=150):
                     if scroll:
                         lua(f'screen[1].sidebar_scroll_by({scroll})')
@@ -814,7 +854,8 @@ def main():
                 assert 'true' in maximum, lua('local c=client.focus; local _,b=c:titlebar_bottom(); local a=c.screen.workarea; return "border="..c.border_width.." bottom="..b.." c="..c.x..","..c.y..","..c.width..","..c.height.." area="..a.x..","..a.y..","..a.width..","..a.height')
                 lua('client.focus.maximized=false')
                 assert 'true' in lua('local c=client.focus; local _,b=c:titlebar_bottom(); return c.border_width == 2 and b == 10')
-                awesome_controls.verify_fullscreen_decorations(lua=lua, wait=wait, x11_state=x11_state)
+                awesome_controls.verify_fullscreen_decorations(lua=lua, wait=wait, x11_state=x11_state,
+                                                              press=press, request_x11_state=request_x11_state)
                 press('super+shift+s')
                 press('super+shift+s')
                 press('super+shift+s')
@@ -865,7 +906,7 @@ def main():
                 wait('return tostring(__awesome_quit_confirmation.wibox.visible)', '"false"')
                 assert wm.poll() is None
                 # Closing never happens on mouse-down; destroyed clients cancel their grab.
-                for name in ("AwesomeGestureCancel", "AwesomeGestureRelease", "AwesomeOntopCancel"):
+                for name in ("AwesomeGestureCancel", "AwesomeGestureRelease", "AwesomeOntopCancel", "AwesomeFramePending"):
                     processes.append(subprocess.Popen(["xmessage", "-name", name, "-geometry", "300x160", name], env=env, stdout=log, stderr=log))
                     wait(f'return client.focus and client.focus.instance', name)
                     control = 'titlebar_ontop' if name == 'AwesomeOntopCancel' else 'titlebar_close'
@@ -874,8 +915,11 @@ def main():
                     cx, cy = re.search(r'"(\d+):(\d+)"', coords).groups()
                     pointer("mousemove", cx, cy, "mousedown", 1)
                     assert 'true' in lua('return __closing_client.valid and __closing_binding.state.armed')
-                    if name in ("AwesomeGestureCancel", "AwesomeOntopCancel"):
-                        lua('__closing_client:kill()')
+                    if name in ("AwesomeGestureCancel", "AwesomeOntopCancel", "AwesomeFramePending"):
+                        if name == 'AwesomeFramePending':
+                            lua('__closing_client.fullscreen=true; __closing_client:kill()')
+                        else:
+                            lua('__closing_client:kill()')
                         wait('return tostring(__closing_group.disposed and not mousegrabber.isrunning())', '"true"')
                     pointer("mouseup", 1)
                     wait('return tostring(__closing_group.disposed)', '"true"')

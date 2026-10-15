@@ -9,6 +9,7 @@ menubar.utils.terminal = "kitty"
 local config_dir = awesome.conffile:match("^(.*)/") or "."
 local appearance = dofile(config_dir .. "/appearance.lua")
 local interaction = dofile(config_dir .. "/interaction.lua")
+local fullscreen_geometry = dofile(config_dir .. "/fullscreen-geometry.lua").install(client, awful, gears)
 dofile(config_dir .. "/menu-release.lua").install(require("awful.menu"), interaction, awful, gears)
 local panel = dofile(config_dir .. "/panel.lua")
 local sidebar = dofile(config_dir .. "/sidebar.lua")
@@ -585,15 +586,11 @@ local function update_decorations(c)
         -- Showing decorations expands the outer frame; keep the geometry that
         -- Awesome just restored rather than growing the window on every exit.
         c:geometry(geometry)
+        if c.maximized_horizontal or c.maximized_vertical then fullscreen_geometry.queue_refit(c) end
     elseif changed then
-        -- Refit after the decoration change without replacing restore geometry.
-        gears.timer.delayed_call(function()
-            if c.valid and (c.maximized or c.fullscreen) then
-                awful.placement.maximize(c, {honor_workarea = not c.fullscreen,
-                    honor_padding = not c.fullscreen, store_geometry = false,
-                    ignore_border_width = true})
-            end
-        end)
+        -- Coalesce decoration repairs; inspect current state when the call runs.
+        -- The fullscreen dispatcher keeps native maximize history untouched.
+        fullscreen_geometry.queue_refit(c)
     end
 end
 client.connect_signal("property::maximized", update_decorations)

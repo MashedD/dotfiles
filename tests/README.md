@@ -46,7 +46,10 @@ checks the native 30px panel/strut, date, volume controls (mocked audio commands
 Start menu, calendar, XEmbed tray ownership, wallpaper, plain corner resizing,
 borderless maximization/fullscreen, zero fullscreen `_NET_FRAME_EXTENTS` and
 screen-sized native client bounds (not just WM outer geometry), repeated floating
-fullscreen round trips without size drift, maximized fullscreen/titlebar restoration,
+fullscreen round trips without size drift, complete maximize → fullscreen → exit →
+unmaximize restoration (including original border/geometry), axis-only maximization,
+real fullscreen EWMH requests, rapid transitions, pending-refit destruction and
+cross-monitor workarea fitting,
 workspace-aware panel/sidebar restoration
 (including repeated switches, client retagging, sticky/hidden/minimized states),
 floating clients/titlebars, four tags,
@@ -71,6 +74,12 @@ cover irregular timing, direction changes, inactive edges and lifecycle resets.
 
 `test-desktop-check.py` uses isolated command/theme/font fixtures to verify quiet and
 verbose output, warning/failure exits, validator diagnostics and read-only behavior.
+`test-awesome-fullscreen.lua` checks geometry delegation, independent restore state,
+missing state, reentrancy/error cleanup, refit coalescing and installation with fake
+clients. The private restore tests assert native results before fixture cleanup;
+they do not repair geometry or borders to obtain a passing restoration assertion.
+The native paired-axis EWMH removal limitation and native fullscreen `ontop` reset
+are left unchanged; removal uses the regular WM API after testing EWMH entry.
 `test-awesome-battery.lua` covers async laptop reads, aggregation, failures, zero
 values, cancellation and late callbacks with fake I/O; shared-collector tests verify
 pending/stale behavior and final-subscriber cancellation. No real battery reads run

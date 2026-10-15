@@ -2,6 +2,11 @@
 
 `rc.lua` composes the session, window rules, titlebar controls, and menus.
 `appearance.lua` owns shared palettes, gradients, opacity, and status thresholds.
+`fullscreen-geometry.lua` separates fullscreen return state from Awesome 4.3's
+native maximize history. It delegates other geometry contexts unchanged, coalesces
+refits, and fits monitor-moved windows without replacing their native maximize
+restore history. Native stacking policy is unchanged (Awesome itself clears
+`ontop` when entering fullscreen); no extra sticky/always-on-top policy is added.
 `interaction.lua` provides a release-to-activate state machine, deduplicated button
 bindings, shared mouse-grab ownership, elapsed-time transitions, and lifetime groups that
 disconnect signals and cancel delayed tooltips.
