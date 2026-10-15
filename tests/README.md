@@ -2,6 +2,8 @@
 
 Opt-in idle audit (about 13 minutes; passive live sampling, then private fixtures):
 `python3 tests/audit-awesome-idle.py`. See [measurements and limitations](../docs/idle-performance.md).
+Focused read-only stats probe: `lua5.3 tests/probe-awesome-stats.lua` (60 samples,
+requires lgi for that Lua version); [results and usage](../docs/idle-performance.md#follow-up-exact-statistics-io-2026-10-15).
 
 From any directory, invoke the repository's runner:
 

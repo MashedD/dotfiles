@@ -126,3 +126,61 @@ The profiler does not isolate individual battery/proc/filesystem reads or render
 Raw run artifacts: `/tmp/awesome-idle-audit.json` and `.md` (ephemeral; rerun the command
 to regenerate). No optimization, daemon, dependency, live-service change or default
 README expansion was introduced by this audit.
+
+## Follow-up: exact statistics I/O, 2026-10-15
+
+```sh
+lua5.3 tests/probe-awesome-stats.lua             # 60 samples, 1 s sleep between batches
+lua5.3 tests/probe-awesome-stats.lua --control   # fake/no-I/O overhead, no sleeping
+```
+
+Use a Lua interpreter with lgi/Gio/GLib. On this machine Awesome uses Lua 5.3.6
+(`lua53 5.3.6-4.1`, `lua53-lgi 0.9.2-14`); the default `lua` is 5.5.1 and has no lgi.
+No packages were installed. The real default probe was run once, standalone, without
+concurrent private Awesome sessions, on the same `7.2.9-2-cachyos` kernel. Live Awesome
+continued its normal polling; no injection, service calls or signals were used.
+
+The probe preserves the production order, Gio calls, battery selection/averaging and
+network parsing. It times collection only: no widgets, notifications or rendering.
+One second of sleep follows each batch, so the observed ~103 ms batch produces about
+1.1 seconds between starts, not an accelerated hardware poll. Nested rows are
+inclusive and must not be summed. File durations cover open + read-all + close.
+
+| Operation | Successful samples | Median ms | p95 ms | Maximum ms |
+| --- | ---: | ---: | ---: | ---: |
+| Total batch | 60 | 103.360 | 104.368 | 104.977 |
+| Battery subsystem | 60 | 102.723 | 103.471 | 103.737 |
+| **BAT1/capacity** | **60** | **101.959** | **102.435** | **102.771** |
+| BAT1/status | 60 | 0.068 | 0.089 | 0.117 |
+| BAT1/type | 60 | 0.040 | 0.059 | 0.075 |
+| Logitech hidpp_battery_0/capacity | 60 | 0.037 | 0.051 | 0.165 |
+| Logitech hidpp_battery_0/status | 60 | 0.036 | 0.050 | 0.053 |
+| Filesystem subsystem | 60 | 0.239 | 0.329 | 3.053 |
+| Network read + parsing | 60 | 0.219 | 0.357 | 0.746 |
+| /proc/stat | 60 | 0.105 | 0.139 | 0.347 |
+| /proc/meminfo | 60 | 0.046 | 0.062 | 0.075 |
+
+Enumeration open/next/close maxima were 0.182/0.230/0.053 ms. All real samples
+succeeded; missing/error timings were not represented as zero-cost successes.
+The 60-batch fake/no-I/O control, using the same three-supply enumeration shape,
+measured total median 0.123 ms, p95 0.192 ms, maximum 0.275 ms. This bounds the
+scale of observed instrumentation/control overhead, not an exact overhead subtraction:
+the fake calls are not real Gio/sysfs operations and the control is warm/no-sleep.
+
+**Conclusion:** the laptop's `/sys/class/power_supply/BAT1/capacity` operation is
+the demonstrated blocker. Its ~102 ms delay accounts for nearly all the standalone
+batch time and reproduces the previous ~105 ms collector tail. The Logitech mouse
+read is not the culprit in this run. Different cadence, concurrent live reads and
+kernel/device caching can explain differing distributions; this measurement does
+not identify the underlying ACPI/kernel/firmware cause or quantify CPU savings.
+
+**Smallest next fix to plan:** move the slow laptop-capacity sampling off Awesome's
+main loop, using the existing shared collector lifecycle and unchanged cadence.
+Keep fast proc/network/filesystem reads and per-screen widgets unchanged; explicitly
+test pending requests, unplug/read failures, late completions, and last-sample/error
+semantics. Verify the chosen async API really performs this sysfs read off the main
+thread. Do not add a daemon or redesign every collector based on this result.
+No production fix is part of this diagnostic pass.
+
+Artifacts: `/tmp/stats-probe-60.log` and `/tmp/stats-probe-control.log` are ephemeral.
+A separate one-sample smoke check verified invocation outside the repository root.
