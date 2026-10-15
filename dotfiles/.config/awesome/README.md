@@ -25,6 +25,11 @@ one-second stats collector waits without blocking the main loop. Pending request
 do not overlap, become stale normally, and are cancelled when the last subscriber
 leaves; late callbacks cannot update a replacement collector generation. Missing
 capacity values still remove that battery from the sample, as before.
+`sidebar-keyboard.lua` owns modal Win+S navigation; `sidebar-keyboard-view.lua`
+adapts native grabs, clipped focus outlines, scrolling and lifecycle cancellation.
+`keyboard-shortcuts.lua` dispatches the existing WM callbacks without synthesizing
+input; application-only input requires Escape first. Calendar keyboard arithmetic
+lives with the calendar component. See [keyboard usage](../../../docs/desktop.md#sidebar-keyboard-navigation).
 `sidebar-launch.lua` rechecks executable availability on hover/click and reports
 immediate failures without disabling entries or waiting for application exit.
 `menu-release.lua` adapts native `awful.menu` entries with an in-content pressed overlay

@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT / "tests/helpers"))
 import awesome_controls
 from awesome_lock import PrivateLock
 import awesome_titlebars
+import awesome_keyboard
 
 CONFIG = ROOT / "dotfiles/.config/awesome/rc.lua"
 
@@ -404,18 +405,6 @@ def main():
                         return None
                     return tuple(map(int, match.groups()))
 
-                def drag_between(start, end):
-                    sx, sy = start[:2]
-                    ex, ey = end[:2]
-                    subprocess.run(["xdotool", "mousemove", str(sx), str(sy), "mousedown", "1"],
-                                   env=env, check=True, timeout=3)
-                    try:
-                        subprocess.run(["xdotool", "mousemove", "--sync", str(ex), str(ey)],
-                                       env=env, check=True, timeout=3)
-                        time.sleep(0.12)
-                    finally:
-                        subprocess.run(["xdotool", "mouseup", "1"], env=env, check=True, timeout=3)
-
                 def press(keys):
                     subprocess.run(["xdotool", "key", "--clearmodifiers", keys], env=env,
                                    check=True, timeout=3)
@@ -562,7 +551,8 @@ def main():
                 source = sidebar_title_point("calendar", reset_scroll=True)
                 target = sidebar_title_point("quick-launch")
                 assert source and target, f"Could not locate visible reorder titles: {source}, {target}"
-                drag_between(source, target)
+                awesome_controls.verify_reorder_drag(start=source,end=target,section='calendar',
+                    lua=lua,pointer=pointer,wait=wait)
                 first_reordered = "todo,calendar,quick-launch,system-status,codex,crypto,weather,now-playing,wallpaper"
                 wait('return table.concat(screen[1].sidebar_content_order, ",")', f'"{first_reordered}"')
                 click_sidebar_title("calendar")
@@ -807,6 +797,9 @@ def main():
                 assert 'true' in lua('return screen[1].selected_tag.index==1 and not mousegrabber.isrunning()')
                 lua('__workspace_state_client=nil')
                 check_titlebars()
+                run_timed('keyboard', lambda: awesome_keyboard.verify(
+                    lua=lua,press=press,pointer=pointer,wait=wait,env=env,visual=visual,
+                    compare_visual=compare_visual))
                 if os.environ.get("AWESOME_TEST_SCREENSHOTS"):
                     shots = Path(os.environ["AWESOME_TEST_SCREENSHOTS"])
                     shots.mkdir(parents=True, exist_ok=True)

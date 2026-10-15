@@ -8,6 +8,34 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / 'helpers'))
 import awesome_controls
 
 
+class ReorderDragTests(unittest.TestCase):
+    def test_acquisition_feedback_release_and_failures(self):
+        for failure in (None, 1, 2):
+            calls=[]
+            waits=[0]
+            def pointer(*args): calls.append(('pointer',args))
+            def wait(code,expected):
+                waits[0]+=1
+                calls.append(('wait',expected))
+                if waits[0]==failure: raise AssertionError('bounded barrier failed')
+            def run():
+                awesome_controls.verify_reorder_drag(start=(100,200),end=(100,400),section='calendar',
+                    lua=lambda _: 'string "false"',pointer=pointer,wait=wait)
+            if failure:
+                with self.assertRaisesRegex(AssertionError,'bounded barrier failed'): run()
+            else: run()
+            self.assertEqual(calls[0],('pointer',('mousemove',100,200,'mousedown',1)))
+            self.assertEqual(calls[1],('wait','grab=true:button=true'))
+            releases=[call for call in calls if call==('pointer',('mouseup',1))]
+            self.assertEqual(len(releases),1)
+            if failure==1:
+                self.assertNotIn(('pointer',('mousemove','--sync',100,400)),calls)
+            else:
+                self.assertEqual(calls[2],('pointer',('mousemove','--sync',100,400)))
+                self.assertEqual(calls[3],('wait','#ffffff'))
+            if not failure:self.assertEqual(calls[-1],('wait','grab=false:button=false'))
+
+
 class EdgeScrollTests(unittest.TestCase):
     def run_drag(self, blocked=None):
         now = [0.0]

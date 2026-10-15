@@ -45,6 +45,22 @@ function M.read(path, include_all)
     for i = 1, math.min(3, #future) do entries[#entries + 1] = future[i] end
     return entries
 end
+-- Calendar arithmetic uses local noon, including across DST boundaries.
+function M.move_date(date, key, today)
+    local y,m,d=date:match('^(%d+)%-(%d+)%-(%d+)$')
+    y,m,d=tonumber(y),tonumber(m),tonumber(d)
+    if not y or not m or not d then return end
+    local days={Left=-1,Right=1,Up=-7,Down=7}
+    if days[key] then d=d+days[key]
+    elseif key=='Page_Up' or key=='Page_Down' then
+        local month=os.date('*t',os.time{year=y,month=m+(key=='Page_Up' and -1 or 1),day=1,hour=12})
+        y,m=month.year,month.month
+        d=math.min(d,tonumber(os.date('%d',os.time{year=y,month=m+1,day=0,hour=12})))
+    elseif key=='Home' then return today or os.date('%Y-%m-%d')
+    elseif key=='End' then d=tonumber(os.date('%d',os.time{year=y,month=m+1,day=0,hour=12}))
+    elseif key~='Current' then return end
+    return os.date('%Y-%m-%d',os.time{year=y,month=m,day=d,hour=12})
+end
 if not awesome then return M end
 local awful = require("awful")
 local gears = require("gears")
@@ -188,6 +204,17 @@ function M.create(options)
         options.on_entries(entries)
         render()
     end
+    function component.keyboard_key(key)
+        if ui.disposed or options.blocked() then return false end
+        local base = cells[selected] and selected or os.date('%Y-%m-01',view_month)
+        local date = M.move_date(base,key)
+        if not date then return false end
+        selected=date
+        view_month=os.time{year=tonumber(date:sub(1,4)),month=tonumber(date:sub(6,7)),day=1,hour=12}
+        render()
+        return true
+    end
+    function component.keyboard_cell() return cells[selected] or cells[os.date('%Y-%m-01',view_month)] end
     function component.month() return os.date("%Y-%m", view_month) end
     function component.selected_date() return selected end
     function component.day_cells() return cells end

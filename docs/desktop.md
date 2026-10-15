@@ -216,6 +216,7 @@ maintainer-guided driver isolation; avoid partial Arch package upgrades.
 - Win+1–4: switch desktop; Win+Shift+1–4: move focused window and follow
 - Win+Enter: kitty; Win+R: application finder; Win+E: pcmanfm
 - Win+L: lock screen; Win+P: output menu; Win+Shift+Q: confirmed quit
+- Win+S: sidebar keyboard navigation; Win+Shift+S: cycle sidebar visibility modes
 - Print: full screenshot; Alt+Print: focused window; Shift+Print: selected region
 - Media and brightness keys use the shared desktop helpers
 - Awesome desktop menu: **Reapply Display Layout** runs the same serialized layout pass
@@ -224,6 +225,41 @@ Screenshots are captured into `~/Pictures/Screenshots` only after a successful
 capture, then copied to the clipboard. A cancelled region selection leaves
 existing clipboard contents and saved screenshots unchanged; a clipboard
 failure keeps the saved PNG and prints its path.
+
+## Sidebar keyboard navigation
+
+**Win+S** enters/exits navigation on the focused screen; **Escape** exits. A green
+inset outline identifies the selected control without changing window focus.
+The sidebar must already be visible: use Win+Shift+S first if hidden. A visible
+sidebar below windows is raised temporarily; exit restores its current mode's
+stacking without changing struts or window geometry. Entry is refused during
+fullscreen or another input grab.
+
+Navigation is **modal**: press Escape before typing or using application-only
+shortcuts. Unrecognized application input is ignored, never replayed. Existing
+WM shortcuts (including Alt+Space, workspace, media, lock, and quit shortcuts)
+exit navigation and run their original callbacks. A bare Win tap exits and opens
+Start. No synthetic keystrokes or modifier changes are used.
+
+- Tab/Shift+Tab move between controls and wrap; Up/Down do likewise outside the
+  calendar grid. Home/End select the first/last control outside the grid.
+- Enter/Space activate controls. Section headers fold/expand; Left/Right explicitly
+  collapse/expand them. Local adjustments retain navigation. Opening an app or
+  document, opening the mixer, or requesting Sleep exits first.
+- On volume: Left/Right adjust, Space toggles mute, Enter opens the mixer.
+- The calendar grid is one focus stop. Left/Right select a day; Up/Down select a
+  week. Page Up/Down change month, clamping the day if needed; Home selects today,
+  End selects the month's last day. Enter/Space opens `calendar.md`. Date changes
+  update the displayed events immediately. Month-arrow buttons remain separate.
+- Offscreen controls scroll into view. Folded sections expose their headers (and
+  the Quick Launch header's Trash link); navigation follows the current section
+  order. Calendar refreshes keep a valid focus target.
+
+Mouse interaction, application focus/workspace changes, hiding, fullscreen, and
+screen removal/geometry changes end navigation. Selection is not persisted;
+normal calendar/fold/scroll changes remain as with mouse use. Section reordering
+and scrollbar dragging remain mouse operations. No new service or dependency is
+required.
 
 ## Session behavior and reloads
 

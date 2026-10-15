@@ -22,6 +22,21 @@ _EDGE_SCROLL_STATE = '''
 '''
 
 
+def verify_reorder_drag(*, start, end, section, lua, pointer, wait):
+    """Acquire before moving; observe threshold feedback before releasing once."""
+    assert 'false' in lua('return tostring(mousegrabber.isrunning())')
+    try:
+        pointer('mousemove', *start[:2], 'mousedown', 1)
+        wait('return "grab="..tostring(mousegrabber.isrunning())..":button="..tostring(mouse.coords().buttons[1]==true)',
+             'grab=true:button=true')
+        pointer('mousemove', '--sync', *end[:2])
+        wait('return tostring(screen[1].sidebar_sections[%r].header.border_color)' % section, '#ffffff')
+    finally:
+        pointer('mouseup', 1)
+    wait('return "grab="..tostring(mousegrabber.isrunning())..":button="..tostring(mouse.coords().buttons[1]==true)',
+         'grab=false:button=false')
+
+
 def verify_sidebar_edge_scroll(*, lua, pointer, sidebar_title_point, log_text):
     """Real pointer drag with bounded, observable stages; never retry the drag."""
     stage, edge, initial, last = "locate", None, None, None

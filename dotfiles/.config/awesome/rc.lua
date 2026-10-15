@@ -9,6 +9,7 @@ menubar.utils.terminal = "kitty"
 local config_dir = awesome.conffile:match("^(.*)/") or "."
 local appearance = dofile(config_dir .. "/appearance.lua")
 local interaction = dofile(config_dir .. "/interaction.lua")
+local keyboard_shortcuts = dofile(config_dir .. "/keyboard-shortcuts.lua").new()
 local titlebar_layout = dofile(config_dir .. "/titlebar-layout.lua")
 local fullscreen_geometry = dofile(config_dir .. "/fullscreen-geometry.lua").install(client, awful, gears)
 dofile(config_dir .. "/menu-release.lua").install(require("awful.menu"), interaction, awful, gears)
@@ -364,6 +365,11 @@ awful.screen.connect_for_each_screen(function(s)
     wallpaper(s)
     panel.create(s, main_menu, activate, window_menu, interaction)
     sidebar.create(s, dismiss_start_menu)
+    s.sidebar_update_mode = function() if update_sidebar_mode then update_sidebar_mode(s) end end
+    s.sidebar_keyboard_shortcut = function(modifiers,key)
+        return keyboard_shortcuts.find(modifiers,key,client.focus)
+    end
+    s.sidebar_keyboard_start_menu = function() toggle_start_menu(s) end
     s.sidebar_mode = 3
     if update_sidebar_mode then update_sidebar_mode(s) end
 end)
@@ -380,10 +386,12 @@ update_sidebar_mode = function(s)
     if not s or not s.valid or not s.sidebar or (s.sidebar_ui and s.sidebar_ui.disposed) then return end
     local mode = s.sidebar_mode or 0
     local fullscreen = screen_has_fullscreen(s)
+    s.sidebar_keyboard_allowed = function() return s.valid and not screen_has_fullscreen(s) end
+    if s.sidebar_keyboard and s.sidebar_keyboard.active and (mode == 0 or fullscreen) then s.sidebar_keyboard.stop() end
     local reserve = mode == 3 and not fullscreen
     s.sidebar.visible = mode > 0 and not (mode == 3 and fullscreen)
     if s.panel_clock_container then s.panel_clock_container.visible = not s.sidebar.visible end
-    s.sidebar.ontop = mode == 2 or mode == 3
+    s.sidebar.ontop = mode == 2 or mode == 3 or (s.sidebar_keyboard and s.sidebar_keyboard.active) or false
     if s.sidebar_scrollbar_panel then
         s.sidebar_scrollbar_panel.visible = s.sidebar.visible and s.sidebar_scrollbar.visible
         s.sidebar_scrollbar_panel.ontop = s.sidebar.ontop
@@ -415,6 +423,7 @@ local function key(modifiers, name, callback)
             break
         end
     end
+    keyboard_shortcuts.add(modifiers,name,callback)
     globalkeys = gears.table.join(globalkeys, awful.key(modifiers, name, callback))
 end
 key({mod}, "Return", function() run("kitty") end)
@@ -428,6 +437,10 @@ key({mod}, "l", function() helper("lock") end)
 key({mod}, "d", toggle_desktop)
 key({mod, "Shift"}, "s", function()
     cycle_sidebar_mode(awful.screen.focused())
+end)
+key({mod}, "s", function()
+    local s = awful.screen.focused()
+    if s and s.sidebar_keyboard then s.sidebar_keyboard.toggle() end
 end)
 key({"Mod1"}, "Tab", function() cycle(1) end)
 key({"Mod1", "Shift"}, "Tab", function() cycle(-1) end)
@@ -504,27 +517,42 @@ globalkeys = gears.table.join(globalkeys,
     awful.key({}, "Super_L", on_super_press),
     awful.key({}, "Super_R", on_super_press))
 root.keys(globalkeys)
+local function cancel_sidebar_keyboard()
+    for s in screen do if s.sidebar_keyboard then s.sidebar_keyboard.stop() end end
+end
+local function mouse_action(action)
+    return function(...)
+        cancel_sidebar_keyboard()
+        return action(...)
+    end
+end
 root.buttons(gears.table.join(
-    awful.button({}, 1, dismiss_start_menu),
-    awful.button({}, 3, function() main_menu:toggle() end),
-    awful.button({}, 2, function() awful.menu.client_list({theme = {width = 250}}) end),
-    awful.button({}, 4, function() adjacent_tag(-1, false, false, true) end),
-    awful.button({}, 5, function() adjacent_tag(1, false, false, true) end)
+    awful.button({}, 1, mouse_action(dismiss_start_menu)),
+    awful.button({}, 3, mouse_action(function() main_menu:toggle() end)),
+    awful.button({}, 2, mouse_action(function() awful.menu.client_list({theme = {width = 250}}) end)),
+    awful.button({}, 4, mouse_action(function() adjacent_tag(-1, false, false, true) end)),
+    awful.button({}, 5, mouse_action(function() adjacent_tag(1, false, false, true) end))
 ))
+local function clientkey(modifiers,name,callback)
+    keyboard_shortcuts.add(modifiers,name,callback,true)
+    return awful.key(modifiers,name,callback)
+end
 local clientkeys = gears.table.join(
-    awful.key({"Mod1"}, "F4", function(c) c:kill() end),
-    awful.key({"Mod1"}, "F11", function(c) c.fullscreen = not c.fullscreen; c:raise() end),
-    awful.key({"Mod1"}, "Escape", lower),
-    awful.key({"Mod1"}, "space", window_menu)
+    clientkey({"Mod1"}, "F4", function(c) c:kill() end),
+    clientkey({"Mod1"}, "F11", function(c) c.fullscreen = not c.fullscreen; c:raise() end),
+    clientkey({"Mod1"}, "Escape", lower),
+    clientkey({"Mod1"}, "space", window_menu)
 )
 local clientbuttons = gears.table.join(
-    awful.button({}, 1, activate),
+    awful.button({}, 1, mouse_action(activate)),
     awful.button({mod}, 1, function(c)
+        cancel_sidebar_keyboard()
         mark_super_combo()
         activate(c)
         awful.mouse.client.move(c)
     end),
     awful.button({mod}, 3, function(c)
+        cancel_sidebar_keyboard()
         mark_super_combo()
         activate(c)
         awful.mouse.client.resize(c)

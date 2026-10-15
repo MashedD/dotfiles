@@ -157,6 +157,19 @@ narrow title dragging/double-clicking, omitted-control press/tooltip cancellatio
 and exact wide-titlebar pixel comparison against the historical layout. It also
 checks always-on-top release/cancellation and external state synchronization
 (including hidden/destroyed controls), and rejects Pango color errors.
+The full session also runs `helpers/awesome_keyboard.py`: modal Win+S navigation,
+calendar day/week/month selection, section folding, volume/mixer/document actions,
+ignored application input, Lock/NumLock handling, direct WM-shortcut dispatch,
+Escape/Win-tap/menu handoffs, temporary raising without changed struts, mouse
+handoff, competing grabs, fullscreen and multi-screen teardown. External launch,
+suspend and lock commands are stubbed for this audit, then restored before the
+existing private real-lock checks. Visual runs compare an active focus outline and
+exactly restored inactive header pixels. `test-awesome-keyboard.lua` covers the
+controller, callback registry and local-noon calendar arithmetic without X11;
+run it with `TZ=Europe/Warsaw` too to exercise DST boundaries. The simple reorder
+drag now waits for acquisition and threshold feedback, with unit failure-path
+checks; final ordering assertions and existing timeouts are unchanged.
+
 `tests/helpers/awesome-ui.lua` contains private-session inspection helpers; it is loaded
 and cached only in the isolated Awesome process, then naturally reloaded after a
 complete process restart. `tests/helpers/awesome_controls.py` groups menu and workspace

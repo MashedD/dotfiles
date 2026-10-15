@@ -15,6 +15,7 @@ local clock_component = dofile(config_dir .. "/sidebar-clock.lua")
 local calendar_component = dofile(config_dir .. "/sidebar-calendar.lua")
 local scroll_component = dofile(config_dir .. "/sidebar-scroll.lua")
 local launcher = dofile(config_dir .. "/sidebar-launch.lua")
+local keyboard_view = dofile(config_dir .. "/sidebar-keyboard-view.lua")
 local weather_enabled = os.getenv("AWESOME_TEST_MODE") ~= "1" or os.getenv("AWESOME_TEST_WEATHER") == "1"
 local palette = appearance.palette
 local sidebar_gradient = appearance.forest(300)
@@ -380,6 +381,7 @@ function sidebar.create(s, dismiss_menu)
                 widget.border_color = pressed and palette.neon or (hovered and palette.teal or palette.bevel_light)
             end,
         }, ui)
+        widget._sidebar_keyboard_action = callback
         widget._sidebar_release_binding = binding
         return binding
     end
@@ -749,12 +751,12 @@ function sidebar.create(s, dismiss_menu)
             "<span foreground='%s' size='9pt' weight='bold'>%s</span>", color, text))
         s.sidebar_trash_full = full
     end
-    trash_status:buttons(gears.table.join(awful.button({}, 1, function()
-        awful.spawn({"pcmanfm", "trash:///"})
-    end)))
+    local function open_trash() awful.spawn({"pcmanfm", "trash:///"}) end
+    trash_status:buttons(gears.table.join(awful.button({}, 1, open_trash)))
     if dismiss_menu then trash_status:connect_signal("button::press", dismiss_menu) end
 
     local home = os.getenv("HOME") or ""
+    local keyboard_launches = {}
     local launch_rows = wibox.layout.fixed.vertical()
     launch_rows.spacing = 2
     local function launch_row(items)
@@ -769,6 +771,8 @@ function sidebar.create(s, dismiss_menu)
             ui.tip(button, function() return launcher.tooltip(entry) end)
             s.sidebar_quick_launch_buttons = s.sidebar_quick_launch_buttons or {}
             s.sidebar_quick_launch_buttons[item[1]] = {widget = button, entry = entry}
+            keyboard_launches[#keyboard_launches+1] = {id='quick-launch:'..item[1], widget=button,
+                activate=button._sidebar_keyboard_action, exit=true, section='quick-launch'}
             row:add(button)
         end
         return wibox.widget {
@@ -880,8 +884,9 @@ function sidebar.create(s, dismiss_menu)
     local function change_volume(action)
         data.command({os.getenv("HOME") .. "/.local/bin/desktop-volume", action}, function() return true end, update_volume)
     end
+    local function open_mixer() awful.spawn("pavucontrol") end
     volume_control:buttons(gears.table.join(
-        awful.button({}, 1, function() awful.spawn("pavucontrol") end),
+        awful.button({}, 1, open_mixer),
         awful.button({}, 2, function() change_volume("mute") end),
         awful.button({}, 3, function() change_volume("mute") end)
     ))
@@ -1218,6 +1223,59 @@ function sidebar.create(s, dismiss_menu)
         if delta and mouse.coords().y >= panel.y + header.forced_height then scroll_by(delta) end
     end)
     s.sidebar = panel
+    local keyboard_targets = {}
+    local function target(section,id,widget,activate,exit,key,space,resolve)
+        local entries=keyboard_targets[section] or {}
+        keyboard_targets[section]=entries
+        entries[#entries+1]={id=section..':'..id, section=section, widget=widget,
+            activate=activate, exit=exit, key=key, space=space, resolve=resolve}
+    end
+    for _,entry in ipairs(keyboard_launches) do
+        keyboard_targets['quick-launch']=keyboard_targets['quick-launch'] or {}
+        table.insert(keyboard_targets['quick-launch'],entry)
+    end
+    target('wallpaper','apply',preview,apply_wallpaper)
+    target('wallpaper','previous',previous_wallpaper,show_previous_wallpaper)
+    target('wallpaper','next',next_wallpaper,show_next_wallpaper)
+    for _,entry in ipairs({{'previous',media_previous},{'toggle',media_toggle},{'next',media_next}}) do
+        target('now-playing',entry[1],entry[2],entry[2]._sidebar_keyboard_action)
+    end
+    target('system-status','volume',volume_control,open_mixer,true,
+        function(key)
+            if key~='Left' and key~='Right' then return false end
+            change_volume(key=='Left' and 'down' or 'up'); return true
+        end,function() change_volume('mute') end)
+    if weather_enabled then target('weather','refresh',weather_body,update_weather) end
+    target('crypto','open',crypto_body,open_trezor_suite,true)
+    target('todo','open',todo_body,open_todo_document,true)
+    target('calendar','previous',calendar_ui.previous,calendar_ui.previous._sidebar_keyboard_action)
+    target('calendar','next',calendar_ui.next,calendar_ui.next._sidebar_keyboard_action)
+    target('calendar','grid',calendar_ui.grid,function()
+        calendar_ui.keyboard_key('Current'); open_calendar_document()
+    end,true,calendar_ui.keyboard_key,nil,calendar_ui.keyboard_cell)
+    target('calendar','open',calendar_ui.events,open_calendar_document,true,nil,nil,
+        function() return calendar_ui.events:get_children()[1] end)
+    keyboard_view.create {
+        screen=s,panel=panel,ui=ui,scroll=scroll_ui,
+        targets=function()
+            local result={{id='clock',widget=clock_card,activate=clock_ui.toggle}}
+            for _,section in ipairs(section_order) do
+                result[#result+1]={id=section.id..':header',section=section.id,widget=section.header,
+                    activate=section.toggle_action,key=function(key)
+                        if key~='Left' and key~='Right' then return false end
+                        if section.collapsed~=(key=='Left') then section.toggle_action() end
+                        return true
+                    end}
+                if section.id=='quick-launch' then
+                    result[#result+1]={id='quick-launch:trash',section='quick-launch',widget=trash_status,activate=open_trash,exit=true}
+                end
+                if not section.collapsed then
+                    for _,entry in ipairs(keyboard_targets[section.id] or {}) do result[#result+1]=entry end
+                end
+            end
+            return result
+        end,
+    }
     s.sidebar_scroll_view, s.sidebar_scrollbar = scroll_view, scrollbar
     s.sidebar_scrollbar_panel = scrollbar_panel
     s.sidebar_scroll_by = scroll_by
