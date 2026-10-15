@@ -15,11 +15,11 @@ local test_mode = os.getenv("AWESOME_TEST_MODE") == "1"
 
 local titlebar_focus_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 26},
-    stops = {{0, "#f2ffffff"}, {0.09, "#9de4ffe5"}, {0.42, "#2d91e3c8"}, {0.74, "#155eb5b4"}, {1, "#0b326f9c"}},
+    stops = {{0, "#f2ffffff"}, {0.09, "#9de4ffed"}, {0.42, "#236ba9ed"}, {0.74, "#124b88ed"}, {1, "#0a2c58ed"}},
 }
 local titlebar_normal_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 26},
-    stops = {{0, "#edf7ffff"}, {0.13, "#9ebde1cf"}, {0.52, "#4f72a7b2"}, {1, "#1b355f98"}},
+    stops = {{0, "#edf7ffff"}, {0.13, "#9ebde1df"}, {0.52, "#385d91e8"}, {1, "#142f58e8"}},
 }
 local titlebar_button_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 20},

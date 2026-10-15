@@ -26,11 +26,11 @@ local card_gradient = gears.color {
 }
 local sidebar_title_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
-    stops = {{0, "#f2ffffff"}, {0.09, "#9ee4ffe5"}, {0.42, "#2d91e3c8"}, {0.74, "#155eb5b4"}, {1, "#0b326f9c"}},
+    stops = {{0, "#f2ffffff"}, {0.09, "#9ee4ffed"}, {0.42, "#236ba9ed"}, {0.74, "#124b88ed"}, {1, "#0a2c58ed"}},
 }
 local section_header_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#ffffffff"}, {0.12, "#a4dcffe2"}, {0.48, "#377abbb8"}, {1, "#164688a8"}},
+    stops = {{0, "#ffffffff"}, {0.12, "#a4dcffeb"}, {0.48, "#285d91e8"}, {1, "#123967e8"}},
 }
 local button_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
@@ -185,10 +185,11 @@ local function make_trash_icon()
     local icon = wibox.widget.base.make_widget()
     icon.forced_width, icon.forced_height = 16, 18
     icon.fit = function() return 16, 18 end
-    icon.full = false
+    icon.full = nil
     icon.draw = function(_, _, cr)
-        local red, green, blue = icon.full and 0.44 or 0.57,
-            icon.full and 0.79 or 0.72, icon.full and 0.55 or 0.75
+        local red, green, blue = icon.full == nil and 1 or (icon.full and 1 or 0.66),
+            icon.full == nil and 0.82 or (icon.full and 0.61 or 0.94),
+            icon.full == nil and 0.43 or (icon.full and 0.51 or 0.74)
         cr:set_source_rgb(red, green, blue)
         cr:set_line_width(1.4)
         cr:set_line_cap(cairo.LineCap.ROUND)
@@ -926,10 +927,10 @@ function sidebar.create(s, dismiss_menu)
             pcall(function() enumerator:close() end)
             if read_ok then full = child ~= nil end
         end
-        trash_icon.full = full == true
+        trash_icon.full = full
         trash_icon:emit_signal("widget::redraw_needed")
         local text, color = full == nil and "UNKNOWN" or (full and "FULL" or "EMPTY"),
-            full == nil and palette.amber or (full and palette.green or palette.muted)
+            full == nil and "#ffd36e" or (full and "#ff9b82" or "#a8f0bd")
         trash_state.markup = string.format(
             "<span foreground='%s' size='9pt' weight='bold'>%s</span>", color, text)
         s.sidebar_trash_full = full

@@ -55,15 +55,15 @@ local function reorder_task_clients(s, dragged, drop_index, visible_clients)
 end
 local panel_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
-    stops = {{0, "#d8fbffff"}, {0.08, "#92d8ffcc"}, {0.36, "#2d8ee5b8"}, {0.72, "#1457aaa8"}, {1, "#092a6090"}},
+    stops = {{0, "#d8fbffff"}, {0.08, "#92d8ffdc"}, {0.36, "#236eafe8"}, {0.72, "#104781e8"}, {1, "#09264fe8"}},
 }
 local panel_item_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#e9ffffff"}, {0.14, "#8fcaf0c8"}, {0.58, "#2f679fae"}, {1, "#12345f9a"}},
+    stops = {{0, "#e9ffffff"}, {0.14, "#8fcaf0dc"}, {0.58, "#245787e8"}, {1, "#102d55e8"}},
 }
 local panel_focus_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#ffffffff"}, {0.13, "#b7e8ffdd"}, {0.48, "#3c9be8c4"}, {0.78, "#185caeb0"}, {1, "#0c356d9a"}},
+    stops = {{0, "#ffffffff"}, {0.13, "#b7e8ffeb"}, {0.48, "#2874b6ed"}, {0.78, "#164b89ed"}, {1, "#0a2e60ed"}},
 }
 local function glass_clock(widget)
     return wibox.widget {
