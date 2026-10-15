@@ -81,10 +81,18 @@ It never installs packages, starts services, or changes settings.
 The checker expects Microsoft Sans Serif or its Liberation Sans fallback
 (for the Win98 UI) and the bundled FiraCode Nerd Font after Stow deployment.
 
-Stow always excludes `.config/pcmanfm/default/pcmanfm.conf` and
-`.config/pcmanfm/default/desktop-items-0.conf`: they contain machine-local geometry,
-wallpaper paths and icon positions. Repository copies remain reference files.
-All other conflicts fail; there is no adoption or special exclusion option.
+Mutable MC/PCManFM state is not part of the Stow package: MC's `panels.ini` and
+`hotlist`, plus PCManFM's `default/pcmanfm.conf`, `desktop-items-0.conf` and
+`desktop-items-1.conf`, stay as regular local files. No exclusion rules are needed;
+all conflicts for files actually in the package still fail without adoption.
+
+Their one-time detachment backup is stored under
+`${XDG_STATE_HOME:-~/.local/state}/dotfiles/backups/<timestamp>-app-state-*/`.
+`contents/` holds dereferenced file contents with permissions, `entries/` preserves
+original files/symlinks, and `manifest.json` records link targets and modes. To
+restore personal state, copy the relevant `contents/` entry back as a regular local
+file only after checking/backing up newer changes. Do not restore dangling old
+symlinks to source files that have been removed.
 
 The one-time ownership migration backs up the existing btop configuration and
 three repository-pointing absolute symlinks under

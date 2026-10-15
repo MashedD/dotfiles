@@ -18,8 +18,6 @@ Usage: ./stow.sh [check|apply|unlink|help]
   unlink  Remove only links owned by this package after a simulated preflight.
   help    Show this message.
 
-The two machine-local PCManFM files are always excluded.
-
 Conflicts are never overwritten, backed up, or adopted automatically. Resolve
 them manually, then run `./stow.sh check` again before applying changes.
 EOF
@@ -33,11 +31,11 @@ require_command() {
 }
 
 simulate() {
-  stow --simulate --verbose=1 --dir "$stow_dir" --target "$target_dir" "${ignore_args[@]}" "$@" "$package_name"
+  stow --simulate --verbose=1 --dir "$stow_dir" --target "$target_dir" "$@" "$package_name"
 }
 
 run_stow() {
-  stow --dir "$stow_dir" --target "$target_dir" "${ignore_args[@]}" "$@" "$package_name"
+  stow --dir "$stow_dir" --target "$target_dir" "$@" "$package_name"
 }
 
 check() {
@@ -76,11 +74,6 @@ unlink() {
   refresh_fonts
 }
 
-paths=(
-  '.config/pcmanfm/default/desktop-items-0.conf'
-  '.config/pcmanfm/default/pcmanfm.conf'
-)
-ignore_args=()
 action=''
 for arg in "$@"; do
   case "$arg" in
@@ -90,14 +83,6 @@ for arg in "$@"; do
     *) usage >&2; exit 64 ;;
   esac
 done
-if [[ "${action:-check}" != help && "$action" != --help && "$action" != -h ]]; then
-  printf 'Excluding machine-local PCManFM files:\n'
-  printf '  %s\n' "${paths[@]}"
-fi
-for path in "${paths[@]}"; do
-  ignore_args+=("--ignore=^${path//./\\.}$")
-done
-
 case "${action:-check}" in
   check)
     check

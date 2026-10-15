@@ -85,11 +85,9 @@
         }
 
     ],
-    "python.defaultInterpreterPath": "/home/user/Data/Projects/escapecontrol/entrack/.venv",
     "chat.viewSessions.orientation": "stacked",
     "chat.tools.terminal.autoApprove": {
-        "make": true,
-        "/home/user/.local/bin/godot": true
+        "make": true
     },
     "chat.plugins.marketplaces": [
         "github/copilot-plugins",

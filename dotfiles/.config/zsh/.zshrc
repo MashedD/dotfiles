@@ -242,12 +242,10 @@ function y() {
 eval "$(direnv hook zsh)"
 
 # opencode
-export PATH=/home/user/.opencode/bin:$PATH
+export PATH="$HOME/.opencode/bin:$PATH"
 
 export PATH="$HOME/.local/bin/dotnet:$PATH"
 export DOTNET_ROOT="$HOME/.local/bin/dotnet"
 export CODEX_HOME="$HOME/.config/codex"
-
-export HYPRSHOT_DIR="$HOME/Pictures"
 
 export DO_NOT_TRACK=1 # https://donottrack.sh/

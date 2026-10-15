@@ -9,8 +9,10 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-PATHS = ['.config/pcmanfm/default/desktop-items-0.conf',
-         '.config/pcmanfm/default/pcmanfm.conf']
+LOCAL_PATHS = ['.config/pcmanfm/default/pcmanfm.conf',
+               '.config/pcmanfm/default/desktop-items-0.conf',
+               '.config/pcmanfm/default/desktop-items-1.conf',
+               '.config/mc/panels.ini', '.config/mc/hotlist']
 
 
 class DeploymentTests(unittest.TestCase):
@@ -63,27 +65,18 @@ class DeploymentTests(unittest.TestCase):
             self.assertIn(flag, calls[1])
             self.assertEqual(calls[2], ['fc-cache', '-f'])
 
-    def test_exact_exclusions_and_order(self):
+    def test_no_exclusions_and_identical_preflight_arguments(self):
         for action in ['check', 'apply', 'unlink']:
             if self.log.exists(): self.log.unlink()
             result = self.invoke(action)
             self.assertEqual(result.returncode, 0, result.stderr)
             stow_calls = [c for c in self.calls() if c[0] == 'stow']
-            expected = ['--ignore=^' + p.replace('.', r'\.') + '$' for p in PATHS]
             for call in stow_calls:
-                patterns = [a for a in call if a.startswith('--ignore=')]
-                self.assertEqual(patterns, expected)
-                for path in PATHS:
-                    self.assertTrue(any(re.search(p[9:], path) for p in patterns))
-                    self.assertFalse(any(re.search(p[9:], 'other/' + path) for p in patterns))
-                for path in ['.local/bin/codex-usage', '.local/bin/crypto-prices',
-                             '.config/picom/picom.conf', '.config/btop/btop.conf',
-                             '.config/pcmanfm/default/desktop-items-1.conf']:
-                    self.assertFalse(any(re.search(p[9:], path) for p in patterns))
+                self.assertFalse(any(arg.startswith('--ignore') for arg in call))
             if len(stow_calls) == 2:
                 self.assertEqual([a for a in stow_calls[0] if a not in ['--simulate', '--verbose=1']],
                                  stow_calls[1])
-            for path in PATHS: self.assertIn(path, result.stdout)
+            self.assertNotIn('Excluding', result.stdout)
 
     def test_preflight_failure(self):
         self.env['FAIL_PREFLIGHT'] = '1'
@@ -104,30 +97,71 @@ class DeploymentTests(unittest.TestCase):
         (self.bin / 'stow').symlink_to(stow)
         managed = ['.local/bin/codex-usage', '.local/bin/crypto-prices',
                    '.config/picom/picom.conf', '.config/btop/btop.conf', '.config/unrelated']
-        for path in PATHS + managed:
+        managed += ['.config/mc/menu', '.config/mc/mc.ext.ini', '.config/libfm/libfm.conf']
+        for path in managed:
             source = self.repo / 'dotfiles' / path
             source.parent.mkdir(parents=True, exist_ok=True)
             source.write_text('repository')
-        for path in PATHS:
+        originals = {}
+        for index, path in enumerate(LOCAL_PATHS):
+            self.assertFalse((self.repo / 'dotfiles' / path).exists())
             target = self.home / path
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text('keep local')
+            target.write_bytes(f'local state {index}\n'.encode())
+            target.chmod(0o600)
+            originals[path] = (target.read_bytes(), target.stat().st_mode)
+        def verify_local():
+            for path, (content, mode) in originals.items():
+                target = self.home / path
+                self.assertFalse(target.is_symlink())
+                self.assertEqual(target.read_bytes(), content)
+                self.assertEqual(target.stat().st_mode, mode)
         other = self.home / '.config/unrelated'
         other.write_text('unrelated conflict')
         self.assertNotEqual(self.invoke('apply').returncode, 0)
         self.assertEqual(other.read_text(), 'unrelated conflict')
+        verify_local()
         other.unlink()
         result = self.invoke('apply')
         self.assertEqual(result.returncode, 0, result.stderr)
         for path in managed:
             self.assertEqual((self.home / path).resolve(),
                              (self.repo / 'dotfiles' / path).resolve(), path)
+        verify_local()
         self.assertEqual(self.invoke('unlink').returncode, 0)
         self.assertFalse(other.exists())
-        for path in PATHS:
-            target = self.home / path
-            self.assertFalse(target.is_symlink())
-            self.assertEqual(target.read_text(), 'keep local')
+        verify_local()
+
+
+class ConfigCleanupTests(unittest.TestCase):
+    def test_mutable_state_is_not_in_package(self):
+        for path in LOCAL_PATHS:
+            self.assertFalse(os.path.lexists(ROOT / 'dotfiles' / path), path)
+        for path in ['.config/mc/menu', '.config/mc/mc.ext.ini', '.config/libfm/libfm.conf']:
+            self.assertTrue((ROOT / 'dotfiles' / path).is_file(), path)
+
+    def test_shared_code_settings_do_not_pin_project_or_broaden_approval(self):
+        source = (ROOT / 'dotfiles/.config/Code - OSS/User/settings.json').read_text()
+        # Code accepts JSONC. Preserve strings (including URLs) while removing
+        # comments and trailing commas, then use the standard JSON parser.
+        strings = r'"(?:\\.|[^"\\])*"'
+        source = re.sub(strings + r'|//[^\n]*|/\*[\s\S]*?\*/',
+                        lambda m: m[0] if m[0].startswith('"') else '', source)
+        source = re.sub(strings + r'|,\s*(?=[}\]])',
+                        lambda m: m[0] if m[0].startswith('"') else '', source)
+        settings = json.loads(source)
+        self.assertNotIn('python.defaultInterpreterPath', settings)
+        self.assertEqual(settings['chat.tools.terminal.autoApprove'], {'make': True})
+
+    def test_shell_path_cleanup_and_syntax(self):
+        path = ROOT / 'dotfiles/.config/zsh/.zshrc'
+        source = path.read_text()
+        self.assertIn('export PATH="$HOME/.opencode/bin:$PATH"', source)
+        self.assertNotIn('/home/user/.opencode', source)
+        self.assertNotIn('HYPRSHOT_DIR', source)
+        zsh = shutil.which('zsh')
+        self.assertIsNotNone(zsh, 'zsh is required for configuration syntax checks')
+        subprocess.run([zsh, '-n', str(path)], check=True)
 
 
 class HelperNamesTests(unittest.TestCase):

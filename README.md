@@ -26,8 +26,8 @@ From the repository root:
 ~/.local/bin/desktop-check      # read-only desktop health check
 ```
 
-Existing files are never overwritten or adopted. Two machine-local PCManFM files
-are always excluded; see [deployment details](docs/desktop.md#install-and-deploy).
+Existing files are never overwritten or adopted. Mutable MC/PCManFM state stays
+local; see [deployment details](docs/desktop.md#install-and-deploy).
 Helpers use `desktop-*` names. Use `./stow.sh unlink` to remove package-owned links.
 
 ## Validate

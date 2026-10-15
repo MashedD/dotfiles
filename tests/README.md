@@ -13,9 +13,12 @@ The runner stops on failure; missing dependencies are errors, not skipped checks
 Sidebar edge-scroll tests wait for grab acquisition, drag feedback, scroll progress,
 and bottom arrival before dropping. Failures report the stage, pointer/grab state,
 viewport, scroll bounds and private log; stub tests verify failure cleanup without retries.
-Fast checks need Bash, Awesome, Lua, and Python plus the helper-test dependencies
+Fast checks need Bash, zsh (syntax-only), Awesome, Lua, and Python plus the helper-test dependencies
 below. Deployment/runner tests use temporary homes and stub commands; real Stow
-integration checks require GNU Stow. No tests change the live desktop.
+integration checks require GNU Stow. They also verify that the five local
+MC/PCManFM state files survive apply/unlink without package copies or ignore rules.
+Focused checks validate Code JSONC settings and the portable opencode PATH without
+executing application or interactive shell startup. No tests change the live desktop.
 
 ## Awesome session
 
