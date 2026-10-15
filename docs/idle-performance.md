@@ -225,3 +225,102 @@ ms). Runs were sequential, not paired under identical load; freed event-loop tim
 rendering, scheduling and hardware-cache effects may all matter. The next independent
 performance target remains per-screen drawing/layout. No claim is made that all
 sysfs I/O is nonblocking: the previously fast type/status/mouse reads remain synchronous.
+
+## Rendering follow-up: cache evaluated, not shipped
+
+```sh
+python3 tests/audit-awesome-idle.py --rendering --output /tmp/awesome-render-audit.json
+```
+
+This mode never samples or injects code into the live session. It extends the same
+private fixture runner with actual drawable `_do_redraw`, redraw-request, clock draw,
+root fit/layout and background-paint hooks. Wrappers preserve arguments, multiple
+returns and errors. Nested rendering scopes do not enter the heartbeat overlap list.
+Each metric keeps at most 10,000 timing samples but counts and cumulative durations
+cover every call; do not sum nested/inclusive rows.
+
+Environment: the same kernel/Awesome/Lua/lgi/Python versions recorded above, private
+Xvfb/D-Bus and no Picom. One/two nonoverlapping logical 1280×800 screens, identical
+fixtures, unfolded sections, unchanged polling, 10-second warm-up and 60-second
+measurement (61 CPU/RSS samples). Per topology: uninstrumented analog control, then
+**A1 baseline → B1 cache → B2 cache → A2 baseline**, followed by digital and hidden
+controls. Hidden controls were corrected and measured separately after the matrix to
+restore the panel clock's normal visibility; the A/B cases were not rerun or changed.
+The raw artifact records this correction. No cache-build cost was hidden in measured
+steady-state timing: builds occurred during startup/warm-up and were logged separately.
+
+| Screens/case | CPU % of one core | Mean RSS MiB | Actual sidebar redraw ms/s | Redraw requests / paints | Clock median ms | Heartbeat p95 ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 control, uninstrumented | 9.033 | 100.08 | unmeasured | unmeasured | unmeasured | unmeasured |
+| 1 A1 | 9.666 | 103.69 | 90.076 | 425 / 121 | 3.801 | 39.814 |
+| 1 B1 | 10.217 | 103.70 | 94.508 | 440 / 121 | 0.537 | 40.652 |
+| 1 B2 | 9.350 | 103.31 | 86.744 | 433 / 121 | 0.510 | 37.248 |
+| 1 A2 | 10.333 | 103.97 | 95.830 | 431 / 121 | 3.848 | 40.286 |
+| 1 digital | 10.167 | 104.31 | 95.011 | 522 / 121 | not drawn | 44.705 |
+| 1 hidden | 0.750 | 85.14 | 0 | 0 / 0 | not drawn | 1.061 |
+| 2 control, uninstrumented | 17.017 | 127.69 | unmeasured | unmeasured | unmeasured | unmeasured |
+| 2 A1 | 20.717 | 130.66 | 199.812 | 898 / 242 | 3.803 / 3.835 | 91.832 |
+| 2 B1 | 17.467 | 130.11 | 168.602 | 874 / 242 | 0.531 / 0.528 | 93.905 |
+| 2 B2 | 19.033 | 129.42 | 183.320 | 874 / 242 | 0.530 / 0.537 | 94.596 |
+| 2 A2 | 17.083 | 128.75 | 164.834 | 800 / 242 | 3.858 / 3.792 | 95.126 |
+| 2 digital | 20.683 | 131.20 | 201.245 | 1070 / 242 | not drawn | 88.853 |
+| 2 hidden | 0.917 | 96.91 | 0 | 0 / 0 | not drawn | 1.086 |
+
+The hidden controls still painted the top panel clock once per screen in the minute;
+only sidebar redraws were zero. Collector timers and clock updates continued. Hiding
+therefore identifies visible sidebar rendering as a major cost, not a need to change
+polling. Digital mode did not materially improve total redraw cost in its single
+control run. These sequential controls are clues, not randomized causal estimates.
+
+Root fits were cached (zero measured fit calls); root layouts totalled only 0.018–0.277
+ms per analog baseline case across the entire minute. Background draw/before/after
+hooks totalled about 2.9–3.9 ms/s on one screen and 5.6–6.9 ms/s on two; these hooks
+also cover non-sidebar backgrounds and overlap the outer drawable scope. They do not
+explain most of the 90–200 ms/s outer redraw cost. No sampled hierarchy/leaf breakdown
+or native surface-flush timing was taken, so the unattributed remainder must not be
+assigned to a particular widget or GPU operation yet.
+
+### Prototype and shipment gate
+
+The test-only prototype splits the unchanged clock primitives into one static ARGB
+face and dynamic hands. Each widget owns at most one face surface, replaced on
+size/DPI/device-scale/font-option changes and released on teardown. Fractional or
+rotated transforms and failed/unavailable allocations use direct drawing. lgi 0.9.2
+omits device-scale methods, so the prototype binds the existing Cairo functions
+locally without changing shared bindings or rendering settings. None of this is
+loaded by production Awesome.
+
+At the real clock allocation (112×104), the face cost **46,592 bytes / 45.5 KiB** per
+widget, 91 KiB across two screens. Startup build times were 5.929–6.204 ms; second-screen
+warm-up builds were 4.551–4.622 ms. There were no steady-state rebuilds. Private cases
+verified real click-handler analog/digital toggling and zero retained face bytes after
+component/screen destruction. Fast fake tests also cover invalidation, independent
+ownership, zero-size draws, unsupported transforms, allocation failures and disposal.
+
+Real Cairo comparisons passed the one-8-bit-channel-level tolerance: 37 comparisons
+in the matrix, then 49 final comparisons including the measured 112×104 allocation.
+They cover fixed timestamps, light/dark backgrounds, square/nonsquare sizes, DPI
+96/144, device scales 1/2 and a fractional-transform fallback. Maximum channel error
+was 0.00392157 normalized (one level), **not pixel identity**. The largest tested
+cached face was 262,144 bytes. Production draw primitives were not modified.
+
+| Gate | One screen | Two screens | Requirement |
+| --- | ---: | ---: | --- |
+| Median clock draw reduction | 86.31% | 86.11% | ≥25% |
+| Inclusive sidebar redraw reduction | **2.50%** | **3.49%** | **≥10% in both** |
+| CPU mean change, percentage points | -0.217 | -0.650 | no regression beyond baseline variation / 0.2 pp |
+| Allowed CPU variation, percentage points | 0.667 | 3.633 | baseline-to-baseline variation, minimum 0.2 pp |
+| Consistent heartbeat regression | no | no | reject if both B p95s exceed both A values beyond variation / 5 ms |
+| Visual/lifetime checks | passed | passed | required |
+
+**Decision: reject shipment.** The clock-only win is real, but the total-render gate
+failed. Production `sidebar-clock.lua`, update cadence and appearance remain unchanged.
+CPU shifts lie within large sequential baseline variation and are not evidence of
+meaningful desktop CPU savings. Instrumented A cases also cost more than the single
+uninstrumented control; observer overhead and host variation are not separable here.
+
+Next measurement: split the remaining drawable cost into hierarchy/leaf drawing versus
+native surface/flush work, then identify the largest repeatable contributor. Do not
+add more caches, slow polling, change visuals or weaken this gate to force a win.
+Raw A/B data: `/tmp/awesome-render-audit.json`; final pixel check:
+`/tmp/clock-render-check-final.json` (both ephemeral, reproducible with the command).

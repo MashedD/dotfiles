@@ -1,6 +1,6 @@
 -- Private-copy instrumentation only. No arguments, output, or document contents recorded.
 local clock = function() return require('lgi').GLib.get_monotonic_time() / 1000000 end
-local P = {phase = 'startup', buckets = {}, collectors = {}, intervals = {}}
+local P = {phase = 'startup', buckets = {}, collectors = {}, intervals = {}, cache = {builds=0,releases=0,bytes=0,peak=0}}
 local unpack = table.unpack
 local function bucket(name)
     local key = P.phase .. ':' .. name
@@ -12,16 +12,17 @@ function P.count(name)
 end
 function P.sample(name, value, started)
     local b = bucket(name); b.count = b.count + 1
+    b.total = (b.total or 0) + value
     if #b.values < 10000 then b.values[#b.values+1] = value end
     if started and P.phase == 'measured' and #P.intervals < 10000 then
         P.intervals[#P.intervals+1] = {started, clock(), name}
     end
 end
-function P.wrap(name, callback)
+function P.wrap(name, callback, intervals)
     return function(...)
         local started = clock()
         local result = table.pack(pcall(callback, ...))
-        P.sample(name, clock()-started, started)
+        P.sample(name, clock()-started, intervals~=false and started or nil)
         if not result[1] then error(result[2], 0) end
         return unpack(result, 2, result.n)
     end
@@ -60,6 +61,57 @@ function P.install_spawn()
         end)
     end
 end
+function P.cache_event(kind,bytes,duration)
+    if kind=='build' then
+        P.cache.builds=P.cache.builds+1;P.cache.bytes=P.cache.bytes+bytes
+        P.cache.peak=math.max(P.cache.peak,P.cache.bytes)
+        P.sample('cache.build',duration)
+    else P.cache.releases=P.cache.releases+1;P.cache.bytes=P.cache.bytes-bytes end
+end
+function P.install_rendering()
+    local background=require('wibox.container.background')
+    for _,method in ipairs({'draw','before_draw_children','after_draw_children'}) do
+        local original=background[method]
+        if original then
+            local wrappers={}
+            background[method]=function(self,context,...)
+                local screen=context and context.screen
+                local label='paint.background.'..method..'.screen'..tostring(screen and screen.index or 'unknown')
+                wrappers[label]=wrappers[label] or P.wrap(label,original,false)
+                return wrappers[label](self,context,...)
+            end
+        end
+    end
+end
+function P.bind_rendering()
+    for s in screen do
+        for _,name in ipairs({'panel','sidebar','sidebar_scrollbar_panel'}) do
+            local box=s[name]
+            if box then
+                local drawable=assert(box._drawable,'Missing private drawable: '..name)
+                local label=name..'.screen'..s.index
+                drawable._do_redraw=P.wrap('redraw.'..label,drawable._do_redraw,false)
+                local request=drawable.draw
+                drawable.draw=function(...)
+                    P.count('redraw_request.'..label)
+                    return request(...)
+                end
+                if name=='sidebar' then
+                    local root=drawable.widget
+                    for _,method in ipairs({'fit','layout'}) do
+                        if type(root[method])=='function' then
+                            root[method]=P.wrap('root.'..method..'.'..label,root[method],false)
+                        end
+                    end
+                    -- Validate the hooks once in warm-up; steady-state layouts
+                    -- can then legitimately remain cached without any callbacks.
+                    if root.emit_signal then root:emit_signal('widget::layout_changed') end
+                end
+            end
+        end
+        s.sidebar_clock.draw=P.wrap('draw.clock.screen'..s.index,s.sidebar_clock.draw,false)
+    end
+end
 function P.begin()
     P.phase = 'measured'
     P.last_beat = clock()
@@ -86,12 +138,15 @@ function P.finish()
     local lines = {'IDLE_BEGIN'}
     for key, b in pairs(P.buckets) do
         table.sort(b.values)
-        lines[#lines+1] = string.format('%s\t%d\t%d\t%.9f\t%.9f\t%.9f', key, b.count,
-            #b.values, percentile(b.values, 0.5), percentile(b.values, 0.95), b.values[#b.values] or 0)
+        lines[#lines+1] = string.format('%s\t%d\t%d\t%.9f\t%.9f\t%.9f\t%.9f', key, b.count,
+            #b.values, percentile(b.values, 0.5), percentile(b.values, 0.95), b.values[#b.values] or 0,b.total or 0)
     end
     for name, c in pairs(P.collectors) do
         local listeners=0; for _ in pairs(c.listeners) do listeners=listeners+1 end
         lines[#lines+1] = string.format('collector:%s\t%d\t%d\t%d\t0\t0', name, c.interval, listeners, c.requests or 0)
+    end
+    for name,value in pairs(P.cache) do
+        lines[#lines+1]=string.format('cachemeta:%s\t%d\t0\t0\t0\t0',name,value)
     end
     lines[#lines+1] = 'IDLE_END'
     P.phase = 'finished'

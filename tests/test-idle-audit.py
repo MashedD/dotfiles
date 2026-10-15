@@ -65,6 +65,47 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(launch.call_args.kwargs['env']['AWESOME_IDLE_PRIVATE'],'1')
         kill.assert_called_once_with(987654,idle.signal.SIGTERM)
 
+    def test_rendering_mode_never_samples_live(self):
+        with patch.object(idle.sys,'argv',['audit','--rendering']), \
+             patch.object(idle.shutil,'which',return_value='/private/stub'), \
+             patch.object(idle,'find_live',side_effect=AssertionError('Live access forbidden')), \
+             patch.object(idle,'sample_process',side_effect=AssertionError('Live access forbidden')), \
+             patch.object(idle,'rendering_matrix') as matrix:
+            idle.main()
+        self.assertEqual(matrix.call_args.args[0].duration,60)
+        self.assertEqual(matrix.call_args.args[0].warmup,10)
+
+    def test_rendering_gate_requires_both_topologies_and_cpu_safety(self):
+        cases={}
+        for screens in (1,2):
+            for kind in ('baseline','cached'):
+                for index in (1,2):
+                    cached=kind=='cached'
+                    cases[f'{screens}-{kind}-{index}']=dict(cpu=dict(elapsed=60,cpu_percent=5),metrics={
+                        'measured:redraw.sidebar.screen1':dict(total=4.8 if cached else 6),
+                        'measured:draw.clock.screen1':dict(median=.005 if cached else .01),
+                        'measured:heartbeat.lateness':dict(p95=.001),
+                    })
+        gate=idle.rendering_gate(cases)
+        self.assertTrue(all(value['passed'] for value in gate.values()))
+        cases['2-cached-1']['cpu']['cpu_percent']=6
+        cases['2-cached-2']['cpu']['cpu_percent']=6
+        self.assertFalse(idle.rendering_gate(cases)['2']['passed'])
+        self.assertTrue(idle.rendering_gate(cases)['1']['passed'])
+        cases['1-cached-1']['metrics']['measured:redraw.sidebar.screen1']['total']=6
+        cases['1-cached-2']['metrics']['measured:redraw.sidebar.screen1']['total']=6
+        self.assertFalse(idle.rendering_gate(cases)['1']['passed'])
+
+    def test_cached_candidate_is_private_and_keeps_production_untouched(self):
+        source=(idle.ROOT/'dotfiles/.config/awesome/sidebar-clock.lua').read_text()
+        candidate=idle.cached_clock(source)
+        self.assertIn('clock._face_cache=cache',candidate)
+        self.assertIn('clock._face_cache.destroy()',candidate)
+        self.assertNotIn('_face_cache',source)
+        self.assertEqual(source,(idle.ROOT/'dotfiles/.config/awesome/sidebar-clock.lua').read_text())
+        metrics=idle.parse_metrics('IDLE_BEGIN\nmeasured:redraw.sidebar.screen1\t2\t2\t.01\t.02\t.02\t.03\nIDLE_END')
+        self.assertEqual(metrics['measured:redraw.sidebar.screen1']['total'],.03)
+
     def test_metrics_and_report_keep_phases_separate(self):
         metrics=idle.parse_metrics('string "IDLE_BEGIN\nstartup:request.volume\t1\t0\t0\t0\t0\nmeasured:sync.volume\t3\t3\t.001\t.002\t.003\ncollector:volume\t3\t1\t4\t0\t0\nIDLE_END"')
         self.assertEqual(metrics['measured:sync.volume']['median'],.001)

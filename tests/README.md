@@ -2,6 +2,8 @@
 
 Opt-in idle audit (about 13 minutes; passive live sampling, then private fixtures):
 `python3 tests/audit-awesome-idle.py`. See [measurements and limitations](../docs/idle-performance.md).
+Opt-in private rendering comparison: `python3 tests/audit-awesome-idle.py --rendering --output /tmp/awesome-render-audit.json`
+(A–B–B–A, about 16 minutes; no live sampling). [Results and cache rejection](../docs/idle-performance.md#rendering-follow-up-cache-evaluated-not-shipped).
 Focused read-only stats probe: `lua5.3 tests/probe-awesome-stats.lua` (60 samples,
 requires lgi for that Lua version); [results and usage](../docs/idle-performance.md#follow-up-exact-statistics-io-2026-10-15).
 
