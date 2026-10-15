@@ -26,18 +26,9 @@ From the repository root:
 ~/.local/bin/desktop-check      # read-only desktop health check
 ```
 
-Existing files are never overwritten or adopted. For this machine's four
-known helper/PCManFM conflicts, use the explicit exclusion option instead:
-
-```sh
-./stow.sh apply --skip-local-conflicts
-```
-
-See [deployment details](docs/desktop.md#install-and-deploy) for the exact paths.
-Helpers now use `desktop-*` names; old names remain compatibility symlinks.
-Reapply links before starting a new session.
-Use `./stow.sh unlink` to remove only package-owned links; use the same exclusion
-option if you deployed with it.
+Existing files are never overwritten or adopted. Two machine-local PCManFM files
+are always excluded; see [deployment details](docs/desktop.md#install-and-deploy).
+Helpers use `desktop-*` names. Use `./stow.sh unlink` to remove package-owned links.
 
 ## Validate
 

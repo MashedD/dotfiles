@@ -146,7 +146,7 @@ else
   required_failed=1
 fi
 
-bin_root=${DESKTOP_HELPER_ROOT:-${OPENBOX_HELPER_ROOT:-$HOME/.local/bin}}
+bin_root=${DESKTOP_HELPER_ROOT:-$HOME/.local/bin}
 for helper in desktop-lock desktop-display desktop-screenshot desktop-battery-watch desktop-brightness desktop-clipboard desktop-volume; do
   check_executable "$bin_root/$helper"
 done

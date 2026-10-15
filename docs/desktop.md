@@ -14,10 +14,9 @@ This is the active desktop configuration for a CachyOS X11 session:
 The repository also retains Openbox and legacy Hyprland, Waybar, Walker, Mako,
 hyprlock, dwm, and st files for reference. They are not started by the active
 session. Shared X11 helpers use `desktop-*` names for volume, display, brightness,
-clipboard, screenshots and locking. Old `openbox-*` names are compatibility
-symlinks so existing sessions and external shortcuts keep working. Existing lock
-filenames and `OPENBOX_*` environment overrides remain supported; new overrides
-use `DESKTOP_*` names and take precedence.
+clipboard, screenshots and locking. Overrides use `DESKTOP_*` environment names;
+old command aliases and `OPENBOX_*` overrides are not supported. Display/battery
+lock filenames retain their original identities to coordinate with running processes.
 
 ## Screenshot status
 
@@ -82,20 +81,17 @@ installs packages, starts services, or changes settings.
 The checker expects Microsoft Sans Serif or its Liberation Sans fallback
 (for the Win98 UI) and the bundled FiraCode Nerd Font after Stow deployment.
 
-This machine has four unrelated Stow conflicts that were deliberately left
-untouched: two existing PCManFM files and two absolute helper symlinks. The
-Awesome migration was applied with a conflict-safe preflight excluding them:
+Stow always excludes `.config/pcmanfm/default/pcmanfm.conf` and
+`.config/pcmanfm/default/desktop-items-0.conf`: they contain machine-local geometry,
+wallpaper paths and icon positions. Repository copies remain reference files.
+All other conflicts fail; there is no adoption or special exclusion option.
 
-```sh
-./stow.sh check --skip-local-conflicts
-./stow.sh apply --skip-local-conflicts
-```
-
-Without the explicit option, `stow.sh` still refuses these conflicts. The option
-also works with `unlink` and excludes only `.local/bin/codex-usage`,
-`.local/bin/crypto-prices`, `.config/pcmanfm/default/desktop-items-0.conf`, and
-`.config/pcmanfm/default/pcmanfm.conf`. Other conflicts still fail; nothing is
-adopted or overwritten.
+The one-time ownership migration backs up the existing btop configuration and
+three repository-pointing absolute symlinks under
+`${XDG_STATE_HOME:-~/.local/state}/dotfiles/backups/<timestamp>/` before linking
+them through Stow. To roll back those four entries, remove their deployed symlinks
+and copy the corresponding backup entries back with `cp -a` (preserve symlinks).
+Never overwrite a regular file during rollback. No session restart is automatic.
 
 ## Starting and validating Awesome
 

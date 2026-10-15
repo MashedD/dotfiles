@@ -9,8 +9,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-PATHS = ['.local/bin/codex-usage', '.local/bin/crypto-prices',
-         '.config/pcmanfm/default/desktop-items-0.conf',
+PATHS = ['.config/pcmanfm/default/desktop-items-0.conf',
          '.config/pcmanfm/default/pcmanfm.conf']
 
 
@@ -66,30 +65,35 @@ class DeploymentTests(unittest.TestCase):
 
     def test_exact_exclusions_and_order(self):
         for action in ['check', 'apply', 'unlink']:
-            for args in [(action, '--skip-local-conflicts'), ('--skip-local-conflicts', action)]:
-                if self.log.exists(): self.log.unlink()
-                result = self.invoke(*args)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                stow_calls = [c for c in self.calls() if c[0] == 'stow']
-                expected = ['--ignore=^' + p.replace('.', r'\.') + '$' for p in PATHS]
-                for call in stow_calls:
-                    patterns = [a for a in call if a.startswith('--ignore=')]
-                    self.assertEqual(patterns, expected)
-                    for path in PATHS:
-                        self.assertTrue(any(re.search(p[9:], path) for p in patterns))
-                        self.assertFalse(any(re.search(p[9:], 'other/' + path) for p in patterns))
-                    self.assertFalse(any(re.search(p[9:], '.local/bin/unrelated') for p in patterns))
-                for path in PATHS: self.assertIn(path, result.stdout)
+            if self.log.exists(): self.log.unlink()
+            result = self.invoke(action)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            stow_calls = [c for c in self.calls() if c[0] == 'stow']
+            expected = ['--ignore=^' + p.replace('.', r'\.') + '$' for p in PATHS]
+            for call in stow_calls:
+                patterns = [a for a in call if a.startswith('--ignore=')]
+                self.assertEqual(patterns, expected)
+                for path in PATHS:
+                    self.assertTrue(any(re.search(p[9:], path) for p in patterns))
+                    self.assertFalse(any(re.search(p[9:], 'other/' + path) for p in patterns))
+                for path in ['.local/bin/codex-usage', '.local/bin/crypto-prices',
+                             '.config/picom/picom.conf', '.config/btop/btop.conf',
+                             '.config/pcmanfm/default/desktop-items-1.conf']:
+                    self.assertFalse(any(re.search(p[9:], path) for p in patterns))
+            if len(stow_calls) == 2:
+                self.assertEqual([a for a in stow_calls[0] if a not in ['--simulate', '--verbose=1']],
+                                 stow_calls[1])
+            for path in PATHS: self.assertIn(path, result.stdout)
 
     def test_preflight_failure(self):
         self.env['FAIL_PREFLIGHT'] = '1'
         for action in ['apply', 'unlink']:
             if self.log.exists(): self.log.unlink()
-            self.assertNotEqual(self.invoke(action, '--skip-local-conflicts').returncode, 0)
+            self.assertNotEqual(self.invoke(action).returncode, 0)
             self.assertEqual(len(self.calls()), 1)
 
     def test_invalid_arguments(self):
-        for args in [('bad',), ('--bad',), ('check', 'apply')]:
+        for args in [('bad',), ('--bad',), ('check', 'apply'), ('--skip-local-conflicts',)]:
             self.assertEqual(self.invoke(*args).returncode, 64)
         self.assertEqual(self.calls(), [])
 
@@ -98,7 +102,9 @@ class DeploymentTests(unittest.TestCase):
         self.assertIsNotNone(stow, 'GNU Stow is required for integration checks')
         (self.bin / 'stow').unlink()
         (self.bin / 'stow').symlink_to(stow)
-        for path in PATHS + ['.config/unrelated']:
+        managed = ['.local/bin/codex-usage', '.local/bin/crypto-prices',
+                   '.config/picom/picom.conf', '.config/btop/btop.conf', '.config/unrelated']
+        for path in PATHS + managed:
             source = self.repo / 'dotfiles' / path
             source.parent.mkdir(parents=True, exist_ok=True)
             source.write_text('repository')
@@ -106,16 +112,17 @@ class DeploymentTests(unittest.TestCase):
             target = self.home / path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text('keep local')
-        self.assertNotEqual(self.invoke('apply').returncode, 0)
         other = self.home / '.config/unrelated'
         other.write_text('unrelated conflict')
-        self.assertNotEqual(self.invoke('apply', '--skip-local-conflicts').returncode, 0)
+        self.assertNotEqual(self.invoke('apply').returncode, 0)
         self.assertEqual(other.read_text(), 'unrelated conflict')
         other.unlink()
-        result = self.invoke('apply', '--skip-local-conflicts')
+        result = self.invoke('apply')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertTrue(other.is_symlink())
-        self.assertEqual(self.invoke('unlink', '--skip-local-conflicts').returncode, 0)
+        for path in managed:
+            self.assertEqual((self.home / path).resolve(),
+                             (self.repo / 'dotfiles' / path).resolve(), path)
+        self.assertEqual(self.invoke('unlink').returncode, 0)
         self.assertFalse(other.exists())
         for path in PATHS:
             target = self.home / path
@@ -124,7 +131,7 @@ class DeploymentTests(unittest.TestCase):
 
 
 class HelperNamesTests(unittest.TestCase):
-    def test_renamed_helpers_and_compatibility_links(self):
+    def test_desktop_helpers_without_old_aliases(self):
         helpers = ROOT / 'dotfiles/.local/bin'
         names = ['battery-watch', 'brightness', 'check', 'clipboard', 'display',
                  'locale-setup', 'lock', 'screenshot', 'volume']
@@ -133,13 +140,34 @@ class HelperNamesTests(unittest.TestCase):
             alias = helpers / f'openbox-{name}'
             self.assertTrue(helper.is_file(), helper)
             self.assertTrue(os.access(helper, os.X_OK), helper)
-            self.assertTrue(alias.is_symlink(), alias)
-            self.assertEqual(os.readlink(alias), helper.name)
-            self.assertEqual(alias.resolve(), helper.resolve())
+            self.assertFalse(os.path.lexists(alias), alias)
+            self.assertNotIn('OPENBOX_', helper.read_text(), helper)
             subprocess.run(['sh', '-n', str(helper)], check=True)
         for path in (ROOT / 'dotfiles/.config/awesome').glob('*'):
             if path.is_file():
                 self.assertNotIn('openbox-', path.read_text(), str(path))
+
+    def test_desktop_environment_overrides(self):
+        helpers = ROOT / 'dotfiles/.local/bin'
+        cases = [
+            ('display', 'poll_seconds', 'DESKTOP_DISPLAY_POLL_SECONDS', '3'),
+            ('display', 'retry_count', 'DESKTOP_DISPLAY_RETRY_COUNT', '3'),
+            ('display', 'retry_delay', 'DESKTOP_DISPLAY_RETRY_DELAY', '1'),
+            ('display', 'upgrade_delay', 'DESKTOP_DISPLAY_UPGRADE_DELAY', '30'),
+            ('screenshot', 'destination', 'DESKTOP_SCREENSHOT_DIR', '/test-home/Pictures/Screenshots'),
+            ('check', 'bin_root', 'DESKTOP_HELPER_ROOT', '/test-home/.local/bin'),
+        ]
+        for helper, variable, override, default in cases:
+            # Evaluate just the actual assignment, never the service/helper body.
+            source = (helpers / f'desktop-{helper}').read_text()
+            assignment = next(line for line in source.splitlines() if line.startswith(variable + '='))
+            script = assignment + '\nprintf "%s" "$' + variable + '"\n'
+            env = {'HOME': '/test-home', override.replace('DESKTOP_', 'OPENBOX_', 1): 'ignored'}
+            result = subprocess.run(['/bin/sh', '-c', script], env=env, text=True, capture_output=True, check=True)
+            self.assertEqual(result.stdout, default)
+            env[override] = 'explicit-value'
+            result = subprocess.run(['/bin/sh', '-c', script], env=env, text=True, capture_output=True, check=True)
+            self.assertEqual(result.stdout, 'explicit-value')
 
 
 class RunnerTests(unittest.TestCase):
