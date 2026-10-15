@@ -1106,6 +1106,7 @@ function sidebar.create(s, dismiss_menu)
         return index, last, false
     end
     local cancel_section_drag
+    local section_drag_owner = {}
     ui.add(function() if cancel_section_drag then cancel_section_drag() end end)
     begin_section_drag = function(dragged)
         if mousegrabber.isrunning() or ui.disposed then return end
@@ -1194,9 +1195,9 @@ function sidebar.create(s, dismiss_menu)
             cancelled = true
             if auto_scroll.started then auto_scroll:stop() end
             finish_drag(false)
-            mousegrabber.stop()
+            interaction.stop_grab(section_drag_owner)
         end
-        mousegrabber.run(function(pointer)
+        local started = interaction.start_grab(section_drag_owner, function(pointer)
             if cancelled or not s.valid or ui.disposed then finish_drag(false); return false end
             last_y = pointer.y
             if pointer.buttons[1] then
@@ -1229,6 +1230,7 @@ function sidebar.create(s, dismiss_menu)
             end
             return false
         end, "fleur")
+        if not started then cancel_section_drag() end
     end
     ui.connect(panel, "button::press", function(_, _, _, button)
         if dismiss_menu then dismiss_menu() end

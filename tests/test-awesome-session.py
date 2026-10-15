@@ -16,6 +16,9 @@ import time
 from datetime import date, timedelta
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tests/helpers"))
+import awesome_controls
+
 CONFIG = ROOT / "dotfiles/.config/awesome/rc.lua"
 
 
@@ -200,13 +203,24 @@ def main():
                     x, y, width, height = workspace_bounds(index)
                     return x + width // 2, y + height // 2
 
-                def menu_item_point(menu_expression, index, x=100):
-                    position = lua('local m=' + menu_expression + '; local item=m.items[' + str(index) + ']; local x=' + str(x) + '; '
+                def menu_item_bounds(menu_expression, index, probe_x=100):
+                    bounds = lua('local m=' + menu_expression + '; local item=m.items[' + str(index) + ']; local x=' + str(probe_x) + '; '
                         'for y=0,m.wibox.height-1 do for _,v in ipairs(m.wibox:find_widgets(x,y)) do '
-                        'if v.widget==item._background then return tostring(m.wibox.x+math.floor(v.x+v.width/2))..":"..tostring(m.wibox.y+math.floor(v.y+v.height/2)) end end end; return "missing"')
-                    match = re.search(r'(\d+):(\d+)', position)
-                    assert match, f"Could not locate menu item {index}: {position}"
+                        'if v.widget==item._background then return table.concat({math.floor(m.wibox.x+v.x),math.floor(m.wibox.y+v.y),math.ceil(v.width),math.ceil(v.height)}, ":") end end end; return "missing"')
+                    match = re.search(r'(\d+):(\d+):(\d+):(\d+)', bounds)
+                    assert match, f"Could not locate menu item {index}: {bounds}"
                     return tuple(map(int, match.groups()))
+
+                def menu_item_point(menu_expression, index, x=100):
+                    left, top, width, height = menu_item_bounds(menu_expression, index, x)
+                    return left + width // 2, top + height // 2
+
+                def capture_menu_item(menu_expression, index, name):
+                    x, y, width, height = menu_item_bounds(menu_expression, index)
+                    path = visual_dir / f"{name}.png"
+                    subprocess.run(["import", "-window", "root", "-crop", f"{width}x{height}+{x}+{y}", "+repage", str(path)],
+                                   env=env, check=True, timeout=5)
+                    return path
 
                 def start_bounds():
                     bounds = lua('local s=screen[1]; local w=s.start_button; for y=0,s.panel.height-1 do for x=0,80 do for _,v in ipairs(s.panel:find_widgets(x,y)) do if v.widget==w then return table.concat({math.floor(s.panel.x+v.x),math.floor(s.panel.y+v.y),math.ceil(v.width),math.ceil(v.height)}, ":") end end end end; return "missing"')
@@ -256,7 +270,10 @@ def main():
                         except (AssertionError, subprocess.TimeoutExpired):
                             pass
                         time.sleep(0.1)
-                    diagnostic = helper('local r=""; for _,c in ipairs(client.get()) do r=r..tostring(c.class)..":"..c.type..":"..c.x..","..c.y..","..c.width..","..c.height..":screen="..c.screen.index..":visible="..tostring(c:isvisible()); for k,v in pairs(c:struts()) do r=r..":"..k.."="..v end; r=r.."\\n" end; return r')
+                    try:
+                        diagnostic = helper('local r=""; for _,c in ipairs(client.get()) do r=r..tostring(c.class)..":"..c.type..":"..c.x..","..c.y..","..c.width..","..c.height..":screen="..c.screen.index..":visible="..tostring(c:isvisible()); for k,v in pairs(c:struts()) do r=r..":"..k.."="..v end; r=r.."\\n" end; return r')
+                    except Exception as error:
+                        diagnostic = f"Runtime diagnostic failed: {error}"
                     raise AssertionError(f"Expected {expected!r}: {code}\n{last}\n{diagnostic}\n{logfile.read_text()}")
 
                 def click_sidebar_title(section_id):
@@ -497,9 +514,9 @@ def main():
                 lua('screen[1].sidebar_calendar_next_action()')
                 wait('return tostring(screen[1].sidebar_calendar_month() ~= os.date("%Y-%m"))', '"true"')
                 calendar_month_before = lua('return screen[1].sidebar_calendar_month()').strip().split('"')[1]
-                calendar_next = widget_point('screen[1].sidebar_calendar_next_button', scroll=-10000, x=270)
-                pointer("mousemove", *calendar_next, "click", 1)
-                wait('return tostring(screen[1].sidebar_calendar_month() ~= ' + repr(calendar_month_before) + ')', '"true"')
+                awesome_controls.verify_geometry_cancellation(
+                    lua=lua, pointer=pointer, wait=wait, widget_point=widget_point,
+                    expected_month=calendar_month_before)
                 lua('screen[1].sidebar_calendar_previous_action(); screen[1].sidebar_calendar_previous_action()')
                 wait('return screen[1].sidebar_calendar_month()', f'"{current_month}"')
                 lua('screen[1].sidebar_calendar_select_date(os.date("%Y-%m-%d"))')
@@ -623,44 +640,10 @@ def main():
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
                 menu_items = lua('local r=""; for i,item in ipairs(screen[1].start_menu.items) do r=r..i..":"..tostring(item.label and item.label.text)..":"..tostring(item.cmd)..";" end; return r')
                 assert '13:Display outputs' in menu_items, menu_items
-                lua('__awesome_menu_delete_count=0; __awesome_menu_action_count=0; __awesome_display_menu:add({"Delete while held", function() __awesome_menu_delete_count=__awesome_menu_delete_count+1 end}); __awesome_display_menu:add({"Release action", function() __awesome_menu_action_count=__awesome_menu_action_count+1 end})')
-                display_item = menu_item_point('screen[1].start_menu', 13)
-                pointer("mousemove", *display_item, "mousedown", 1)
-                assert 'true' in lua('return screen[1].start_menu.items[13]._release_binding.state.armed and not __awesome_display_menu.wibox.visible')
-                pointer("mousemove", 900, 700, "mouseup", 1)
-                assert 'true' in lua('return screen[1].start_menu.wibox.visible and not __awesome_display_menu.wibox.visible and not mousegrabber.isrunning()')
-                pointer("mousemove", *display_item, "mousedown", 1)
-                assert 'true' in lua('return screen[1].start_menu.wibox.visible and not __awesome_display_menu.wibox.visible')
-                pointer("mouseup", 1)
-                wait('return tostring(__awesome_display_menu.wibox.visible)', '"true"')
-                assert 'false' in lua('return tostring(screen[1].start_menu.wibox.visible)')
-                disposable_item = menu_item_point('__awesome_display_menu', 5)
-                pointer("mousemove", *disposable_item, "mousedown", 1)
-                assert 'true' in lua('return __awesome_display_menu.items[5]._release_binding.state.armed')
-                lua('__awesome_display_menu:delete(5)')
-                assert 'true' in lua('return not mousegrabber.isrunning() and __awesome_menu_delete_count == 0')
-                pointer("mouseup", 1)
-                action_item = menu_item_point('__awesome_display_menu', 5)
-                pointer("mousemove", *action_item, "mousedown", 1)
-                assert 'true' in lua('return __awesome_display_menu.items[5]._release_binding.state.armed and __awesome_menu_action_count == 0')
-                pointer("mousemove", 900, 700)
-                assert 'true' in lua('local s=__awesome_display_menu.items[5]._release_binding.state; return s.armed and not s.inside and __awesome_menu_action_count == 0')
-                pointer("mousemove", *action_item)
-                assert 'true' in lua('local s=__awesome_display_menu.items[5]._release_binding.state; return s.armed and s.inside and __awesome_menu_action_count == 0')
-                pointer("mouseup", 1)
-                wait('return tostring(__awesome_menu_action_count)', '"1"')
-                wait('return tostring(__awesome_display_menu.wibox.visible)', '"false"')
-                lua('__awesome_display_menu:show()')
-                wait('return tostring(__awesome_display_menu.wibox.visible)', '"true"')
-                action_item = menu_item_point('__awesome_display_menu', 5)
-                pointer("mousemove", *action_item, "mousedown", 1)
-                assert 'true' in lua('return __awesome_display_menu.items[5]._release_binding.state.armed')
-                lua('__awesome_display_menu:hide(); __awesome_display_menu:show()')
-                assert 'true' in lua('return not mousegrabber.isrunning() and __awesome_menu_action_count == 1')
-                pointer("mouseup", 1)
-                assert 'true' in lua('return __awesome_display_menu.wibox.visible and __awesome_menu_action_count == 1')
-                press('Escape')
-                wait('return tostring(__awesome_display_menu.wibox.visible)', '"false"')
+                awesome_controls.verify_native_menu_release(
+                    lua=lua, pointer=pointer, wait=wait, press=press,
+                    menu_item_point=menu_item_point, capture_menu_item=capture_menu_item,
+                    compare_visual=compare_visual, visual=visual)
                 subprocess.run(["xdotool", "mousemove", "900", "700", "click", "1"], env=env, check=True)
                 subprocess.run(["xdotool", "mousemove", "30", "15", "click", "1"], env=env, check=True)
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
@@ -670,43 +653,10 @@ def main():
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
                 press('super')
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"false"')
-                press('super+2')
-                wait('return screen[1].selected_tag.index', '2')
-                assert 'false' in lua('return tostring(screen[1].start_menu.wibox.visible)')
-                press('super+1')
-                wait('return screen[1].selected_tag.index', '1')
-                tag_point = workspace_point(3)
-                workspace_normal_crop = capture_workspace(3, "workspace-normal") if visual else None
-                lua('_G.__workspace_normal_bg=screen[1].taglist_release_actions[screen[1].tags[3]].widget:get_children_by_id("background_role")[1].bg')
-                pointer("mousemove", *tag_point, "mousedown", 1)
-                workspace_pressed = lua('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return tostring(a.view_binding.state.armed)..":"..tostring(screen[1].selected_tag.index)..":"..tostring(mousegrabber.isrunning())..":"..tostring(a.widget._workspace_pressed)..":"..tostring(a.widget._workspace_animation_alpha>0)..":"..tostring(a.overlay.bg~=nil)')
-                assert 'true:1:true:true:true:true' in workspace_pressed, workspace_pressed
-                lua('screen[1].tags[3]:view_only()')
-                wait('return screen[1].selected_tag.index', '3')
-                assert 'true' in lua('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return a.overlay.bg~=nil and a.widget._workspace_animation_alpha>0')
-                lua('screen[1].tags[1]:view_only()')
-                wait('return screen[1].selected_tag.index', '1')
-                assert 'true' in lua('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return a.overlay.bg~=nil and a.widget:get_children_by_id("background_role")[1].bg==__workspace_normal_bg')
-                workspace_held_crop = capture_workspace(3, "workspace-held") if visual else None
-                pointer("mousemove", 500, 700)
-                wait('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return tostring(a.widget._workspace_animation_alpha==0 and a.overlay.bg==nil)', '"true"')
-                workspace_cancel_crop = capture_workspace(3, "workspace-canceled") if visual else None
-                assert 'true' in lua('return screen[1].selected_tag.index == 1 and mousegrabber.isrunning()')
-                pointer("mouseup", 1)
-                assert 'true' in lua('return screen[1].selected_tag.index == 1 and not mousegrabber.isrunning()')
-                if visual:
-                    compare_visual(workspace_normal_crop, workspace_held_crop, True)
-                    compare_visual(workspace_normal_crop, workspace_cancel_crop, False)
-                pointer("mousemove", *tag_point, "mousedown", 1)
-                assert 'true' in lua('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return a.view_binding.state.armed and a.view_binding.state.inside and screen[1].selected_tag.index==1')
-                pointer("mousemove", 500, 700)
-                wait('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return tostring(a.view_binding.state.armed and not a.view_binding.state.inside and a.widget._workspace_animation_alpha==0)', '"true"')
-                pointer("mousemove", *tag_point)
-                assert 'true' in lua('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return a.view_binding.state.armed and a.view_binding.state.inside and a.widget._workspace_animation_alpha>0')
-                pointer("mouseup", 1)
-                wait('return screen[1].selected_tag.index', '3')
-                press('super+1')
-                wait('return screen[1].selected_tag.index', '1')
+                awesome_controls.verify_workspace_pointer(
+                    lua=lua, pointer=pointer, wait=wait, press=press,
+                    workspace_point=workspace_point, capture_workspace=capture_workspace,
+                    compare_visual=compare_visual, visual=visual)
                 assert 'false' in lua('return tostring(screen[1].start_menu.wibox.visible)')
                 # The panel clock/calendar returns when the sidebar is hidden.
                 press('super+shift+s')
@@ -972,7 +922,7 @@ def main():
                 assert 'true' in lua('local d=screen[1].sidebar_data; _G.__polish_requests=d.collectors.crypto.requests; screen.fake_add(800,0,480,600); return screen[2].sidebar_data==d and d.collectors.crypto.requests==__polish_requests and screen[2].sidebar_crypto_prices.BTC.text==screen[1].sidebar_crypto_prices.BTC.text')
                 wait('return tostring(screen[2].sidebar_scrollbar_panel.visible)', '"true"')
                 assert 'true' in lua('_G.__removed_start_binding=screen[2].start_release_binding; _G.__removed_start_button=screen[2].start_button; _G.__removed_start_normal=screen[2].start_normal_image; local b=__removed_start_binding; return b.state.press(1) and b.state.armed and __removed_start_button._private.image==screen[2].start_pressed_image')
-                assert 'true' in lua('_G.__removed_workspace_action=screen[2].taglist_release_actions[screen[2].tags[2]]; local a=__removed_workspace_action; local b=a.view_binding.state; b.press(1); local pressed=a.widget._workspace_animation_alpha; b.move(false); local leaving=a.widget._workspace_animation_alpha; b.move(true); local reentered=a.widget._workspace_animation_alpha; b.release(1,true); local quick=a.widget._workspace_animation_alpha; return pressed==42 and leaving>0 and leaving<pressed and reentered>leaving and quick>0 and screen[2].selected_tag==a.tag and a.widget._workspace_animation_timer~=nil and a.overlay.bg~=nil')
+                assert 'true' in lua('_G.__removed_workspace_action=screen[2].taglist_release_actions[screen[2].tags[2]]; local a=__removed_workspace_action; local b=a.view_binding.state; b.press(1); local pressed=a.widget._workspace_animation_alpha; b.move(false); local leaving=a.widget._workspace_animation_alpha; b.move(true); local reentered=a.widget._workspace_animation_alpha; b.release(1,true); local quick=a.widget._workspace_animation_alpha; return pressed==34 and leaving>0 and leaving<pressed and reentered>leaving and quick>0 and screen[2].selected_tag==a.tag and a.widget._workspace_animation_timer~=nil and a.overlay.bg~=nil')
                 lua('screen[2]:emit_signal("removed"); screen[2]:fake_remove()')
                 assert 'true' in lua('local a=__removed_workspace_action; return screen.count()==1 and not mousegrabber.isrunning() and screen[2]==nil and __removed_start_binding.state.destroyed and __removed_start_button._private.image==__removed_start_normal and a.view_binding.state.destroyed and a.widget._workspace_animation_alpha==0 and a.widget._workspace_animation_timer==nil and a.overlay.bg==nil')
                 assert 'true' in lua('local s=screen[1]; return screen.fake_add(800,0,480,600) and screen[2].sidebar_data==s.sidebar_data')

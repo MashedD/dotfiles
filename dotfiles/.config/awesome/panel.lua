@@ -175,24 +175,29 @@ function panel.create(s, menu, activate, window_menu, interaction)
             -- Apply a visible first step synchronously, then retarget from the live alpha.
             local timer = widget._workspace_animation_timer
             if timer then timer:stop(); widget._workspace_animation_timer = nil end
+            local started = interaction.monotonic_time()
+            local duration = 0.072
             local start = widget._workspace_animation_alpha or 0
             local target = pressed and 0xa8 or 0
-            local first = start + (target - start) * 0.25
+            local immediate_time = started + duration * 0.2
+            local first = interaction.transition_value(start, target, started, duration, immediate_time)
             set_alpha(first)
             if first == target or taglist_ui.disposed then
                 if taglist_ui.disposed then set_alpha(0) end
                 return
             end
-            local step = 0
-            widget._workspace_animation_timer = gears.timer.start_new(0.018, function()
+            local remaining_start = immediate_time
+            local remaining_duration = duration * 0.8
+            widget._workspace_animation_timer = gears.timer.start_new(0.016, function()
                 if taglist_ui.disposed then
                     widget._workspace_animation_timer = nil
                     set_alpha(0)
                     return false
                 end
-                step = step + 1
-                set_alpha(first + (target - first) * (step / 4))
-                if step >= 4 then
+                local now = interaction.monotonic_time()
+                local alpha = interaction.transition_value(first, target, remaining_start, remaining_duration, now)
+                set_alpha(alpha)
+                if now >= remaining_start + remaining_duration then
                     widget._workspace_animation_timer = nil
                     return false
                 end
@@ -321,12 +326,14 @@ function panel.create(s, menu, activate, window_menu, interaction)
                 selection_border(self, c == client.focus)
                 self._tasklist_index, self._tasklist_clients = index, clients
                 self:connect_signal("button::press", function(_, lx, _, button)
-                    if button ~= 1 then return end
+                    if button ~= 1 or (not interaction and mousegrabber.isrunning()) then return end
                     local origin = mouse.coords()
                     local left = origin.x - (lx or 0)
                     local item_width = self.width or self.forced_width or 160
                     local spacing = 2
-                    mousegrabber.run(function(pointer)
+                    local grab_owner = self._tasklist_grab_owner or {}
+                    self._tasklist_grab_owner = grab_owner
+                    local function finish_reorder(pointer)
                         if pointer.buttons[1] then return true end
                         local dx, dy = pointer.x - origin.x, pointer.y - origin.y
                         if dx * dx + dy * dy >= 49 then
@@ -334,7 +341,9 @@ function panel.create(s, menu, activate, window_menu, interaction)
                             reorder_task_clients(s, c, drop_index, self._tasklist_clients)
                         end
                         return false
-                    end, "fleur")
+                    end
+                    if interaction then interaction.start_grab(grab_owner, finish_reorder, "fleur")
+                    else mousegrabber.run(finish_reorder, "fleur") end
                 end)
             end,
             update_callback = function(self, c, index, clients)

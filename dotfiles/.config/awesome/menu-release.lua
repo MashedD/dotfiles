@@ -1,5 +1,6 @@
 -- Release-inside behavior for Awesome's native menu entries.
 local M = {}
+local wibox = require("wibox")
 function M.install(menu, interaction, awful, gears)
     if menu._release_inside_installed then return end
     menu._release_inside_installed = true
@@ -7,7 +8,12 @@ function M.install(menu, interaction, awful, gears)
 
     local function bind_item(owner, item)
         local group = interaction.lifetime()
-        local normal_width = item._background.border_width or 0
+        local overlay = wibox.container.background(wibox.widget.textbox(""), nil)
+        local content = wibox.layout.stack()
+        content:add(overlay)
+        content:add(item.widget)
+        item._background:set_widget(content)
+        item._release_overlay = overlay
         item._release_group = group
         item._background:buttons(gears.table.join(
             awful.button({}, 1, function() end),
@@ -23,8 +29,7 @@ function M.install(menu, interaction, awful, gears)
                 end
             end,
             paint = function(pressed)
-                item._background.border_width = pressed and 1 or normal_width
-                item._background.border_color = item.theme.fg_focus
+                overlay.bg = pressed and "#0a3529a8" or nil
             end,
         }, group)
     end

@@ -6,7 +6,8 @@ local cairo = require("lgi").cairo
 local M = {}
 function M.create(options)
     local s, content = options.screen, options.content
-    local appearance, ui = options.appearance, options.interaction.lifetime()
+    local appearance, interaction = options.appearance, options.interaction
+    local ui = interaction.lifetime()
     local palette, bar_height = appearance.palette, 12
     local offset, maximum, content_height, viewport_height = 0, 0, 1, 1
     local hovered, dragging, release_timer = false, false, nil
@@ -76,7 +77,7 @@ function M.create(options)
     component.bar_panel = bar_panel
     local watch
     function component.cancel_drag()
-        if dragging then mousegrabber.stop() end
+        if dragging then interaction.stop_grab(component) end
         dragging, hovered = false, false
         if watch.started then watch:stop() end
         if release_timer and release_timer.started then release_timer:stop() end
@@ -124,7 +125,7 @@ function M.create(options)
     ui.connect(bar, "mouse::leave", function() hovered = false; update_state() end)
     watch = gears.timer {timeout = 0.05, callback = function()
         local panel = options.panel()
-        if dragging and (not s.valid or not panel.visible or not bar.visible or not mousegrabber.isrunning()) then
+        if dragging and (not s.valid or not panel.visible or not bar.visible or not interaction.owns_grab(component)) then
             component.cancel_drag()
         end
     end}
@@ -134,7 +135,7 @@ function M.create(options)
         if release_timer then release_timer:stop() end
         options.on_suppress(true); dragging = true; update_state(); watch:start()
         from_pointer(mouse.coords().x)
-        mousegrabber.run(function(pointer)
+        local started = interaction.start_grab(component, function(pointer)
             local panel = options.panel()
             if not dragging or not s.valid or not panel.visible or ui.disposed then
                 dragging = false; if watch.started then watch:stop() end; options.on_suppress(false); update_state(); return false
@@ -149,6 +150,7 @@ function M.create(options)
             release_timer = gears.timer.start_new(0.18, function() options.on_suppress(false); return false end)
             return false
         end, "sb_h_double_arrow")
+        if not started then component.cancel_drag() end
     end)))
     function component.attach(panel)
         ui.connect(panel, "property::visible", function()

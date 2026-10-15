@@ -2,8 +2,9 @@
 
 `rc.lua` composes the session, window rules, titlebar controls, and menus.
 `appearance.lua` owns shared palettes, gradients, opacity, and status thresholds.
-`interaction.lua` provides a release-to-activate state machine, button bindings,
-and lifetime groups that disconnect signals and cancel delayed tooltips.
+`interaction.lua` provides a release-to-activate state machine, deduplicated button
+bindings, shared mouse-grab ownership, elapsed-time transitions, and lifetime groups that
+disconnect signals and cancel delayed tooltips.
 
 `sidebar.lua` remains the screen-level coordinator: sections, persistence, collector
 subscriptions, launch actions, and section reordering. `sidebar-data.lua` shares
@@ -12,11 +13,12 @@ clock tick performs no system probes. Widget setters skip identical rendered val
 and system-status layout is invalidated only when optional readings appear/disappear.
 `sidebar-launch.lua` rechecks executable availability on hover/click and reports
 immediate failures without disabling entries or waiting for application exit.
-`menu-release.lua` changes native `awful.menu` entries to activate on a valid
-left-button release inside the same item; keyboard navigation and right-click dismissal
-remain native. Start uses a generated darkened image while held and toggles its menu
-only on release inside; workspace actions use the shared grab/release handler and an
-immediate, fading dark-teal overlay that preserves native taglist backgrounds. The coordinator adapts component handles back to existing `s.sidebar_*` diagnostics;
+`menu-release.lua` adapts native `awful.menu` entries with an in-content pressed overlay
+and activates only on a valid left-button release inside the same item; keyboard
+navigation and right-click dismissal remain native. Start uses a generated darkened image while held and toggles its menu
+only on release inside. Workspace actions use the shared grab/release handler and an
+immediate, fading dark-teal overlay that preserves native taglist backgrounds. The
+coordinator adapts component handles back to existing `s.sidebar_*` diagnostics;
 document formats and persisted state are unchanged.
 
 | Component | Constructor inputs | Returned operations/handles |
