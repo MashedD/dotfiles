@@ -514,6 +514,7 @@ def main():
                 lua('screen[1].sidebar_calendar_next_action()')
                 wait('return tostring(screen[1].sidebar_calendar_month() ~= os.date("%Y-%m"))', '"true"')
                 calendar_month_before = lua('return screen[1].sidebar_calendar_month()').strip().split('"')[1]
+                awesome_controls.verify_pointer_recovery(lua=lua, pointer=pointer, wait=wait)
                 awesome_controls.verify_geometry_cancellation(
                     lua=lua, pointer=pointer, wait=wait, widget_point=widget_point,
                     expected_month=calendar_month_before)

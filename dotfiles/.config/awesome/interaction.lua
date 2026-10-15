@@ -59,30 +59,38 @@ function M.deduplicate_paint(paint)
         return true
     end
 end
-local grab_owner
+local active_grab
 function M.start_grab(owner, callback, cursor)
-    if grab_owner or mousegrabber.isrunning() then return false end
-    grab_owner = owner
-    mousegrabber.run(function(pointer, ...)
-        if grab_owner ~= owner then return false end
-        local keep = callback(pointer, ...)
-        if not keep and grab_owner == owner then grab_owner = nil end
+    if mousegrabber.isrunning() then return false end
+    -- Native grabs can be stopped outside this module. Each acquisition also gets
+    -- its own identity so a late callback cannot clear a newer grab by the same owner.
+    local grab = {owner = owner}
+    active_grab = grab
+    local ok, err = pcall(mousegrabber.run, function(pointer, ...)
+        if active_grab ~= grab then return false end
+        local success, keep = xpcall(callback, debug.traceback, pointer, ...)
+        if (not success or not keep) and active_grab == grab then active_grab = nil end
+        if not success then error(keep, 0) end
         return keep
     end, cursor)
+    if not ok then
+        if active_grab == grab then active_grab = nil end
+        error(err, 0)
+    end
     if not mousegrabber.isrunning() then
-        if grab_owner == owner then grab_owner = nil end
+        if active_grab == grab then active_grab = nil end
         return false
     end
     return true
 end
 function M.stop_grab(owner)
-    if grab_owner ~= owner then return false end
-    grab_owner = nil
+    if not active_grab or active_grab.owner ~= owner then return false end
+    active_grab = nil
     if mousegrabber.isrunning() then mousegrabber.stop() end
     return true
 end
 function M.owns_grab(owner)
-    return grab_owner == owner and mousegrabber.isrunning()
+    return active_grab ~= nil and active_grab.owner == owner and mousegrabber.isrunning()
 end
 if not awesome then return M end
 local awful = require("awful")
@@ -115,7 +123,7 @@ function M.lifetime()
     return group
 end
 
-local function widget_geometry(drawable, widget, preferred_hierarchy)
+local function widget_geometry(drawable, widget)
     if not drawable or not drawable._widget_hierarchy then return nil end
     local ok, result = pcall(function()
         local drawin = drawable.drawable
@@ -124,12 +132,9 @@ local function widget_geometry(drawable, widget, preferred_hierarchy)
         local function bounds_for(hierarchy)
             local width, height = hierarchy:get_size()
             local x, y, w, h = hierarchy:get_matrix_to_device():transform_rectangle(0, 0, width, height)
-            return {drawable = drawable, window = drawin, hierarchy = hierarchy,
+            return {drawable = drawable, window = drawin,
                 x = (window_geometry.x or 0) + x, y = (window_geometry.y or 0) + y,
                 width = w, height = h}
-        end
-        if preferred_hierarchy and preferred_hierarchy:get_widget() == widget then
-            return bounds_for(preferred_hierarchy)
         end
         local function find(hierarchy)
             if hierarchy:get_widget() == widget then return bounds_for(hierarchy) end
@@ -170,7 +175,7 @@ function M.bind_button(widget, options, group)
     end
     local function still_valid()
         if group.disposed or not options.valid() or not bounds then return false end
-        local current = widget_geometry(bounds.drawable, widget, bounds.hierarchy)
+        local current = widget_geometry(bounds.drawable, widget)
         return current and same_geometry(bounds, current) or false
     end
     group.connect(widget, "mouse::enter", function() hovering = true; state.move(true) end)

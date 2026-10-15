@@ -1,6 +1,48 @@
 """Focused private-session interaction scenarios for Awesome controls."""
 
 
+def verify_pointer_recovery(*, lua, pointer, wait):
+    """Temporary controls retain detached nodes to exercise live-tree validation."""
+    lua('''
+        local wibox = require("wibox")
+        local gears = require("gears")
+        local i = dofile(gears.filesystem.get_configuration_dir() .. "interaction.lua")
+        local f = {count=0, pressed=false, interaction=i, group=i.lifetime()}
+        f.button = wibox.container.background(wibox.widget.textbox("Pointer fixture"), "#ffffff")
+        f.layout = wibox.layout.fixed.vertical()
+        f.button.forced_height = 50
+        f.layout:add(f.button)
+        f.window = wibox {x=450, y=350, width=160, height=50, visible=true, ontop=true}
+        f.window.widget = f.layout
+        f.binding = i.bind_button(f.button, {
+            valid=function() return f.window.visible end,
+            activate=function() f.count=f.count+1 end,
+            paint=function(pressed) f.pressed=pressed end,
+        }, f.group)
+        __pointer_fixture = f
+    ''')
+    try:
+        wait('return tostring(#__pointer_fixture.window:find_widgets(80,25)>0)', '"true"')
+        for index, mutation in enumerate([
+            '__pointer_fixture.layout:reset()',
+            '__pointer_fixture.window.widget=require("wibox").widget.textbox("replacement")',
+            'mousegrabber.stop()',
+        ]):
+            pointer("mousemove", 530, 375, "mousedown", 1)
+            assert 'true' in lua('local f=__pointer_fixture; return f.binding.state.armed and f.pressed and mousegrabber.isrunning()')
+            lua(mutation)
+            wait('local f=__pointer_fixture; return tostring(not f.binding.state.armed and not f.pressed and not mousegrabber.isrunning())', '"true"')
+            assert 'true' in lua(f'return __pointer_fixture.window.visible and __pointer_fixture.count=={index}')
+            pointer("mouseup", 1)
+            lua('local f=__pointer_fixture; f.layout:reset(); f.layout:add(f.button); f.window.widget=f.layout')
+            wait('local f=__pointer_fixture; for _,v in ipairs(f.window:find_widgets(80,25)) do if v.widget==f.button then return "ready" end end; return "waiting"', '"ready"')
+            pointer("mousemove", 530, 375, "click", 1)
+            wait(f'return tostring(__pointer_fixture.count)', f'"{index+1}"')
+    finally:
+        pointer("mouseup", 1)
+        lua('local f=__pointer_fixture; f.group.destroy(); f.window.visible=false; f.window.widget=nil; __pointer_fixture=nil')
+
+
 def verify_native_menu_release(*, lua, pointer, wait, press, menu_item_point,
                                capture_menu_item, compare_visual, visual):
     lua('__awesome_menu_delete_count=0; __awesome_menu_action_count=0; __awesome_display_menu:add({"Delete while held", function() __awesome_menu_delete_count=__awesome_menu_delete_count+1 end}); __awesome_display_menu:add({"Release action", function() __awesome_menu_action_count=__awesome_menu_action_count+1 end})')

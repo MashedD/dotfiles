@@ -73,7 +73,9 @@ and cached only in the isolated Awesome process, then naturally reloaded after a
 complete process restart. `tests/helpers/awesome_controls.py` groups menu and workspace
 pointer scenarios while receiving the session’s existing Lua, pointer, wait, and visual
 helpers. The shared binding tests also cover moving, resizing, or hiding a control during
-a grab, plus cancellation and ownership cleanup. Sidebar values notify/render only on
+a grab, plus cancellation and ownership cleanup. Regression tests also cover native
+grab startup/callback errors, external interruption, stale callbacks, and removal or
+replacement of a held widget tree while its window remains visible. Sidebar values notify/render only on
 visible changes; a shared clock tick remains independent of resource/system polling. Real pointer tests cover Start,
 workspace selection, menu items, sidebar release-inside/release-outside, leave/re-enter,
 right-click rejection, hidden decorations, client destruction during a press, delayed

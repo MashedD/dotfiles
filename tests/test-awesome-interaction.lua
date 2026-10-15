@@ -41,6 +41,44 @@ assert(interaction.start_grab(owner_b, function() return false end))
 local keep = native_callback({})
 if not keep then running = false end
 assert(not keep and not running and not interaction.owns_grab(owner_b))
+-- Recover without asking the previous owner to explicitly stop first.
+assert(interaction.start_grab(owner_a, function() return true end))
+local late_callback = native_callback
+running = false
+assert(interaction.start_grab(owner_b, function() return true end))
+assert(not late_callback({}))
+assert(not interaction.stop_grab(owner_a))
+assert(interaction.owns_grab(owner_b))
+assert(interaction.stop_grab(owner_b))
+assert(not interaction.stop_grab(owner_b))
+-- A stale callback from the same owner must also leave the new acquisition alone.
+assert(interaction.start_grab(owner_a, function() return false end))
+late_callback = native_callback
+running = false
+assert(interaction.start_grab(owner_a, function() return true end))
+assert(not late_callback({}) and interaction.owns_grab(owner_a))
+assert(interaction.stop_grab(owner_a))
+-- Errors remain visible, but cannot strand shared ownership.
+assert(interaction.start_grab(owner_a, function() error('callback failed') end))
+local ok, err = pcall(native_callback, {})
+assert(not ok and tostring(err):find('callback failed', 1, true))
+assert(not interaction.owns_grab(owner_a))
+assert(not interaction.stop_grab(owner_a))
+running = false -- Awesome ends native grabs whose callbacks raise.
+assert(interaction.start_grab(owner_b, function() return true end))
+assert(interaction.stop_grab(owner_b))
+local native_run = mousegrabber.run
+mousegrabber.run = function() error('startup failed') end
+ok, err = pcall(interaction.start_grab, owner_a, function() return true end)
+assert(not ok and tostring(err):find('startup failed', 1, true))
+assert(not interaction.owns_grab(owner_a))
+assert(not interaction.stop_grab(owner_a))
+mousegrabber.run = function() end -- Native startup did not acquire a grab.
+assert(not interaction.start_grab(owner_a, function() return true end))
+assert(not interaction.stop_grab(owner_a))
+mousegrabber.run = native_run
+assert(interaction.start_grab(owner_b, function() return true end))
+assert(interaction.stop_grab(owner_b))
 _G.mousegrabber = old_mousegrabber
 local count, valid, changed = 0, true, 0
 local state = interaction.press_state {
