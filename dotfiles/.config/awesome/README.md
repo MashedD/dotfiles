@@ -11,7 +11,10 @@ session samples and only notifies on visible state/value changes; a separate sha
 clock tick performs no system probes. Widget setters skip identical rendered values,
 and system-status layout is invalidated only when optional readings appear/disappear.
 `sidebar-launch.lua` rechecks executable availability on hover/click and reports
-immediate failures without disabling entries or waiting for application exit. The
+immediate failures without disabling entries or waiting for application exit.
+`menu-release.lua` changes native `awful.menu` entries to activate on a valid
+left-button release inside the same item; keyboard navigation and right-click dismissal
+remain native. The
 coordinator adapts component handles back to existing `s.sidebar_*` diagnostics;
 document formats and persisted state are unchanged.
 

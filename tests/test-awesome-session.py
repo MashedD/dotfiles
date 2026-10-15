@@ -179,6 +179,14 @@ def main():
                     assert match, f"Could not locate widget {expression}: {position}"
                     return tuple(map(int, match.groups()))
 
+                def menu_item_point(menu_expression, index, x=100):
+                    position = lua('local m=' + menu_expression + '; local item=m.items[' + str(index) + ']; local x=' + str(x) + '; '
+                        'for y=0,m.wibox.height-1 do for _,v in ipairs(m.wibox:find_widgets(x,y)) do '
+                        'if v.widget==item._background then return tostring(m.wibox.x+x)..":"..tostring(m.wibox.y+y) end end end; return "missing"')
+                    match = re.search(r'(\d+):(\d+)', position)
+                    assert match, f"Could not locate menu item {index}: {position}"
+                    return tuple(map(int, match.groups()))
+
                 def capture(name):
                     if not os.environ.get("AWESOME_TEST_SCREENSHOTS"):
                         return
@@ -543,6 +551,21 @@ def main():
                 capture("start-menu")
                 press('Escape')
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"false"')
+                subprocess.run(["xdotool", "mousemove", "30", "15", "click", "1"], env=env, check=True)
+                wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
+                menu_items = lua('local r=""; for i,item in ipairs(screen[1].start_menu.items) do r=r..i..":"..tostring(item.label and item.label.text)..":"..tostring(item.cmd)..";" end; return r')
+                assert '13:Display outputs' in menu_items, menu_items
+                display_item = menu_item_point('screen[1].start_menu', 13)
+                dx, dy = display_item
+                lua(f'mouse.coords({{x={dx},y={dy}}}); screen[1].start_menu.items[13]._background:emit_signal("button::press", 10, 10, 1, {{}}, {{width=270,height=28}})')
+                subprocess.run(["xdotool", "mousemove", "900", "700"], env=env, check=True)
+                lua('screen[1].start_menu.items[13]._background:emit_signal("button::release", 10, 10, 1, {}, {width=270,height=28})')
+                assert 'true' in lua('return screen[1].start_menu.wibox.visible and not __awesome_display_menu.wibox.visible')
+                lua(f'mouse.coords({{x={dx},y={dy}}}); local i=screen[1].start_menu.items[13]; i._background:emit_signal("button::press", 10, 10, 1, {{}}, {{width=270,height=28}}); i._background:emit_signal("button::release", 10, 10, 1, {{}}, {{width=270,height=28}})')
+                wait('return tostring(__awesome_display_menu.wibox.visible)', '"true"')
+                assert 'false' in lua('return tostring(screen[1].start_menu.wibox.visible)')
+                press('Escape')
+                wait('return tostring(__awesome_display_menu.wibox.visible)', '"false"')
                 subprocess.run(["xdotool", "mousemove", "900", "700", "click", "1"], env=env, check=True)
                 subprocess.run(["xdotool", "mousemove", "30", "15", "click", "1"], env=env, check=True)
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')

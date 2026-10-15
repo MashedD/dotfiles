@@ -46,12 +46,13 @@ AWESOME_TEST_SCREENSHOTS=/tmp/awesome-polish-shots python3 tests/test-awesome-se
 Captures include Start, display selection, window actions, quit confirmation,
 Applications, the panel calendar, stale-data tooltips, and titlebar hover controls,
 alongside the light/dark surface checks. The runtime test verifies menu palette
-inheritance, tooltip colors/borders, release-to-activate buttons, component teardown,
+inheritance, tooltip colors/borders, release-to-activate sidebar buttons and menu items,
+component teardown,
 titlebar control geometry and hover restoration, and rejects Pango color errors.
 `tests/helpers/awesome-ui.lua` contains private-session inspection helpers; it is loaded
 and cached only in the isolated Awesome process, then naturally reloaded after a
 complete process restart. Sidebar values notify/render only on visible changes; a shared
-clock tick remains independent of resource/system polling. Real pointer tests cover release-inside, release-outside,
+clock tick remains independent of resource/system polling. Menu item signal tests and real sidebar pointer tests cover release-inside/release-outside,
 leave/re-enter, right-click rejection, hidden decorations, client destruction during a
 press, delayed tooltip visibility without focus changes, and removing a screen during
 a scrollbar drag (including delayed-tooltip cancellation and idempotent teardown).
