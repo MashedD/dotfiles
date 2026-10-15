@@ -13,14 +13,16 @@
 - Authentication agent: lxqt-policykit
 - Screen lock: xss-lock + i3lock (Win+L; locks after 10 minutes idle and before suspend)
 
-Openbox, Hyprland, Waybar, Walker, Mako, cliphist, and hyprlock configurations remain in the repository but are not part of the active Awesome session. `configs/dwm/` is legacy.
-
 ## Awesome rules
 
 - Configure the WM through `dotfiles/.config/awesome/rc.lua` and `autostart`.
 - `startx` uses `dotfiles/.config/X11/xinitrc`, with `dotfiles/.xinitrc` as a forwarding entry point.
 - Use floating by default; Win+Space toggles the current desktop between floating and tile layouts. The native panel is in `dotfiles/.config/awesome/panel.lua`; do not start LXPanel or another tray manager.
-- Click-to-focus; keep square Win98 window geometry but give titlebars a restrained Frutiger Aero glass gradient, clear text, teal/mint minimize and maximize controls, and a glossy red close button. Normal windows have a bottom-right left-drag resize grip; maximized/fullscreen windows have no borders or bottom strip. Shared X11 helpers use the `desktop-*` prefix.
+- Click-to-focus; keep square Win98 window geometry but give titlebars a restrained Frutiger Aero glass gradient, clear text, teal/mint minimize and maximize controls, and a glossy red close button. Normal windows have a bottom-right left-drag resize grip; maximized/fullscreen windows have no borders or bottom strip. Shared X11 helper# Numpad operators → regular ASCII characters
+map kp_multiply send_text all *
+map kp_subtract send_text all -
+map kp_add      send_text all +
+map kp_divide   send_text all /s use the `desktop-*` prefix.
 - The session uses four desktops: **1**, **2**, **3**, and **4**.
   - Win+1–4 switches desktops.
   - Win+Shift+1–4 sends the focused window to a desktop and follows it.
@@ -53,12 +55,10 @@ ld
 | `dotfiles/.config/awesome/` | Active floating window-manager, keybinding, titlebar, menu and autostart configuration |
 | `dotfiles/.config/picom/` | Active X11 compositor config; transparency support only, with visual effects disabled |
 | `dotfiles/.config/X11/` | Active startx entry point and X resources |
-| `dotfiles/.config/openbox/` | Previous window-manager configuration, retained for reference |
-| `dotfiles/.config/lxpanel/vax/` | Previous panel configuration, retained for reference |
 | `themes/VAX/` | VAX source templates; generated output is installed separately by `setup-vax-theme` |
 | `dotfiles/.config/dunst/` | Active notification theme |
 | `dotfiles/.local/bin/` | Active shared helpers (`desktop-*`) for volume, brightness, clipboard, locking, and battery alerts |
-| `configs/` | Legacy configs, including dwm and st |
+| `configs/` | Manual system-wide zsh environment reference (not Stowed) |
 
 ## Validation and reload
 

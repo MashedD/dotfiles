@@ -42,6 +42,24 @@ class FakeLock(PrivateLock):
     def identity(self, pid):
         return next((item for item in self.current if item.pid == pid), None)
 
+    def ancestry(self, identity):
+        if self.mode == 'ambiguous':
+            raise AssertionError('Missing/ambiguous ancestry')
+        if self.mode == 'pid-reused':
+            raise AssertionError('PID reused while reading locker ancestry')
+        def info(item):
+            return dict(identity=item, parent=A.pid if item == B else 50,
+                        executable='/other/i3lock' if item == B and self.mode == 'different-executable' else '/usr/bin/i3lock',
+                        command='i3lock --nofork', name='i3lock')
+        chain = [info(identity)]
+        if identity == B and self.mode in ('internal-child', 'different-executable'):
+            chain.append(info(A))
+        self.process_details.update((item['identity'], item) for item in chain)
+        return chain
+
+    def record_window_owners(self, windows):
+        self.window_owners.update((window, 'optional PID unavailable') for window in windows)
+
     def send_signal(self, pid, sig):
         self.signals.append((pid, sig))
         if self.mode != 'cleanup-stuck':
@@ -58,13 +76,15 @@ class FakeLock(PrivateLock):
         if self.stage == 'duplicate observation' and self.mode == 'lost-window':
             visible = False
         self.last_window = (0 if visible else 1, '123\n' if visible else '', '')
+        if self.stage == 'duplicate observation' and self.mode == 'replaced-window':
+            return ['456']
         return ['123'] if visible else []
 
     def command(self, args, **kwargs):
         assert args == ['sh', '/private/desktop-lock']
         if self.mode == 'duplicate-timeout':
             raise subprocess.TimeoutExpired(args, 3)
-        if self.mode == 'duplicate-extra':
+        if self.mode in ('duplicate-extra', 'internal-child', 'different-executable'):
             self.current.add(B)
         if self.mode == 'duplicate-replaced':
             self.current = {B}
@@ -100,6 +120,21 @@ class LockLifecycleTests(unittest.TestCase):
                 self.assertFalse(lock.current)
                 self.assertEqual(lock.presses, ['super+l'])
 
+    def test_verified_internal_child_is_allowed(self):
+        lock = FakeLock('internal-child')
+        lock.exercise(lock.press)
+        self.assertEqual({pid for pid, _ in lock.signals}, {A.pid, B.pid})
+        self.assertEqual(lock.original_windows, {'123'})
+        self.assertIn(B, lock.process_details)
+
+    def test_ambiguous_ancestry_and_pid_reuse_fail_closed(self):
+        for mode in ['ambiguous', 'pid-reused']:
+            with self.subTest(mode=mode):
+                lock = FakeLock(mode)
+                with self.assertRaises(AssertionError):
+                    lock.exercise(lock.press)
+                self.assertFalse(lock.current)
+
     def test_preexisting_processes_are_not_signalled(self):
         lock = FakeLock('preexisting')
         with self.assertRaisesRegex(AssertionError, 'already has'):
@@ -109,7 +144,7 @@ class LockLifecycleTests(unittest.TestCase):
 
     def test_duplicate_failures_and_unexpected_process_cleanup(self):
         for mode in ['duplicate-extra', 'duplicate-replaced', 'duplicate-failed',
-                     'duplicate-timeout', 'lost-window']:
+                     'duplicate-timeout', 'lost-window', 'replaced-window', 'different-executable']:
             with self.subTest(mode=mode):
                 lock = FakeLock(mode)
                 with self.assertRaises(AssertionError) as raised:
@@ -171,6 +206,26 @@ class ProcIdentityTests(unittest.TestCase):
             lock = PrivateLock({'DISPLAY': ':999'}, Path('/unused'), lambda: '', proc=proc)
             self.assertEqual(lock.discover(), {Identity(1, '123')})
             self.assertIsNone(lock.identity(99999))
+
+    def test_real_proc_reader_verifies_child_ancestry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proc = Path(directory)
+            for pid, parent, start, comm in [(50, 1, '1', 'sh'), (100, 50, '10', 'i3lock'),
+                                              (101, 100, '20', 'i3lock')]:
+                path = proc / str(pid)
+                path.mkdir()
+                fields = ['S', str(parent)] + ['0'] * 17 + [start]
+                (path / 'stat').write_text(f'{pid} ({comm}) ' + ' '.join(fields))
+                (path / 'comm').write_text(comm)
+                (path / 'cmdline').write_bytes(comm.encode() + b'\0--nofork\0')
+                (path / 'environ').write_bytes(b'DISPLAY=:999\0')
+                (path / 'exe').symlink_to('/usr/bin/' + comm)
+            lock = PrivateLock({'DISPLAY': ':999'}, Path('/unused'), lambda: '', proc=proc)
+            self.assertEqual(lock.instance_root(lock.discover()), A)
+            self.assertEqual(lock.process_details[B]['parent'], A.pid)
+            (proc / '50/stat').unlink()
+            with self.assertRaisesRegex(AssertionError, 'Missing/ambiguous'):
+                lock.instance_root({A, B})
 
     def test_window_search_uses_private_environment_and_visible_filter(self):
         calls = []

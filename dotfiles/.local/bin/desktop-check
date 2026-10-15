@@ -1,158 +1,125 @@
 #!/usr/bin/env sh
-
 # Read-only health report for the active Awesome desktop.
 set -u
-
+verbose=false
+if [ "$#" -gt 1 ]; then printf '%s\n' 'Expected at most one option.' >&2; exit 64; fi
+case "${1:-}" in
+  '') ;;
+  --verbose) verbose=true ;;
+  --help|-h) printf '%s\n' 'Usage: desktop-check [--verbose|--help]' 'Read-only checks; --verbose also shows successful checks and validator output.'; exit 0 ;;
+  *) printf '%s\n' 'Usage: desktop-check [--verbose|--help]' >&2; exit 64 ;;
+esac
 required_commands='awesome awesome-client picom pgrep xrandr xset xss-lock i3lock maim xclip xdotool snixembed dunst dunstify dmenu pcmanfm xsettingsd lxqt-policykit-agent kitty xfce4-appfinder pavucontrol playerctl fc-match flock logger dbus-update-activation-environment wpctl brightnessctl'
 optional_commands='firefox audacious gajim keepassxc xdpyinfo magick'
-required_failed=0
-
+failures=0
+warnings=0
+ok() { if "$verbose"; then printf 'OK       %s\n' "$*"; fi; }
+fail() { failures=$((failures + 1)); printf 'MISSING/FAILED %s\n' "$*"; }
+warn() { warnings=$((warnings + 1)); printf 'WARNING  %s\n' "$*"; }
 check_commands() {
   label=$1
-  commands=$2
-  for command_name in $commands; do
+  for command_name in $2; do
     if command -v "$command_name" >/dev/null 2>&1; then
-      printf 'OK       %-9s %s\n' "$label" "$command_name"
+      ok "$label $command_name"
+    elif [ "$label" = required ]; then
+      fail "required command: $command_name"
     else
-      printf 'MISSING  %-9s %s\n' "$label" "$command_name"
-      [ "$label" = required ] && required_failed=1
+      warn "optional command: $command_name"
     fi
   done
 }
-
 check_file() {
-  label=$1
-  path=$2
-  if [ -f "$path" ]; then
-    printf 'OK       %-9s %s\n' "$label" "$path"
+  if [ -f "$2" ]; then ok "$1 $2"; else fail "$1 $2"; fi
+}
+validate() {
+  command -v "$1" >/dev/null 2>&1 || return 0
+  if output=$("$@" 2>&1); then
+    ok "validator: $*"
+    if "$verbose" && [ -n "$output" ]; then printf '%s\n' "$output"; fi
   else
-    printf 'MISSING  %-9s %s\n' "$label" "$path"
-    required_failed=1
+    status=$?
+    fail "validator: $* (exit $status)"
+    printf '%s\n' "${output:-No diagnostic output was produced.}"
   fi
 }
-
-check_executable() {
-  path=$1
-  if [ -x "$path" ]; then
-    printf 'OK       helper    %s\n' "$path"
-  else
-    printf 'MISSING  helper    %s\n' "$path"
-    required_failed=1
-  fi
-}
-
 printf '%s\n' 'Awesome desktop check (read-only)'
 check_commands required "$required_commands"
 check_commands optional "$optional_commands"
 if command -v clipmenu >/dev/null 2>&1 && command -v clipmenud >/dev/null 2>&1; then
-  printf '%s\n' 'OK       clipboard clipmenu + clipmenud'
+  ok 'clipboard clipmenu + clipmenud'
 else
-  printf '%s\n' 'DISABLED clipboard history: clipmenu is absent; Clipman is deliberately disabled'
+  warn 'clipboard history disabled: clipmenu/clipmenud unavailable; Clipman is deliberately disabled'
 fi
-
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
-check_file config "$config_home/awesome/rc.lua"
-check_file config "$config_home/awesome/panel.lua"
-check_file config "$config_home/awesome/autostart"
-check_file config "$config_home/picom/picom.conf"
-check_file config "$config_home/X11/xinitrc"
-if command -v awesome >/dev/null 2>&1; then
-  awesome -k -c "$config_home/awesome/rc.lua" || required_failed=1
-fi
-if command -v picom >/dev/null 2>&1; then
-  picom --config "$config_home/picom/picom.conf" --diagnostics >/dev/null 2>&1 || required_failed=1
-fi
+data_home=${XDG_DATA_HOME:-$HOME/.local/share}
+for config in awesome/rc.lua awesome/panel.lua awesome/autostart picom/picom.conf X11/xinitrc; do
+  check_file config "$config_home/$config"
+done
+validate awesome -k -c "$config_home/awesome/rc.lua"
+validate picom --config "$config_home/picom/picom.conf" --diagnostics
 check_file asset "$HOME/.local/share/wallpapers/aurora-longhorn.png"
 check_file asset "$HOME/.local/share/wallpapers/win98-teal.svg"
-data_home=${XDG_DATA_HOME:-$HOME/.local/share}
 check_file asset "$data_home/icons/hicolor/32x32/apps/vax-tux-start.png"
-check_file theme "$data_home/themes/VAX/gtk-2.0/gtkrc"
-check_file theme "$data_home/themes/VAX/gtk-3.0/gtk.css"
-check_file theme "$data_home/themes/VAX/index.theme"
-check_file marker "$data_home/themes/VAX/.vax-generated"
-check_file marker "$data_home/icons/hicolor/32x32/apps/vax-tux-start.png.vax-generated"
-
-chicago95=''
+for file in gtk-2.0/gtkrc gtk-3.0/gtk.css index.theme; do
+  check_file theme "$data_home/themes/VAX/$file"
+done
 generated_marker="$data_home/themes/VAX/.vax-generated"
+check_file marker "$generated_marker"
+check_file marker "$data_home/icons/hicolor/32x32/apps/vax-tux-start.png.vax-generated"
+chicago95=''
 if [ -f "$generated_marker" ]; then
-  chicago95=$(sed -n 's/^chicago95=//p' "$generated_marker" | sed -n '1p')
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in chicago95=*) chicago95=${line#chicago95=}; break ;; esac
+  done < "$generated_marker"
   if [ -z "$chicago95" ] || [ ! -d "$chicago95" ]; then
-    printf 'MISSING  external  recorded Chicago95 source: %s\n' "${chicago95:-<empty marker>}"
-    required_failed=1
+    fail "external recorded Chicago95 source: ${chicago95:-<empty marker>}"
     chicago95=''
   fi
 else
-  chicago95=''
   for candidate in "$data_home/themes/Chicago95" "$HOME/.themes/Chicago95" /usr/local/share/themes/Chicago95 /usr/share/themes/Chicago95; do
-    if [ -d "$candidate" ]; then
-      chicago95=$candidate
-      break
-    fi
+    if [ -d "$candidate" ]; then chicago95=$candidate; break; fi
   done
 fi
 if [ -n "$chicago95" ]; then
-  check_file external "$chicago95/index.theme"
-  check_file external "$chicago95/gtk-2.0/gtkrc"
-  check_file external "$chicago95/gtk-3.0/gtk.css"
-  check_file external "$chicago95/gtk-2.0/panel/panel-button.png"
-  check_file external "$chicago95/gtk-2.0/panel/panel-button-active.png"
-  check_file external "$chicago95/misc/GTK2_start_buttons/tux_30px.png"
+  for file in index.theme gtk-2.0/gtkrc gtk-3.0/gtk.css gtk-2.0/panel/panel-button.png gtk-2.0/panel/panel-button-active.png misc/GTK2_start_buttons/tux_30px.png; do
+    check_file external "$chicago95/$file"
+  done
 else
-  printf '%s\n' 'MISSING  external  Chicago95 theme directory'
-  required_failed=1
+  fail 'external Chicago95 theme directory'
 fi
-icon_theme=''
-for candidate in "$data_home/icons/Chicago95" "$HOME/.icons/Chicago95" /usr/local/share/icons/Chicago95 /usr/share/icons/Chicago95; do
-  if [ -f "$candidate/index.theme" ]; then
-    icon_theme=$candidate
-    break
-  fi
+for theme in Chicago95 Chicago95_Standard_Cursors; do
+  found=false
+  for candidate in "$data_home/icons/$theme" "$HOME/.icons/$theme" "/usr/local/share/icons/$theme" "/usr/share/icons/$theme"; do
+    if [ -f "$candidate/index.theme" ]; then
+      check_file external "$candidate/index.theme"
+      found=true
+      break
+    fi
+  done
+  if ! "$found"; then fail "external $theme icon theme"; fi
 done
-if [ -n "$icon_theme" ]; then
-  check_file external "$icon_theme/index.theme"
-else
-  printf '%s\n' 'MISSING  external  Chicago95 icon theme'
-  required_failed=1
-fi
-cursor_theme=''
-for candidate in "$data_home/icons/Chicago95_Standard_Cursors" "$HOME/.icons/Chicago95_Standard_Cursors" /usr/local/share/icons/Chicago95_Standard_Cursors /usr/share/icons/Chicago95_Standard_Cursors; do
-  if [ -f "$candidate/index.theme" ]; then
-    cursor_theme=$candidate
-    break
-  fi
-done
-if [ -n "$cursor_theme" ]; then
-  check_file external "$cursor_theme/index.theme"
-else
-  printf '%s\n' 'MISSING  external  Chicago95_Standard_Cursors icon theme'
-  required_failed=1
-fi
-
-if fc-match -f '%{family}\n' 'Microsoft Sans Serif' 2>/dev/null | grep -Fqi 'Microsoft Sans Serif'; then
-  printf '%s\n' 'OK       font      Microsoft Sans Serif'
-else
-  fallback_font=$(fc-match -f '%{family}\n' 'Microsoft Sans Serif' 2>/dev/null)
-  if printf '%s\n' "$fallback_font" | grep -Fqi 'Liberation Sans'; then
-    printf '%s\n' 'FALLBACK font      Liberation Sans (Microsoft Sans Serif is not installed)'
+if command -v fc-match >/dev/null 2>&1; then
+  if font=$(fc-match -f '%{family}\n' 'Microsoft Sans Serif' 2>&1); then
+    case "$font" in
+      *'Microsoft Sans Serif'*) ok 'font Microsoft Sans Serif' ;;
+      *'Liberation Sans'*) warn 'font fallback: Liberation Sans (Microsoft Sans Serif is not installed)' ;;
+      *) fail "font Microsoft Sans Serif or Liberation Sans (matched $font)" ;;
+    esac
   else
-    printf 'MISSING  font      Microsoft Sans Serif or Liberation Sans (matched %s)\n' "$fallback_font"
-    required_failed=1
+    status=$?; fail "font probe Microsoft Sans Serif (exit $status): ${font:-No diagnostic output was produced.}"
+  fi
+  if font=$(fc-match -f '%{family}\n' 'FiraCode Nerd Font' 2>&1); then
+    case "$font" in
+      *'FiraCode Nerd Font'*) ok 'font FiraCode Nerd Font' ;;
+      *) fail "font FiraCode Nerd Font (matched $font)" ;;
+    esac
+  else
+    status=$?; fail "font probe FiraCode Nerd Font (exit $status): ${font:-No diagnostic output was produced.}"
   fi
 fi
-if fc-match -f '%{family}\n' 'FiraCode Nerd Font' 2>/dev/null | grep -Fqi 'FiraCode Nerd Font'; then
-  printf '%s\n' 'OK       font      FiraCode Nerd Font'
-else
-  printf '%s\n' 'MISSING  font      FiraCode Nerd Font'
-  required_failed=1
-fi
-
 bin_root=${DESKTOP_HELPER_ROOT:-$HOME/.local/bin}
 for helper in desktop-lock desktop-display desktop-screenshot desktop-battery-watch desktop-brightness desktop-clipboard desktop-volume; do
-  check_executable "$bin_root/$helper"
+  if [ -x "$bin_root/$helper" ]; then ok "helper $bin_root/$helper"; else fail "helper $bin_root/$helper"; fi
 done
-
-if [ "$required_failed" -ne 0 ]; then
-  printf '%s\n' 'Required checks failed.' >&2
-  exit 1
-fi
-printf '%s\n' 'All required checks passed.'
+printf 'Summary: %s required failure(s), %s warning(s).\n' "$failures" "$warnings"
+[ "$failures" -eq 0 ]

@@ -16,7 +16,7 @@ run() {
 run bash -n stow.sh tests/run.sh
 run awesome -k -c dotfiles/.config/awesome/rc.lua
 for test in tests/test-awesome-*.lua; do run lua "$test"; done
-for test in tests/test-awesome-autostart.py tests/test-awesome-controls.py tests/test-awesome-lock.py tests/test-desktop-display.py tests/test-screen-lock.py tests/test-deployment.py; do
+for test in tests/test-awesome-autostart.py tests/test-awesome-controls.py tests/test-awesome-lock.py tests/test-desktop-display.py tests/test-desktop-check.py tests/test-screen-lock.py tests/test-deployment.py; do
   run python3 "$test"
 done
 case "${1:-}" in

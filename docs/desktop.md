@@ -11,12 +11,11 @@ This is the active desktop configuration for a CachyOS X11 session:
 - Chicago95 controls with Matrix-green (`#001a00` / `#00ff41`) active states
 - HDMI-A-1-0 preferred at 2560×1440/144 Hz, with internal-display recovery
 
-The repository also retains Openbox and legacy Hyprland, Waybar, Walker, Mako,
-hyprlock, dwm, and st files for reference. They are not started by the active
-session. Shared X11 helpers use `desktop-*` names for volume, display, brightness,
-clipboard, screenshots and locking. Overrides use `DESKTOP_*` environment names;
-old command aliases and `OPENBOX_*` overrides are not supported. Display/battery
-lock filenames retain their original identities to coordinate with running processes.
+See the [configuration audit](config-audit.md) for references and deployment.
+Shared X11 helpers use `desktop-*` names for volume, display, brightness,
+clipboard, screenshots and locking. Overrides use `DESKTOP_*` environment names.
+Display/battery lock filenames retain their original identities to coordinate with
+running processes.
 
 ## Screenshot status
 
@@ -73,10 +72,11 @@ compatibility `~/.themes/VAX` symlink only when that path is absent or is the
 old repository-owned VAX symlink. Unmarked themes, files, icon paths, and
 unrelated symlinks are refused. Re-run it after updating Chicago95.
 
-`desktop-check` is read-only: it checks Awesome syntax
-and reports required and optional commands,
-assets, fonts, generated theme files, and helper executability. It never
-installs packages, starts services, or changes settings.
+`desktop-check` is read-only: it checks Awesome syntax, commands, assets, fonts,
+generated theme files and helper executability. Default output shows failures,
+warnings and a summary; `desktop-check --verbose` also shows successful checks
+and validator output. Required failures exit 1; optional warnings alone exit 0.
+It never installs packages, starts services, or changes settings.
 
 The checker expects Microsoft Sans Serif or its Liberation Sans fallback
 (for the Win98 UI) and the bundled FiraCode Nerd Font after Stow deployment.

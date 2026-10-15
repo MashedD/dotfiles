@@ -40,13 +40,23 @@ borderless maximization/fullscreen, floating clients/titlebars, four tags,
 persistent sidebar fold/order and drag auto-scroll, send-and-follow, snapping,
 show-desktop, close/reload, Win+P output menu, Win+Shift+Q confirmation/cancel,
 and actual Win+L/i3lock. Lock readiness waits for a live process and visible window
-on the private display; duplicate requests must retain exactly one original locker.
-Cleanup rechecks PID/start-time/display identities and waits for process/window removal.
+on the private display; duplicate requests must retain the original locker root and
+visible window IDs. Verified descendants of that root with the same executable are
+allowed; independent roots, ambiguous ancestry and PID reuse fail. A focused Xvfb
+diagnosis confirmed that this installed i3lock creates an internal i3lock child even
+with `--nofork`; raw process counts therefore do not measure locker instances.
+Failure output includes process ancestry/commands/executables and optional window PID
+properties. Cleanup rechecks PID/start-time/display identities and waits for removal.
 This checks window readiness, not authentication or input-grab security.
 It also checks weather/crypto/quota stale-data retention and recovery, genuine zero
 quota values, escaped reset text, and shared collectors when a second screen is
 added and removed. All weather requests use a mocked curl; no network is needed.
 Optional generated wallpaper PNGs use a test-only fallback fixture when absent.
+
+`test-desktop-check.py` uses isolated command/theme/font fixtures to verify quiet and
+verbose output, warning/failure exits, validator diagnostics and read-only behavior.
+`test-awesome-lock.py` uses fake process trees and time to cover internal children,
+independent lockers, replaced roots/windows, ancestry errors and cleanup failures.
 
 The Lua-only tests validate shared surface contrast over light/dark backgrounds,
 trash semantic colors, response parsing, collector lifecycle, overlapping-request
