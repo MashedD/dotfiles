@@ -39,7 +39,10 @@ Start menu, calendar, XEmbed tray ownership, wallpaper, plain corner resizing,
 borderless maximization/fullscreen, floating clients/titlebars, four tags,
 persistent sidebar fold/order and drag auto-scroll, send-and-follow, snapping,
 show-desktop, close/reload, Win+P output menu, Win+Shift+Q confirmation/cancel,
-and actual Win+L/i3lock.
+and actual Win+L/i3lock. Lock readiness waits for a live process and visible window
+on the private display; duplicate requests must retain exactly one original locker.
+Cleanup rechecks PID/start-time/display identities and waits for process/window removal.
+This checks window readiness, not authentication or input-grab security.
 It also checks weather/crypto/quota stale-data retention and recovery, genuine zero
 quota values, escaped reset text, and shared collectors when a second screen is
 added and removed. All weather requests use a mocked curl; no network is needed.

@@ -6,7 +6,6 @@ Never starts the real session autostart or changes the live display layout.
 import os
 import ctypes
 import re
-import signal
 from pathlib import Path
 import shutil
 import subprocess
@@ -18,6 +17,7 @@ from datetime import date, timedelta
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tests/helpers"))
 import awesome_controls
+from awesome_lock import PrivateLock
 
 CONFIG = ROOT / "dotfiles/.config/awesome/rc.lua"
 
@@ -140,7 +140,6 @@ def main():
                    XDG_DATA_HOME=str(testhome / ".local/share"),
                    XDG_STATE_HOME=str(testhome / ".local/state"), XDG_RUNTIME_DIR=str(directory),
                    AWESOME_TEST_HELPERS=str(ROOT / "tests/helpers"))
-        lock_pids = []
         env.pop("XAUTHORITY", None)
         server = subprocess.Popen(["Xvfb", "-displayfd", "1", "-screen", "0", "1280x800x24",
                                    "-nolisten", "tcp", "-ac"], stdout=subprocess.PIPE,
@@ -869,34 +868,8 @@ def main():
                     pointer("mouseup", 1)
                     wait('return tostring(__closing_group.disposed)', '"true"')
                     assert 'false' in lua('return tostring(__closing_binding.state.armed)')
-                # Exercise the actual Win+L binding and foreground i3lock, only on Xvfb.
-                press('super+l')
-                deadline = time.monotonic() + 8
-                while time.monotonic() < deadline and not lock_pids:
-                    candidates = subprocess.run(["pgrep", "-x", "i3lock"], capture_output=True, text=True).stdout.split()
-                    for pid in candidates:
-                        try:
-                            environment = Path(f"/proc/{pid}/environ").read_bytes().split(b'\0')
-                            if ("DISPLAY=" + env["DISPLAY"]).encode() in environment:
-                                lock_pids.append(int(pid))
-                        except (PermissionError, FileNotFoundError):
-                            pass
-                    time.sleep(0.1)
-                assert lock_pids, 'Win+L did not start i3lock on the private display'
-                time.sleep(0.3)
-                windows = subprocess.run(["xdotool", "search", "--class", "i3lock"], env=env,
-                                         capture_output=True, text=True, timeout=3)
-                assert windows.returncode == 0 and windows.stdout.strip(), 'i3lock did not map a lock window'
-                # A simultaneous xss-lock/Win+L invocation must not launch a second locker.
-                duplicate = subprocess.run(["sh", str(helpers / "desktop-lock")], env=env, timeout=3)
-                assert duplicate.returncode == 0
-                for pid in lock_pids:
-                    try:
-                        os.kill(pid, signal.SIGTERM)
-                    except ProcessLookupError:
-                        pass
-                lock_pids.clear()
-                time.sleep(0.5)
+                # Real Win+L and foreground i3lock, scoped strictly to private Xvfb.
+                PrivateLock(env, helpers / "desktop-lock", logfile.read_text).exercise(press)
                 press('super+shift+q')
                 wait('return tostring(__awesome_quit_confirmation.wibox.visible)', '"true"')
                 press('Escape')
@@ -930,11 +903,6 @@ def main():
                     print("PASS: private Picom/XRender compositing (production GLX driver behavior not tested)")
                 print("PASS: sidebar drag reorder/persistence/edge-scroll, native panel/widgets, Start/calendar/tray, wallpaper, fullscreen, workspaces, menus, reload and lock")
         finally:
-            for pid in lock_pids:
-                try:
-                    os.kill(pid, signal.SIGTERM)
-                except ProcessLookupError:
-                    pass
             for process in reversed(processes):
                 if process.poll() is None:
                     process.terminate()
