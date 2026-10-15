@@ -13,8 +13,11 @@ This is the active desktop configuration for a CachyOS X11 session:
 
 The repository also retains Openbox and legacy Hyprland, Waybar, Walker, Mako,
 hyprlock, dwm, and st files for reference. They are not started by the active
-session. The `openbox-*` helper names are retained for compatibility; Awesome
-uses the same volume, display, brightness, clipboard, screenshot and lock tools.
+session. Shared X11 helpers use `desktop-*` names for volume, display, brightness,
+clipboard, screenshots and locking. Old `openbox-*` names are compatibility
+symlinks so existing sessions and external shortcuts keep working. Existing lock
+filenames and `OPENBOX_*` environment overrides remain supported; new overrides
+use `DESKTOP_*` names and take precedence.
 
 ## Screenshot status
 
@@ -61,7 +64,7 @@ named panel icon separately:
 ```sh
 ./setup-vax-theme
 ./setup-vax-theme --path "/path/to/Chicago95"
-~/.local/bin/openbox-check
+~/.local/bin/desktop-check
 ```
 
 The helper searches standard user and system theme directories, writes the
@@ -71,7 +74,7 @@ compatibility `~/.themes/VAX` symlink only when that path is absent or is the
 old repository-owned VAX symlink. Unmarked themes, files, icon paths, and
 unrelated symlinks are refused. Re-run it after updating Chicago95.
 
-`openbox-check` is read-only (the name is retained): it checks Awesome syntax
+`desktop-check` is read-only: it checks Awesome syntax
 and reports required and optional commands,
 assets, fonts, generated theme files, and helper executability. It never
 installs packages, starts services, or changes settings.
@@ -207,7 +210,7 @@ maintainer-guided driver isolation; avoid partial Arch package upgrades.
 - Win+Enter: kitty; Win+R: application finder; Win+E: pcmanfm
 - Win+L: lock screen; Win+P: output menu; Win+Shift+Q: confirmed quit
 - Print: full screenshot; Alt+Print: focused window; Shift+Print: selected region
-- Media and brightness keys use the Openbox helper bindings
+- Media and brightness keys use the shared desktop helpers
 - Awesome desktop menu: **Reapply Display Layout** runs the same serialized layout pass
 
 Screenshots are captured into `~/Pictures/Screenshots` only after a successful

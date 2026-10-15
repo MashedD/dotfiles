@@ -7,7 +7,7 @@ import tempfile
 import time
 import unittest
 
-HELPER = Path(__file__).resolve().parents[1] / "dotfiles/.local/bin/openbox-lock"
+HELPER = Path(__file__).resolve().parents[1] / "dotfiles/.local/bin/desktop-lock"
 
 
 class LockTest(unittest.TestCase):

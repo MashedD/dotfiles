@@ -26,7 +26,7 @@ class AutostartTest(unittest.TestCase):
                      "clipmenud", "xss-lock", "syncthing", "mpd", "python3",
                      "dbus-update-activation-environment", "xset", "localedef", "i3lock", "clipmenu", "xfce4-clipman", "xfce4-popup-clipman", "solaar"]
             for path in [bin_dir / name for name in names] + [helpers / name for name in
-                         ["openbox-display", "openbox-battery-watch", "openbox-locale-setup"]]:
+                         ["desktop-display", "desktop-battery-watch", "desktop-locale-setup"]]:
                 path.write_text('#!/bin/sh\nprintf "%s\\n" "${0##*/}" >> "$TEST_LOG"\n')
                 path.chmod(0o755)
             pgrep = bin_dir / "pgrep"
@@ -60,7 +60,7 @@ with open(os.environ['TEST_STATE'], 'a+') as f:
             self.assertNotIn("lxpanel", calls)
             self.assertNotIn("solaar", calls)
             self.assertNotIn("openbox", calls)
-            clipboard = ROOT / "dotfiles/.local/bin/openbox-clipboard"
+            clipboard = ROOT / "dotfiles/.local/bin/desktop-clipboard"
             subprocess.run(["/bin/sh", str(clipboard)], env=env, check=True, timeout=3)
             (bin_dir / "clipmenu").unlink()
             (bin_dir / "clipmenud").unlink()

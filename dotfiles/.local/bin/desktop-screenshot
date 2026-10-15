@@ -6,7 +6,7 @@
 set -u
 
 usage() {
-  printf '%s\n' 'Usage: openbox-screenshot full|window|region' >&2
+  printf '%s\n' 'Usage: desktop-screenshot full|window|region' >&2
 }
 
 mode=${1:-}
@@ -42,13 +42,13 @@ if [ "$mode" = window ] && ! command -v xdotool >/dev/null 2>&1; then
   exit 127
 fi
 
-destination=${OPENBOX_SCREENSHOT_DIR:-${HOME:?HOME must be set}/Pictures/Screenshots}
+destination=${DESKTOP_SCREENSHOT_DIR:-${OPENBOX_SCREENSHOT_DIR:-${HOME:?HOME must be set}/Pictures/Screenshots}}
 mkdir -p "$destination" || {
   printf 'Cannot create screenshot directory: %s\n' "$destination" >&2
   exit 1
 }
 
-temporary=$(mktemp "$destination/.openbox-screenshot.XXXXXX") || exit 1
+temporary=$(mktemp "$destination/.desktop-screenshot.XXXXXX") || exit 1
 cleanup() {
   rm -f -- "$temporary"
 }

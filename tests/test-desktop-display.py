@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import unittest
 
-HELPER = Path(__file__).resolve().parents[1] / "dotfiles/.local/bin/openbox-display"
+HELPER = Path(__file__).resolve().parents[1] / "dotfiles/.local/bin/desktop-display"
 
 
 class DisplayTests(unittest.TestCase):

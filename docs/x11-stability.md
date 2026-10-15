@@ -124,8 +124,8 @@ coredumpctl list /usr/lib/Xorg --no-pager
 Repository-only checks, safe without altering displays:
 
 ```sh
-python3 tests/test-openbox-display.py
-sh -n dotfiles/.local/bin/openbox-display
+python3 tests/test-desktop-display.py
+sh -n dotfiles/.local/bin/desktop-display
 ```
 
 Successful startup alone is not evidence of a permanent fix. Only after

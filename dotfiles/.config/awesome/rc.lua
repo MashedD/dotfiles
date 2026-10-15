@@ -64,7 +64,7 @@ awful.layout.layouts = { awful.layout.suit.floating, awful.layout.suit.tile }
 
 local function run(command) awful.spawn(command) end
 local function helper(name, argument)
-    local command = { home .. "/.local/bin/openbox-" .. name }
+    local command = { home .. "/.local/bin/desktop-" .. name }
     if argument then command[#command + 1] = argument end
     run(command)
 end
@@ -457,12 +457,12 @@ end
 key({mod}, "Left", function() if client.focus then snap(client.focus, false) end end)
 key({mod}, "Right", function() if client.focus then snap(client.focus, true) end end)
 local commands = {
-    {{}, "XF86AudioRaiseVolume", {home .. "/.local/bin/openbox-volume", "up"}},
-    {{}, "XF86AudioLowerVolume", {home .. "/.local/bin/openbox-volume", "down"}},
-    {{}, "XF86AudioMute", {home .. "/.local/bin/openbox-volume", "mute"}},
+    {{}, "XF86AudioRaiseVolume", {home .. "/.local/bin/desktop-volume", "up"}},
+    {{}, "XF86AudioLowerVolume", {home .. "/.local/bin/desktop-volume", "down"}},
+    {{}, "XF86AudioMute", {home .. "/.local/bin/desktop-volume", "mute"}},
     {{}, "XF86AudioMicMute", {"wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"}},
-    {{}, "XF86MonBrightnessUp", {home .. "/.local/bin/openbox-brightness", "up"}},
-    {{}, "XF86MonBrightnessDown", {home .. "/.local/bin/openbox-brightness", "down"}},
+    {{}, "XF86MonBrightnessUp", {home .. "/.local/bin/desktop-brightness", "up"}},
+    {{}, "XF86MonBrightnessDown", {home .. "/.local/bin/desktop-brightness", "down"}},
     {{}, "XF86AudioNext", {"playerctl", "next"}},
     {{}, "XF86AudioPrev", {"playerctl", "previous"}},
     {{}, "XF86AudioPlay", {"playerctl", "play-pause"}},
@@ -470,9 +470,9 @@ local commands = {
     {{mod}, "z", {"playerctl", "previous"}},
     {{mod}, "x", {"playerctl", "play-pause"}},
     {{mod}, "c", {"playerctl", "next"}},  
-    {{}, "Print", {home .. "/.local/bin/openbox-screenshot", "full"}},
-    {{"Mod1"}, "Print", {home .. "/.local/bin/openbox-screenshot", "window"}},
-    {{"Shift"}, "Print", {home .. "/.local/bin/openbox-screenshot", "region"}},
+    {{}, "Print", {home .. "/.local/bin/desktop-screenshot", "full"}},
+    {{"Mod1"}, "Print", {home .. "/.local/bin/desktop-screenshot", "window"}},
+    {{"Shift"}, "Print", {home .. "/.local/bin/desktop-screenshot", "region"}},
 }
 for _, entry in ipairs(commands) do
     local command = entry[3]

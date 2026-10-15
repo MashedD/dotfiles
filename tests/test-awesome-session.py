@@ -93,7 +93,7 @@ def main():
             f"{today + timedelta(days=1)} 12:00 Second future event\n"
             f"{today + timedelta(days=2)} 19:00 Third future event\n"
             f"{today + timedelta(days=3)} 09:00 Omit fourth future event\n")
-        shutil.copy2(ROOT / "dotfiles/.local/bin/openbox-lock", helpers / "openbox-lock")
+        shutil.copy2(ROOT / "dotfiles/.local/bin/desktop-lock", helpers / "desktop-lock")
         crypto_helper = helpers / "crypto-prices"
         crypto_helper.write_text("#!/bin/sh\nprintf '%s\\n' '#[fg=#006400]BTC #[fg=#55ff99,bold]$97.123 #[fg=#006400]ETH #[fg=#55ff99,bold]$3.456 #[fg=#006400]LTC #[fg=#55ff99,bold]$123,45'\n")
         crypto_helper.chmod(0o755)
@@ -126,7 +126,7 @@ def main():
             executable = bin_dir / name
             executable.write_text(source)
             executable.chmod(0o755)
-        volume_helper = helpers / "openbox-volume"
+        volume_helper = helpers / "desktop-volume"
         volume_helper.write_text('#!/bin/sh\necho "$1" >> "$TEST_ACTIONS"\n')
         volume_helper.chmod(0o755)
         actions_file = directory / "actions"
@@ -906,7 +906,7 @@ def main():
                                          capture_output=True, text=True, timeout=3)
                 assert windows.returncode == 0 and windows.stdout.strip(), 'i3lock did not map a lock window'
                 # A simultaneous xss-lock/Win+L invocation must not launch a second locker.
-                duplicate = subprocess.run(["sh", str(helpers / "openbox-lock")], env=env, timeout=3)
+                duplicate = subprocess.run(["sh", str(helpers / "desktop-lock")], env=env, timeout=3)
                 assert duplicate.returncode == 0
                 for pid in lock_pids:
                     try:

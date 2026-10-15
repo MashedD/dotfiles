@@ -902,7 +902,7 @@ function sidebar.create(s, dismiss_menu)
         set_value(volume_bar, value and math.floor(value.level * 100 + 0.5) or 0)
     end
     local function change_volume(action)
-        data.command({os.getenv("HOME") .. "/.local/bin/openbox-volume", action}, function() return true end, update_volume)
+        data.command({os.getenv("HOME") .. "/.local/bin/desktop-volume", action}, function() return true end, update_volume)
     end
     volume_control:buttons(gears.table.join(
         awful.button({}, 1, function() awful.spawn("pavucontrol") end),

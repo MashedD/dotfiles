@@ -25,7 +25,7 @@ lua tests/test-awesome-launch.lua
 python3 tests/test-awesome-session.py
 python3 tests/test-awesome-session.py --composited
 python3 tests/test-awesome-autostart.py
-python3 tests/test-openbox-display.py
+python3 tests/test-desktop-display.py
 python3 tests/test-screen-lock.py
 ```
 

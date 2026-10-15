@@ -17,11 +17,11 @@ once '(^|/)xsettingsd( |$)' xsettingsd -c "$HOME/.config/xsettingsd/xsettingsd.c
 xset s on
 xset s 600 600
 # Helpers enforce their own single-instance locks.
-"$HOME/.local/bin/openbox-display" --watch &
-"$HOME/.local/bin/openbox-battery-watch" &
+"$HOME/.local/bin/desktop-display" --watch &
+"$HOME/.local/bin/desktop-battery-watch" &
 
 if command -v localedef >/dev/null 2>&1; then
-    "$HOME/.local/bin/openbox-locale-setup"
+    "$HOME/.local/bin/desktop-locale-setup"
     export LOCPATH="$HOME/.local/share/locale" LC_TIME=en_GB.UTF-8
 fi
 # The panel, tray, clock/calendar and wallpaper are native Awesome widgets.
@@ -40,7 +40,7 @@ if command -v clipmenud >/dev/null 2>&1 && command -v clipmenu >/dev/null 2>&1; 
 fi
 # Clipman is deliberately disabled; no automatic clipboard-manager fallback.
 if command -v i3lock >/dev/null 2>&1; then
-    once '(^|/)xss-lock( |$)' xss-lock --transfer-sleep-lock -- "$HOME/.local/bin/openbox-lock"
+    once '(^|/)xss-lock( |$)' xss-lock --transfer-sleep-lock -- "$HOME/.local/bin/desktop-lock"
 fi
 # Preserve the non-desktop services from the previous xinitrc.
 once '(^|/)syncthing( |$)' syncthing --no-browser

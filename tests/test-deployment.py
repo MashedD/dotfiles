@@ -123,6 +123,25 @@ class DeploymentTests(unittest.TestCase):
             self.assertEqual(target.read_text(), 'keep local')
 
 
+class HelperNamesTests(unittest.TestCase):
+    def test_renamed_helpers_and_compatibility_links(self):
+        helpers = ROOT / 'dotfiles/.local/bin'
+        names = ['battery-watch', 'brightness', 'check', 'clipboard', 'display',
+                 'locale-setup', 'lock', 'screenshot', 'volume']
+        for name in names:
+            helper = helpers / f'desktop-{name}'
+            alias = helpers / f'openbox-{name}'
+            self.assertTrue(helper.is_file(), helper)
+            self.assertTrue(os.access(helper, os.X_OK), helper)
+            self.assertTrue(alias.is_symlink(), alias)
+            self.assertEqual(os.readlink(alias), helper.name)
+            self.assertEqual(alias.resolve(), helper.resolve())
+            subprocess.run(['sh', '-n', str(helper)], check=True)
+        for path in (ROOT / 'dotfiles/.config/awesome').glob('*'):
+            if path.is_file():
+                self.assertNotIn('openbox-', path.read_text(), str(path))
+
+
 class RunnerTests(unittest.TestCase):
     setUp = DeploymentTests.setUp
     stub = DeploymentTests.stub

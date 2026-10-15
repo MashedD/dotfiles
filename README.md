@@ -23,7 +23,7 @@ From the repository root:
 ./stow.sh check                 # read-only preflight; also the default
 ./stow.sh apply                 # preflight, deploy links, refresh fonts
 ./setup-vax-theme               # generate VAX from installed Chicago95
-~/.local/bin/openbox-check      # read-only desktop health check
+~/.local/bin/desktop-check      # read-only desktop health check
 ```
 
 Existing files are never overwritten or adopted. For this machine's four
@@ -34,6 +34,8 @@ known helper/PCManFM conflicts, use the explicit exclusion option instead:
 ```
 
 See [deployment details](docs/desktop.md#install-and-deploy) for the exact paths.
+Helpers now use `desktop-*` names; old names remain compatibility symlinks.
+Reapply links before starting a new session.
 Use `./stow.sh unlink` to remove only package-owned links; use the same exclusion
 option if you deployed with it.
 

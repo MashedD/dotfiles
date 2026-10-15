@@ -1,7 +1,6 @@
 #!/usr/bin/env sh
 
 # Read-only health report for the active Awesome desktop.
-# Keep the helper filename for compatibility with existing deployments.
 set -u
 
 required_commands='awesome awesome-client picom pgrep xrandr xset xss-lock i3lock maim xclip xdotool snixembed dunst dunstify dmenu pcmanfm xsettingsd lxqt-policykit-agent kitty xfce4-appfinder pavucontrol playerctl fc-match flock logger dbus-update-activation-environment wpctl brightnessctl'
@@ -147,8 +146,8 @@ else
   required_failed=1
 fi
 
-bin_root=${OPENBOX_HELPER_ROOT:-$HOME/.local/bin}
-for helper in openbox-lock openbox-display openbox-screenshot openbox-battery-watch openbox-brightness openbox-clipboard openbox-volume; do
+bin_root=${DESKTOP_HELPER_ROOT:-${OPENBOX_HELPER_ROOT:-$HOME/.local/bin}}
+for helper in desktop-lock desktop-display desktop-screenshot desktop-battery-watch desktop-brightness desktop-clipboard desktop-volume; do
   check_executable "$bin_root/$helper"
 done
 

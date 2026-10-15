@@ -12,20 +12,22 @@ igpu_provider='AMD Radeon 660M @ pci:0000:07:00.0'
 dgpu_provider='AMD Radeon RX 6500M @ pci:0000:03:00.0'
 hdmi_output='HDMI-A-1-0'
 internal_output='eDP'
-poll_seconds="${OPENBOX_DISPLAY_POLL_SECONDS:-3}"
-retry_count="${OPENBOX_DISPLAY_RETRY_COUNT:-3}"
-retry_delay="${OPENBOX_DISPLAY_RETRY_DELAY:-1}"
-upgrade_delay="${OPENBOX_DISPLAY_UPGRADE_DELAY:-30}"
+# Accept the old environment names for existing local overrides.
+poll_seconds="${DESKTOP_DISPLAY_POLL_SECONDS:-${OPENBOX_DISPLAY_POLL_SECONDS:-3}}"
+retry_count="${DESKTOP_DISPLAY_RETRY_COUNT:-${OPENBOX_DISPLAY_RETRY_COUNT:-3}}"
+retry_delay="${DESKTOP_DISPLAY_RETRY_DELAY:-${OPENBOX_DISPLAY_RETRY_DELAY:-1}}"
+upgrade_delay="${DESKTOP_DISPLAY_UPGRADE_DELAY:-${OPENBOX_DISPLAY_UPGRADE_DELAY:-30}}"
 lock_root="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
+# Keep lock identities stable across helper renames and running sessions.
 watcher_lock_file="$lock_root/openbox-display-watcher.lock"
 apply_lock_file="$lock_root/openbox-display-apply.lock"
 
 log_message() {
-  logger -t openbox-display -- "$*" 2>/dev/null || :
+  logger -t desktop-display -- "$*" 2>/dev/null || :
 }
 
 usage() {
-  printf '%s\n' 'Usage: openbox-display [--once|--watch|--internal|--hdmi|--extend]' >&2
+  printf '%s\n' 'Usage: desktop-display [--once|--watch|--internal|--hdmi|--extend]' >&2
 }
 
 output_connected() {

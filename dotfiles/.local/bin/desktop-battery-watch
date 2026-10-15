@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 
 runtime_dir=${XDG_RUNTIME_DIR:-/tmp}
+# Keep the lock identity stable so an existing watcher still excludes this one.
 lock_file="$runtime_dir/openbox-battery-watch.lock"
 
 exec 9>"$lock_file"
