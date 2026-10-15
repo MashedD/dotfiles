@@ -10,6 +10,9 @@ From any directory, invoke the repository's runner:
 
 The commands above assume the repository root; an absolute runner path also works.
 The runner stops on failure; missing dependencies are errors, not skipped checks.
+Sidebar edge-scroll tests wait for grab acquisition, drag feedback, scroll progress,
+and bottom arrival before dropping. Failures report the stage, pointer/grab state,
+viewport, scroll bounds and private log; stub tests verify failure cleanup without retries.
 Fast checks need Bash, Awesome, Lua, and Python plus the helper-test dependencies
 below. Deployment/runner tests use temporary homes and stub commands; real Stow
 integration checks require GNU Stow. No tests change the live desktop.

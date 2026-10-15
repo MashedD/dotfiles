@@ -1,5 +1,98 @@
 """Focused private-session interaction scenarios for Awesome controls."""
 
+import re
+import time
+
+
+_EDGE_SCROLL_STATE = '''
+    local s=screen[1]; local p=mouse.coords(); local w=s.sidebar
+    local top=w.y+s.sidebar_header.forced_height+s.sidebar_clock_card.forced_height
+    local bottom=top+s.sidebar_scroll_view.forced_height
+    return table.concat({
+        "grab="..tostring(mousegrabber.isrunning()),
+        "button="..tostring(p.buttons[1] == true),
+        "pointer_x="..p.x, "pointer_y="..p.y,
+        "visible="..tostring(w.visible),
+        "x="..w.x, "y="..w.y, "width="..w.width, "height="..w.height,
+        "top="..top, "bottom="..bottom,
+        "position="..s.sidebar_scroll_position, "maximum="..s.sidebar_scroll_max(),
+        "dragging="..tostring(s.sidebar_sections.todo.header.border_color == "#ffffff"),
+        "header="..tostring(s.sidebar_sections.todo.header.border_color),
+        "order="..table.concat(s.sidebar_content_order, ",")}, "|")
+'''
+
+
+def verify_sidebar_edge_scroll(*, lua, pointer, sidebar_title_point, log_text):
+    """Real pointer drag with bounded, observable stages; never retry the drag."""
+    stage, edge, initial, last = "locate", None, None, None
+    started = time.monotonic()
+    failure = None
+
+    def snapshot():
+        nonlocal last
+        result = lua(_EDGE_SCROLL_STATE)
+        match = re.search(r'string "([^"]*)"', result)
+        if not match:
+            raise AssertionError(f"Invalid edge-scroll snapshot: {result}")
+        last = dict(field.split("=", 1) for field in match[1].split("|"))
+        return last
+
+    def await_state(name, predicate):
+        nonlocal stage
+        stage = name
+        deadline = time.monotonic() + 8
+        while True:
+            state = snapshot()
+            if predicate(state):
+                return state
+            if time.monotonic() >= deadline:
+                raise AssertionError(f"Timed out waiting for {name}")
+            time.sleep(0.05)
+
+    def held(state):
+        assert state["grab"] == "true" and state["button"] == "true", "Drag lost its grab/button"
+        assert state["visible"] == "true", "Sidebar hidden during drag"
+        return True
+
+    try:
+        source = sidebar_title_point("todo", reset_scroll=True)
+        assert source, "Could not locate section to edge-scroll"
+        initial = snapshot()
+        assert initial["grab"] == "false", "Unexpected existing grab"
+        pointer("mousemove", *source, "mousedown", 1)
+        await_state("acquire grab", lambda s: s["grab"] == "true" and s["button"] == "true")
+        pointer("mousemove", "--sync", source[0] + 12, source[1])
+        state = await_state("cross drag threshold", lambda s: held(s) and s["dragging"] == "true")
+        edge = (int(float(state["x"])) + 150, int(float(state["bottom"])) - 8)
+        assert int(float(state["maximum"])) > 0, "Fixture must overflow"
+        pointer("mousemove", "--sync", *edge)
+        await_state("positive scroll progress", lambda s: held(s) and float(s["position"]) > float(initial["position"]))
+        await_state("reach scroll bottom", lambda s: held(s) and float(s["position"]) >= float(s["maximum"]) - 1)
+        stage = "drop at bottom"
+        pointer("mousemove", "--sync", edge[0], edge[1] + 6)
+        pointer("mouseup", 1)
+        await_state("release grab", lambda s: s["grab"] == "false" and s["button"] == "false")
+    except BaseException as error:
+        failure = error
+        details = [f"Edge-scroll stage={stage}; elapsed={time.monotonic()-started:.3f}s",
+                   f"target={edge}; initial={initial}; last={last}"]
+        try:
+            details.append(f"current={snapshot()}")
+        except Exception as diagnostic_error:
+            details.append(f"State diagnostic failed: {diagnostic_error}")
+        try:
+            details.append(log_text())
+        except Exception as diagnostic_error:
+            details.append(f"Log diagnostic failed: {diagnostic_error}")
+        raise AssertionError("\n".join(details) + f"\nOriginal failure: {error}") from error
+    finally:
+        try:
+            pointer("mouseup", 1)
+        except Exception as cleanup_error:
+            if failure is None:
+                raise
+            failure.add_note(f"Button release also failed: {cleanup_error}")
+
 
 def verify_pointer_recovery(*, lua, pointer, wait):
     """Temporary controls retain detached nodes to exercise live-tree validation."""

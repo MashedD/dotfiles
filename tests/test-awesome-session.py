@@ -449,27 +449,9 @@ def main():
                 default_sidebar_order = f"order={first_reordered}\n"
                 assert section_state_file.read_text() == default_sidebar_order
 
-                source = sidebar_title_point("todo", reset_scroll=True)
-                assert source, "Could not locate section to edge-scroll"
-                edge = lua('local s=screen[1]; return tostring(s.sidebar.x+150)..":"..tostring(s.sidebar.y+s.sidebar_header.forced_height+s.sidebar_clock_card.forced_height+s.sidebar_scroll_view.forced_height-8)')
-                edge_match = re.search(r"(\d+):(\d+)", edge)
-                assert edge_match, edge
-                edge_x, edge_y = map(int, edge_match.groups())
-                subprocess.run(["xdotool", "mousemove", str(source[0]), str(source[1]), "mousedown", "1"],
-                               env=env, check=True, timeout=3)
-                try:
-                    subprocess.run(["xdotool", "mousemove", "--sync", str(edge_x), str(edge_y)],
-                                   env=env, check=True, timeout=3)
-                    time.sleep(2)
-                    wait('return tostring(screen[1].sidebar_scroll_position >= screen[1].sidebar_scroll_max()-1)', '"true"')
-                    edge_scroll = lua('return tostring(screen[1].sidebar_scroll_position > 0)')
-                    assert '"true"' in edge_scroll, edge_scroll
-                    drop_y = edge_y + 6
-                    subprocess.run(["xdotool", "mousemove", "--sync", str(edge_x), str(drop_y)],
-                                   env=env, check=True, timeout=3)
-                    time.sleep(0.12)
-                finally:
-                    subprocess.run(["xdotool", "mouseup", "1"], env=env, check=True, timeout=3)
+                awesome_controls.verify_sidebar_edge_scroll(
+                    lua=lua, pointer=pointer, sidebar_title_point=sidebar_title_point,
+                    log_text=logfile.read_text)
                 second_reordered = "calendar,quick-launch,system-status,codex,crypto,weather,now-playing,wallpaper,todo"
                 wait('return table.concat(screen[1].sidebar_content_order, ",")', f'"{second_reordered}"')
                 assert section_state_file.read_text() == f"order={second_reordered}\n"
