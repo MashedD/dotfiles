@@ -47,7 +47,7 @@ function M.new(runtime)
         local generation, completed = c.generation, false
         local function done(value, err)
             if completed or generation ~= c.generation then return end
-            completed, c.pending = true, false
+            completed, c.pending, c.cancel = true, false, nil
             old_stale, old_error, old_value = c.state.stale, c.state.error, c.state.value
             if value ~= nil then
                 c.state.value, c.state.updated, c.state.error = value, runtime.now(), nil
@@ -56,8 +56,13 @@ function M.new(runtime)
             end
             publish_if_changed(c, old_stale, old_error, old_value)
         end
-        local ok, err = pcall(c.fetch, done)
-        if not ok then done(nil, tostring(err)) end
+        local ok, cancel = pcall(c.fetch, done)
+        if not ok then
+            done(nil, tostring(cancel))
+        elseif type(cancel) == "function" then
+            if generation ~= c.generation then pcall(cancel)
+            elseif not completed then c.cancel = cancel end
+        end
     end
     function service.subscribe(name, listener)
         local c = assert(collectors[name], name)
@@ -79,6 +84,12 @@ function M.new(runtime)
                 c.timer:stop()
                 c.timer, c.pending = nil, false
                 c.generation = c.generation + 1
+                local cancel = c.cancel
+                c.cancel = nil
+                if cancel then
+                    local ok, err = pcall(cancel)
+                    if not ok and runtime.log then runtime.log(err) end
+                end
             end
         end}
     end

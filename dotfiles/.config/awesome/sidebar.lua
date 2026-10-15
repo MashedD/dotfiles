@@ -203,37 +203,8 @@ local function rate(bytes)
     return string.format("%.0f B/s", bytes)
 end
 
-local function battery_stats()
-    local root = "/sys/class/power_supply/"
-    local enumerator = Gio.File.new_for_path(root):enumerate_children("standard::name", 0)
-    if not enumerator then return nil, nil, nil, nil end
-    local capacities, states = {}, {}
-    local mouse_capacity, mouse_state
-    while true do
-        local entry = enumerator:next_file()
-        if not entry then break end
-        local name = entry:get_name()
-        local supply_type = read(root .. name .. "/type") or ""
-        if name:match("^BAT") and supply_type:match("^Battery") then
-            local capacity = tonumber(read(root .. name .. "/capacity"))
-            if capacity then
-                capacities[#capacities + 1] = capacity
-                states[#states + 1] = (read(root .. name .. "/status") or "Unknown"):gsub("%s+$", "")
-            end
-        elseif name:match("^hidpp_battery") and supply_type:match("^Battery") and not mouse_capacity then
-            mouse_capacity = tonumber(read(root .. name .. "/capacity"))
-            mouse_state = (read(root .. name .. "/status") or "Unknown"):gsub("%s+$", "")
-        end
-    end
-    enumerator:close()
-    local laptop_capacity, laptop_state
-    if #capacities > 0 then
-        local sum = 0
-        for _, capacity in ipairs(capacities) do sum = sum + capacity end
-        laptop_capacity, laptop_state = math.floor(sum / #capacities + 0.5), table.concat(states, ", ")
-    end
-    return laptop_capacity, laptop_state, mouse_capacity, mouse_state
-end
+local battery_module = dofile(config_dir .. "/sidebar-battery.lua")
+local battery_stats = battery_module.new(battery_module.runtime(read))
 
 local function filesystem_stats()
     local ok, info = pcall(function()
@@ -326,12 +297,17 @@ data.define("clock", 1, function(done) done(os.time()) end)
 -- Widget-independent sampling, shared by every screen subscriber.
 data.define("stats", 1, function(done)
     local root_total, root_free = filesystem_stats()
-    local capacity, battery_state, mouse_capacity, mouse_state = battery_stats()
-    local rx, tx = network_stats()
-    done({stat = read("/proc/stat"), meminfo = read("/proc/meminfo") or "",
-        root_total = root_total, root_free = root_free, capacity = capacity,
-        battery_state = battery_state, mouse_capacity = mouse_capacity, mouse_state = mouse_state,
-        rx = rx, tx = tx, now = os.time()})
+    return battery_stats(function(capacity, battery_state, mouse_capacity, mouse_state, err)
+        if err then done(nil, err); return end
+        local ok, value = pcall(function()
+            local rx, tx = network_stats()
+            return {stat = read("/proc/stat"), meminfo = read("/proc/meminfo") or "",
+                root_total = root_total, root_free = root_free, capacity = capacity,
+                battery_state = battery_state, mouse_capacity = mouse_capacity, mouse_state = mouse_state,
+                rx = rx, tx = tx, now = os.time()}
+        end)
+        if ok then done(value) else done(nil, tostring(value)) end
+    end)
 end)
 
 local function action_button(text, callback, dismiss_menu, bind)

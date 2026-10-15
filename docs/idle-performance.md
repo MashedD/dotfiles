@@ -140,7 +140,7 @@ No packages were installed. The real default probe was run once, standalone, wit
 concurrent private Awesome sessions, on the same `7.2.9-2-cachyos` kernel. Live Awesome
 continued its normal polling; no injection, service calls or signals were used.
 
-The probe preserves the production order, Gio calls, battery selection/averaging and
+The probe preserves the original synchronous collector's order, Gio calls, battery selection/averaging and
 network parsing. It times collection only: no widgets, notifications or rendering.
 One second of sleep follows each batch, so the observed ~103 ms batch produces about
 1.1 seconds between starts, not an accelerated hardware poll. Nested rows are
@@ -184,3 +184,44 @@ No production fix is part of this diagnostic pass.
 
 Artifacts: `/tmp/stats-probe-60.log` and `/tmp/stats-probe-control.log` are ephemeral.
 A separate one-sample smoke check verified invocation outside the repository root.
+
+## Targeted fix: asynchronous laptop capacity
+
+`sidebar-battery.lua` now dispatches only laptop capacity reads through Gio
+`load_contents_async`. The shared one-second stats fetch publishes after completion;
+fast filesystem/proc/network/mouse reads keep their original semantics. No new timer,
+daemon, command, dependency or polling interval was introduced. Multi-battery order,
+averaging, zero levels, missing-capacity omission and status fallback are retained.
+Final-subscriber removal cancels outstanding Gio reads; generation guards reject late
+callbacks. A read that stays pending does not overlap another request: the last sample
+ages/stales normally while the independent clock and UI remain active.
+
+A standalone native Gio check read the slow capacity file in 104.931 ms while a
+10 ms GLib timer fired **10 times**. This verifies off-main-loop execution for this
+installed Gio/sysfs combination, rather than merely assuming an async method name.
+Fake adapter tests separately verify dispatch/finish and cancellation behavior.
+
+After-fix audit: `python3 tests/audit-awesome-idle.py --skip-live --output
+/tmp/awesome-idle-after-battery.json`, 180 seconds/case and 15 seconds warm-up, same
+fixture topology and timer intervals. Live desktop configuration was not reloaded.
+
+| Measurement | Before one / two | After one / two |
+| --- | ---: | ---: |
+| Synchronous stats median ms | 1.781 / 2.445 | 0.870 / 0.952 |
+| Synchronous stats p95 ms | 104.125 / 104.909 | **1.163 / 1.126** |
+| Synchronous stats maximum ms | 104.722 / 105.441 | 7.980 / 1.430 |
+| Heartbeat lateness p95 ms | 53.077 / 105.920 | 9.945 / 95.943 |
+| Completed stats requests | 180 / 180 | 180 / 180 |
+| Awesome CPU % of one core | 5.189 / 10.661 | 8.228 / 17.444 |
+
+The asynchronous request still takes real time (end-to-end median 53.503 / 104.355 ms,
+p95 156.009 / 212.466 ms); it no longer occupies the main loop during the slow read.
+Both profiles retained one shared service with two-screen subscriptions and no pending
+refresh skips. The uninstrumented one-screen after-control used 8.528% CPU.
+
+**This is a main-loop responsiveness fix, not a demonstrated CPU reduction.** CPU
+was higher in the later run, and two-screen heartbeat spikes remain (maximum 453.474
+ms). Runs were sequential, not paired under identical load; freed event-loop time,
+rendering, scheduling and hardware-cache effects may all matter. The next independent
+performance target remains per-screen drawing/layout. No claim is made that all
+sysfs I/O is nonblocking: the previously fast type/status/mouse reads remain synchronous.

@@ -71,6 +71,10 @@ cover irregular timing, direction changes, inactive edges and lifecycle resets.
 
 `test-desktop-check.py` uses isolated command/theme/font fixtures to verify quiet and
 verbose output, warning/failure exits, validator diagnostics and read-only behavior.
+`test-awesome-battery.lua` covers async laptop reads, aggregation, failures, zero
+values, cancellation and late callbacks with fake I/O; shared-collector tests verify
+pending/stale behavior and final-subscriber cancellation. No real battery reads run
+in the fast tests.
 `test-awesome-lock.py` uses fake process trees and time to cover internal children,
 independent lockers, replaced roots/windows, ancestry errors and cleanup failures.
 

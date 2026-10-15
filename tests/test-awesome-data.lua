@@ -77,6 +77,39 @@ pending(nil, "different")
 assert(count_a == 6 and count_b == 5, "different error notifies")
 stop_a:stop(); stop_b:stop()
 
+-- Optional fetch cancellation follows the final subscriber and generation only.
+local cancelled, finishes, cancel_logs = 0, {}, {}
+local cancellable = module.new {
+    now=function() return now end,
+    timer=function(options) options.stop=function() end; return options end,
+    log=function(err) cancel_logs[#cancel_logs+1]=err end,
+}
+cancellable.define('battery',1,function(done)
+    finishes[#finishes+1]=done
+    return function() cancelled=cancelled+1 end
+end)
+local ca=cancellable.subscribe('battery',function() end)
+local cb=cancellable.subscribe('battery',function() end)
+cancellable.refresh('battery'); assert(#finishes==1)
+ca:stop(); assert(cancelled==0)
+cb:stop(); cb:stop(); assert(cancelled==1)
+finishes[1]({capacity=99}); assert(cancellable.state('battery').value==nil)
+ca=cancellable.subscribe('battery',function() end)
+finishes[1]({capacity=99}); assert(cancellable.collectors.battery.pending)
+finishes[2]({capacity=0}); assert(cancellable.state('battery').value.capacity==0)
+ca:stop(); assert(cancelled==1, 'completed fetch has no outstanding cancellation')
+ca=cancellable.subscribe('battery',function() end)
+now=now+3
+cancellable.refresh('battery')
+assert(#finishes==3 and cancellable.state('battery').stale, 'slow read becomes stale without overlapping')
+assert(cancellable.state('battery').value.capacity==0, 'pending read retains the last sample')
+ca:stop(); assert(cancelled==2)
+finishes[3]({capacity=99}); assert(cancellable.state('battery').value.capacity==0)
+cancellable.define('sync',1,function(done) done(1); return function() error('already finished') end end)
+ca=cancellable.subscribe('sync',function() end); ca:stop(); assert(#cancel_logs==0)
+cancellable.define('bad-cancel',1,function() return function() error('cancel failed') end end)
+ca=cancellable.subscribe('bad-cancel',function() end); ca:stop(); ca:stop(); assert(#cancel_logs==1)
+
 assert(module.parse_weather('{"current":{"temperature_2m":12.3,"apparent_temperature":11,"weather_code":3,"wind_speed_10m":9}}').temperature == 12.3)
 assert(not module.parse_weather('{"current":{"temperature_2m":12}}'))
 assert(not module.parse_weather('bad response'))

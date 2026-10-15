@@ -11,6 +11,11 @@ subscriptions, launch actions, and section reordering. `sidebar-data.lua` shares
 session samples and only notifies on visible state/value changes; a separate shared
 clock tick performs no system probes. Widget setters skip identical rendered values,
 and system-status layout is invalidated only when optional readings appear/disappear.
+`sidebar-battery.lua` uses Gio async reads for slow laptop capacity files; the same
+one-second stats collector waits without blocking the main loop. Pending requests
+do not overlap, become stale normally, and are cancelled when the last subscriber
+leaves; late callbacks cannot update a replacement collector generation. Missing
+capacity values still remove that battery from the sample, as before.
 `sidebar-launch.lua` rechecks executable availability on hover/click and reports
 immediate failures without disabling entries or waiting for application exit.
 `menu-release.lua` adapts native `awful.menu` entries with an in-content pressed overlay
