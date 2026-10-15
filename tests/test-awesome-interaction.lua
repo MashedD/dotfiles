@@ -1,5 +1,10 @@
 -- lua tests/test-awesome-interaction.lua
 local interaction = dofile('dotfiles/.config/awesome/interaction.lua')
+assert(interaction.modifiers_match({}, {}))
+assert(interaction.modifiers_match({'Mod4', 'Lock'}, {'Mod4'}))
+assert(interaction.modifiers_match({'Mod2'}, {}))
+assert(not interaction.modifiers_match({'Shift'}, {}))
+assert(not interaction.modifiers_match({'Mod4'}, {}))
 local count, valid, changed = 0, true, 0
 local state = interaction.press_state {
     valid = function() return valid end,

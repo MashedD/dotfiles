@@ -26,6 +26,21 @@ function M.press_state(options)
     function state.destroy() state.destroyed = true; state.cancel() end
     return state
 end
+local function modifiers_match(actual, expected)
+    local function normalize(modifiers)
+        local result = {}
+        for _, modifier in ipairs(modifiers or {}) do
+            if modifier ~= "Lock" and modifier ~= "Mod2" then result[#result + 1] = modifier end
+        end
+        table.sort(result)
+        return result
+    end
+    actual, expected = normalize(actual), normalize(expected)
+    if #actual ~= #expected then return false end
+    for index, modifier in ipairs(actual) do if modifier ~= expected[index] then return false end end
+    return true
+end
+M.modifiers_match = modifiers_match
 if not awesome then return M end
 local awful = require("awful")
 local gears = require("gears")
@@ -60,7 +75,8 @@ end
 -- The geometry supplied by Awesome's button event includes the allocated size.
 -- Do not compete with an existing drag/resize grab.
 function M.bind_button(widget, options, group)
-    local hovering, grabbing, bounds = false, false
+    options.modifiers = options.modifiers or {}
+    local hovering, grabbing, bounds = false, false, nil
     local state = M.press_state {
         valid = function() return not group.disposed and options.valid() end,
         activate = options.activate,
@@ -75,12 +91,13 @@ function M.bind_button(widget, options, group)
     end
     group.connect(widget, "mouse::enter", function() hovering = true; state.move(true) end)
     group.connect(widget, "mouse::leave", function() hovering = false; state.move(false) end)
-    group.connect(widget, "button::press", function(_, x, y, button, _, geometry)
-        if mousegrabber.isrunning() or not state.press(button) then return end
+    group.connect(widget, "button::press", function(_, x, y, button, modifiers, geometry)
+        if mousegrabber.isrunning() or not modifiers_match(modifiers, options.modifiers)
+            or not state.press(button) then return end
         local origin = mouse.coords()
         bounds = {x = origin.x - x, y = origin.y - y,
-            width = geometry and geometry.width or widget.forced_width,
-            height = geometry and geometry.height or widget.forced_height}
+            width = geometry and geometry.width or options.width or widget.forced_width,
+            height = geometry and geometry.height or options.height or widget.forced_height}
         grabbing = true
         mousegrabber.run(function(pointer)
             if not grabbing or not options.valid() or group.disposed then

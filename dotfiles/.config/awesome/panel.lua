@@ -3,6 +3,8 @@ local awful = require("awful")
 local gears = require("gears")
 local wibox = require("wibox")
 local cairo = require("lgi").cairo
+local surface = require("gears.surface")
+local start_pressed_images = {}
 local appearance = dofile((awesome.conffile:match("^(.*)/") or ".") .. "/appearance.lua")
 local palette = appearance.palette
 local panel = {}
@@ -84,14 +86,19 @@ function panel.create(s, menu, activate, window_menu, interaction)
     local icon = wibox.widget.imagebox()
     local icon_path = (os.getenv("XDG_DATA_HOME") or os.getenv("HOME") .. "/.local/share")
         .. "/icons/hicolor/32x32/apps/vax-tux-start.png"
-    if gears.filesystem.file_readable(icon_path) then icon.image = icon_path end
+    local start_normal_image
+    if gears.filesystem.file_readable(icon_path) then
+        local ok, image = pcall(surface.load, icon_path)
+        if ok then start_normal_image = image
+        else gears.debug.print_error("Could not load Start button image: " .. tostring(image)) end
+    end
+    if start_normal_image then icon.image = start_normal_image end
     -- The generated image is the complete 65x25 Start button, text included.
     -- Render at native size, without a second label or shrinking it to 22px.
     icon.forced_width, icon.forced_height, icon.resize = 65, 25, false
     local start = icon
-    local start_normal_image = icon._private.image
-    local start_pressed_image
-    if start_normal_image then
+    local start_pressed_image = start_pressed_images[icon_path]
+    if start_pressed_image == nil and start_normal_image then
         local ok, image = pcall(function()
             local width, height = start_normal_image:get_width(), start_normal_image:get_height()
             local copy = cairo.ImageSurface(cairo.Format.ARGB32, width, height)
@@ -101,11 +108,18 @@ function panel.create(s, menu, activate, window_menu, interaction)
             cr:set_operator(cairo.Operator.ATOP)
             cr:set_source_rgba(0.0, 0.11, 0.035, 0.78)
             cr:paint()
-            cr = nil
             copy:flush()
             return copy
         end)
-        if ok then start_pressed_image = image end
+        if ok then
+            start_pressed_image = image
+            start_pressed_images[icon_path] = image
+        else
+            start_pressed_images[icon_path] = false
+            gears.debug.print_error("Could not render pressed Start button: " .. tostring(image))
+        end
+    elseif start_pressed_image == false then
+        start_pressed_image = nil
     end
     local function toggle_start_menu()
         menu:toggle({coords = {x = s.geometry.x, y = s.geometry.y + 30}})
@@ -113,11 +127,15 @@ function panel.create(s, menu, activate, window_menu, interaction)
     local start_ui = interaction and interaction.lifetime()
     if interaction then
         start:buttons(gears.table.join(awful.button({}, 1, function() end)))
-        interaction.bind_button(start, {
+        s.start_release_binding = interaction.bind_button(start, {
             valid = function() return s.valid and start.visible ~= false end,
             activate = toggle_start_menu,
             paint = function(pressed)
-                if start_pressed_image then start.image = pressed and start_pressed_image or start_normal_image end
+                if start_pressed_image then
+                    start.image = pressed and start_pressed_image or start_normal_image
+                else
+                    start.opacity = pressed and 0.45 or 1
+                end
             end,
         }, start_ui)
         s:connect_signal("removed", function() start_ui.destroy() end)
@@ -127,28 +145,76 @@ function panel.create(s, menu, activate, window_menu, interaction)
     s.start_button, s.start_menu = start, menu
     s.start_normal_image, s.start_pressed_image = start_normal_image, start_pressed_image
 
-    local tag_view_buttons = awful.button({}, 1, nil, function(t) dismiss_menu(); t:view_only() end)
-    local tag_move_buttons = awful.button({"Mod4"}, 1, nil, function(t)
-        dismiss_menu()
-        if client.focus then client.focus:move_to_tag(t) end
-    end)
-    s.taglist_left_release_buttons, s.taglist_move_release_buttons = tag_view_buttons, tag_move_buttons
+    local taglist_ui = interaction and interaction.lifetime()
+    local function bind_tag_action(widget, tag)
+        if not interaction then return end
+        local action = widget._workspace_action
+        if action then
+            action.tag = tag
+            s.taglist_release_actions[tag] = action
+            return
+        end
+        action = {tag = tag}
+        widget._workspace_action = action
+        s.taglist_release_actions = s.taglist_release_actions or setmetatable({}, {__mode = "k"})
+        s.taglist_release_actions[tag] = action
+        local function valid()
+            return s.valid and action.tag and action.tag.valid
+        end
+        local function paint(pressed)
+            widget.border_color = pressed and "#a8f0bd" or "#173a6c"
+        end
+        action.view_binding = interaction.bind_button(widget, {
+            modifiers = {}, valid = valid, paint = paint,
+            activate = function()
+                if not valid() then return end
+                dismiss_menu()
+                action.tag:view_only()
+            end,
+        }, taglist_ui)
+        action.move_binding = interaction.bind_button(widget, {
+            modifiers = {"Mod4"}, valid = valid, paint = paint,
+            activate = function()
+                if not valid() then return end
+                dismiss_menu()
+                local focused = client.focus
+                if focused and focused.valid then focused:move_to_tag(action.tag) end
+            end,
+        }, taglist_ui)
+    end
+    if taglist_ui then s:connect_signal("removed", function() taglist_ui.destroy() end) end
+    local taglist_input_buttons
+    if interaction then
+        taglist_input_buttons = gears.table.join(
+            awful.button({}, 1, function() end), awful.button({"Mod4"}, 1, function() end))
+    else
+        taglist_input_buttons = gears.table.join(
+            awful.button({}, 1, nil, function(t) dismiss_menu(); t:view_only() end),
+            awful.button({"Mod4"}, 1, nil, function(t)
+                dismiss_menu(); if client.focus and client.focus.valid then client.focus:move_to_tag(t) end
+            end))
+    end
     s.taglist = awful.widget.taglist {
         screen = s, filter = awful.widget.taglist.filter.all,
         style = {bg_focus = panel_focus_gradient, fg_focus = palette.title,
             bg_empty = panel_item_gradient, fg_empty = palette.inactive,
             bg_occupied = panel_item_gradient, fg_occupied = palette.inactive},
         buttons = gears.table.join(
-            tag_view_buttons,
-            tag_move_buttons,
+            taglist_input_buttons,
             -- Up returns to the previous desktop; down advances to the next.
             awful.button({}, 4, function(t) awful.tag.viewprev(t.screen) end),
             awful.button({}, 5, function(t) awful.tag.viewnext(t.screen) end)
         ),
         layout = {spacing = 2, layout = wibox.layout.fixed.horizontal},
         widget_template = {
-            create_callback = function(self, t) selection_border(self, t.selected) end,
-            update_callback = function(self, t) selection_border(self, t.selected) end,
+            create_callback = function(self, t)
+                selection_border(self, t.selected)
+                bind_tag_action(self, t)
+            end,
+            update_callback = function(self, t)
+                selection_border(self, t.selected)
+                bind_tag_action(self, t)
+            end,
             {
                 {
                     {id = "text_role", align = "center", widget = wibox.widget.textbox},

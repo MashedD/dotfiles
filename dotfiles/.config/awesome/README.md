@@ -14,8 +14,8 @@ and system-status layout is invalidated only when optional readings appear/disap
 immediate failures without disabling entries or waiting for application exit.
 `menu-release.lua` changes native `awful.menu` entries to activate on a valid
 left-button release inside the same item; keyboard navigation and right-click dismissal
-remain native. The Start asset gains a dark glass overlay while held and toggles its menu
-only on release inside; workspace left-click actions also run on release. The
+remain native. Start uses a generated darkened image while held and toggles its menu
+only on release inside; workspace left-click actions use the shared grab/release handler. The
 coordinator adapts component handles back to existing `s.sidebar_*` diagnostics;
 document formats and persisted state are unchanged.
 

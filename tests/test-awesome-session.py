@@ -41,6 +41,11 @@ def main():
     if "--inside" not in sys.argv:
         return subprocess.call(["dbus-run-session", "--", sys.executable, __file__, "--inside", *sys.argv[1:]])
     composited = "--composited" in sys.argv
+    visual = os.environ.get("AWESOME_TEST_VISUAL") == "1"
+    if visual:
+        missing = [name for name in ("import", "compare") if not shutil.which(name)]
+        if missing:
+            raise SystemExit("AWESOME_TEST_VISUAL=1 requires ImageMagick commands: " + ", ".join(missing))
     picom_config = ROOT / "dotfiles/.config/picom/picom.conf"
     configuration = picom_config.read_text()
     for option, value in {"backend": '"glx"', "shadow": "false", "fading": "false",
@@ -54,6 +59,8 @@ def main():
     processes = []
     with tempfile.TemporaryDirectory(prefix="awesome-smoke-") as directory:
         directory = Path(directory)
+        visual_dir = directory / "visual-controls"
+        if visual: visual_dir.mkdir()
         logfile = directory / "awesome.log"
         testhome = directory / "home"
         helpers = testhome / ".local/bin"
@@ -174,18 +181,50 @@ def main():
                         lua(f'screen[1].sidebar_scroll_by({scroll})')
                     position = lua('local s=screen[1]; local target=' + expression + '; local x=' + str(x) + '; '
                         'for y=0,s.sidebar.height-1 do for _,v in ipairs(s.sidebar:find_widgets(x,y)) do if v.widget==target then '
-                        'return tostring(s.sidebar.x+x)..":"..tostring(s.sidebar.y+y) end end end; return "missing"')
+                        'return tostring(s.sidebar.x+math.floor(v.x+v.width/2))..":"..tostring(s.sidebar.y+math.floor(v.y+v.height/2)) end end end; return "missing"')
                     match = re.search(r'(\d+):(\d+)', position)
                     assert match, f"Could not locate widget {expression}: {position}"
+                    return tuple(map(int, match.groups()))
+
+                def workspace_point(index):
+                    position = lua('local s=screen[1]; local target=s.tags[' + str(index) + ']; '
+                        'for y=0,s.panel.height-1 do for x=65,420 do for _,v in ipairs(s.panel:find_widgets(x,y)) do '
+                        'local a=v.widget._workspace_action; if a and a.tag==target then '
+                        'return tostring(s.panel.x+math.floor(v.x+v.width/2))..":"..tostring(s.panel.y+math.floor(v.y+v.height/2)) '
+                        'end end end end; return "missing"')
+                    match = re.search(r'(\d+):(\d+)', position)
+                    assert match, f"Could not locate workspace {index}: {position}"
                     return tuple(map(int, match.groups()))
 
                 def menu_item_point(menu_expression, index, x=100):
                     position = lua('local m=' + menu_expression + '; local item=m.items[' + str(index) + ']; local x=' + str(x) + '; '
                         'for y=0,m.wibox.height-1 do for _,v in ipairs(m.wibox:find_widgets(x,y)) do '
-                        'if v.widget==item._background then return tostring(m.wibox.x+x)..":"..tostring(m.wibox.y+y) end end end; return "missing"')
+                        'if v.widget==item._background then return tostring(m.wibox.x+math.floor(v.x+v.width/2))..":"..tostring(m.wibox.y+math.floor(v.y+v.height/2)) end end end; return "missing"')
                     match = re.search(r'(\d+):(\d+)', position)
                     assert match, f"Could not locate menu item {index}: {position}"
                     return tuple(map(int, match.groups()))
+
+                def start_bounds():
+                    bounds = lua('local s=screen[1]; local w=s.start_button; for y=0,s.panel.height-1 do for x=0,80 do for _,v in ipairs(s.panel:find_widgets(x,y)) do if v.widget==w then return table.concat({math.floor(s.panel.x+v.x),math.floor(s.panel.y+v.y),math.ceil(v.width),math.ceil(v.height)}, ":") end end end end; return "missing"')
+                    match = re.search(r'(\d+):(\d+):(\d+):(\d+)', bounds)
+                    assert match, f"Could not locate Start button for visual check: {bounds}"
+                    return tuple(map(int, match.groups()))
+
+                def capture_start(name):
+                    x, y, width, height = start_bounds()
+                    path = visual_dir / f"{name}.png"
+                    subprocess.run(["import", "-window", "root", "-crop", f"{width}x{height}+{x}+{y}", "+repage", str(path)],
+                                   env=env, check=True, timeout=5)
+                    return path
+
+                def compare_visual(left, right, different):
+                    result = subprocess.run(["compare", "-metric", "AE", str(left), str(right), "null:"],
+                        env=env, capture_output=True, text=True, timeout=5)
+                    assert result.returncode in (0, 1), result.stderr
+                    match = re.search(r"[0-9]+(?:\.[0-9]+)?", result.stderr)
+                    assert match, f"Could not read ImageMagick difference: {result.stderr}"
+                    pixels = float(match.group(0))
+                    assert (pixels > 0) == different, f"Unexpected visual diff ({pixels} pixels): {left}, {right}"
 
                 def capture(name):
                     if not os.environ.get("AWESOME_TEST_SCREENSHOTS"):
@@ -479,7 +518,7 @@ def main():
                 assert '0:false:true:0:1280:1280' in hidden_sidebar, hidden_sidebar
                 press('super+shift+s'); press('super+shift+s'); press('super+shift+s')
                 quick_position = widget_point('screen[1].sidebar_quick_launch_buttons.Terminal.widget', x=60)
-                qx, qy = quick_position[0] + 43, quick_position[1] + 12
+                qx, qy = quick_position
                 pointer("mousemove", qx, qy, "mousedown", 1)
                 assert 'true' in lua('return screen[1].sidebar_quick_launch_buttons.Terminal.widget._sidebar_release_binding.state.armed')
                 pointer("mousemove", 400, 700, "mouseup", 1)
@@ -544,11 +583,17 @@ def main():
                     assert xlib.XGetSelectionOwner(display, selection), 'Native tray has no XEmbed owner'
                 finally:
                     xlib.XCloseDisplay(display)
+                start_normal_crop = capture_start("start-normal") if visual else None
                 pointer("mousemove", 30, 15, "mousedown", 1)
                 assert 'true' in lua('local s=screen[1]; return s.start_pressed_image and s.start_button._private.image == s.start_pressed_image and not s.start_menu.wibox.visible')
+                start_held_crop = capture_start("start-held") if visual else None
                 pointer("mouseup", 1)
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
                 assert 'true' in lua('return screen[1].start_button._private.image == screen[1].start_normal_image')
+                start_restored_crop = capture_start("start-restored") if visual else None
+                if visual:
+                    compare_visual(start_normal_crop, start_held_crop, True)
+                    compare_visual(start_normal_crop, start_restored_crop, False)
                 assert 'true' in lua('local m=screen[1].start_menu; local b=require("beautiful"); return m.x == screen[1].geometry.x and m.y == screen[1].geometry.y + screen[1].panel.height and m.theme.width == 270 and m.theme.height == 28 and m.theme.border_width == 1 and m.theme.bg_normal == b.menu_bg_normal and m.theme.bg_focus == b.menu_bg_focus and m.theme.fg_focus == b.menu_fg_focus')
                 lua('screen[1].start_menu:item_enter(1)')
                 capture("start-menu")
@@ -556,21 +601,53 @@ def main():
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"false"')
                 pointer("mousemove", 30, 15, "mousedown", 1)
                 assert 'true' in lua('return screen[1].start_pressed_image and screen[1].start_button._private.image == screen[1].start_pressed_image and not screen[1].start_menu.wibox.visible')
-                pointer("mousemove", 900, 700, "mouseup", 1)
+                pointer("mousemove", 900, 700)
+                start_cancelled_crop = capture_start("start-cancelled") if visual else None
+                pointer("mouseup", 1)
                 assert 'true' in lua('return screen[1].start_button._private.image == screen[1].start_normal_image and not screen[1].start_menu.wibox.visible')
+                if visual:
+                    compare_visual(start_normal_crop, start_cancelled_crop, False)
+                    compare_visual(start_normal_crop, capture_start("start-cancelled-restored"), False)
                 subprocess.run(["xdotool", "mousemove", "30", "15", "click", "1"], env=env, check=True)
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
                 menu_items = lua('local r=""; for i,item in ipairs(screen[1].start_menu.items) do r=r..i..":"..tostring(item.label and item.label.text)..":"..tostring(item.cmd)..";" end; return r')
                 assert '13:Display outputs' in menu_items, menu_items
+                lua('__awesome_menu_delete_count=0; __awesome_menu_action_count=0; __awesome_display_menu:add({"Delete while held", function() __awesome_menu_delete_count=__awesome_menu_delete_count+1 end}); __awesome_display_menu:add({"Release action", function() __awesome_menu_action_count=__awesome_menu_action_count+1 end})')
                 display_item = menu_item_point('screen[1].start_menu', 13)
-                dx, dy = display_item
-                lua(f'mouse.coords({{x={dx},y={dy}}}); screen[1].start_menu.items[13]._background:emit_signal("button::press", 10, 10, 1, {{}}, {{width=270,height=28}})')
-                subprocess.run(["xdotool", "mousemove", "900", "700"], env=env, check=True)
-                lua('screen[1].start_menu.items[13]._background:emit_signal("button::release", 10, 10, 1, {}, {width=270,height=28})')
+                pointer("mousemove", *display_item, "mousedown", 1)
+                assert 'true' in lua('return screen[1].start_menu.items[13]._release_binding.state.armed and not __awesome_display_menu.wibox.visible')
+                pointer("mousemove", 900, 700, "mouseup", 1)
+                assert 'true' in lua('return screen[1].start_menu.wibox.visible and not __awesome_display_menu.wibox.visible and not mousegrabber.isrunning()')
+                pointer("mousemove", *display_item, "mousedown", 1)
                 assert 'true' in lua('return screen[1].start_menu.wibox.visible and not __awesome_display_menu.wibox.visible')
-                lua(f'mouse.coords({{x={dx},y={dy}}}); local i=screen[1].start_menu.items[13]; i._background:emit_signal("button::press", 10, 10, 1, {{}}, {{width=270,height=28}}); i._background:emit_signal("button::release", 10, 10, 1, {{}}, {{width=270,height=28}})')
+                pointer("mouseup", 1)
                 wait('return tostring(__awesome_display_menu.wibox.visible)', '"true"')
                 assert 'false' in lua('return tostring(screen[1].start_menu.wibox.visible)')
+                disposable_item = menu_item_point('__awesome_display_menu', 5)
+                pointer("mousemove", *disposable_item, "mousedown", 1)
+                assert 'true' in lua('return __awesome_display_menu.items[5]._release_binding.state.armed')
+                lua('__awesome_display_menu:delete(5)')
+                assert 'true' in lua('return not mousegrabber.isrunning() and __awesome_menu_delete_count == 0')
+                pointer("mouseup", 1)
+                action_item = menu_item_point('__awesome_display_menu', 5)
+                pointer("mousemove", *action_item, "mousedown", 1)
+                assert 'true' in lua('return __awesome_display_menu.items[5]._release_binding.state.armed and __awesome_menu_action_count == 0')
+                pointer("mousemove", 900, 700)
+                assert 'true' in lua('local s=__awesome_display_menu.items[5]._release_binding.state; return s.armed and not s.inside and __awesome_menu_action_count == 0')
+                pointer("mousemove", *action_item)
+                assert 'true' in lua('local s=__awesome_display_menu.items[5]._release_binding.state; return s.armed and s.inside and __awesome_menu_action_count == 0')
+                pointer("mouseup", 1)
+                wait('return tostring(__awesome_menu_action_count)', '"1"')
+                wait('return tostring(__awesome_display_menu.wibox.visible)', '"false"')
+                lua('__awesome_display_menu:show()')
+                wait('return tostring(__awesome_display_menu.wibox.visible)', '"true"')
+                action_item = menu_item_point('__awesome_display_menu', 5)
+                pointer("mousemove", *action_item, "mousedown", 1)
+                assert 'true' in lua('return __awesome_display_menu.items[5]._release_binding.state.armed')
+                lua('__awesome_display_menu:hide(); __awesome_display_menu:show()')
+                assert 'true' in lua('return not mousegrabber.isrunning() and __awesome_menu_action_count == 1')
+                pointer("mouseup", 1)
+                assert 'true' in lua('return __awesome_display_menu.wibox.visible and __awesome_menu_action_count == 1')
                 press('Escape')
                 wait('return tostring(__awesome_display_menu.wibox.visible)', '"false"')
                 subprocess.run(["xdotool", "mousemove", "900", "700", "click", "1"], env=env, check=True)
@@ -587,8 +664,15 @@ def main():
                 assert 'false' in lua('return tostring(screen[1].start_menu.wibox.visible)')
                 press('super+1')
                 wait('return screen[1].selected_tag.index', '1')
-                tag_release = lua('local s=screen[1]; local b; for _,candidate in ipairs(s.taglist_left_release_buttons) do if candidate.button==1 and #candidate.modifiers==0 then b=candidate; break end end; assert(b); b:emit_signal("press",s.tags[3]); local before=s.selected_tag.index; b:emit_signal("release",s.tags[3]); return tostring(before)..":"..tostring(s.selected_tag.index)')
-                assert '1:3' in tag_release, tag_release
+                tag_point = workspace_point(3)
+                pointer("mousemove", *tag_point, "mousedown", 1)
+                assert 'true' in lua('return screen[1].selected_tag.index == 1 and mousegrabber.isrunning()')
+                pointer("mousemove", 500, 700, "mouseup", 1)
+                assert 'true' in lua('return screen[1].selected_tag.index == 1 and not mousegrabber.isrunning()')
+                pointer("mousemove", *tag_point, "mousedown", 1)
+                assert 'true' in lua('return screen[1].selected_tag.index == 1')
+                pointer("mouseup", 1)
+                wait('return screen[1].selected_tag.index', '3')
                 press('super+1')
                 wait('return screen[1].selected_tag.index', '1')
                 assert 'false' in lua('return tostring(screen[1].start_menu.wibox.visible)')
@@ -709,6 +793,18 @@ def main():
                 press('super+shift+3')
                 wait('return client.focus and client.focus.first_tag.name', '"3"')
                 wait('return screen[1].selected_tag.name', '"3"')
+                move_tag_point = workspace_point(2)
+                subprocess.run(["xdotool", "keydown", "Super_L", "mousemove", *map(str, move_tag_point), "mousedown", "1"], env=env, check=True, timeout=3)
+                time.sleep(0.1)
+                assert 'true' in lua('local a=screen[1].taglist_release_actions[screen[1].tags[2]]; return a.move_binding.state.armed and not a.view_binding.state.armed and client.focus.first_tag.index == 3 and mousegrabber.isrunning()')
+                subprocess.run(["xdotool", "mousemove", "500", "700", "mouseup", "1", "keyup", "Super_L"], env=env, check=True, timeout=3)
+                assert 'true' in lua('for _,c in ipairs(client.get()) do if c.instance == "AwesomeSmokeA" then return c.first_tag.index == 3 and not mousegrabber.isrunning() end end; return false')
+                subprocess.run(["xdotool", "keydown", "Super_L", "mousemove", *map(str, move_tag_point), "mousedown", "1"], env=env, check=True, timeout=3)
+                time.sleep(0.1)
+                subprocess.run(["xdotool", "mouseup", "1", "keyup", "Super_L"], env=env, check=True, timeout=3)
+                wait('for _,c in ipairs(client.get()) do if c.instance == "AwesomeSmokeA" then return c.first_tag.index end end', '2')
+                lua('for _,c in ipairs(client.get()) do if c.instance == "AwesomeSmokeA" then c:move_to_tag(screen[1].tags[3]) end end')
+                wait('for _,c in ipairs(client.get()) do if c.instance == "AwesomeSmokeA" then return c.first_tag.index end end', '3')
                 size_before = lua('local c=client.focus; return c.width..","..c.height')
                 old_width, old_height = map(int, re.search(r'"(\d+),(\d+)"', size_before).groups())
                 coords = lua('local c=client.focus; return (c.x+c.width-5)..","..(c.y+c.height-4)')
@@ -824,6 +920,11 @@ def main():
                 assert wm.poll() is None, 'Escape from quit confirmation must cancel'
                 # A second real screen subscribes without starting duplicate collectors.
                 assert 'true' in lua('local d=screen[1].sidebar_data; _G.__polish_requests=d.collectors.crypto.requests; screen.fake_add(800,0,480,600); return screen[2].sidebar_data==d and d.collectors.crypto.requests==__polish_requests and screen[2].sidebar_crypto_prices.BTC.text==screen[1].sidebar_crypto_prices.BTC.text')
+                wait('return tostring(screen[2].sidebar_scrollbar_panel.visible)', '"true"')
+                assert 'true' in lua('_G.__removed_start_binding=screen[2].start_release_binding; _G.__removed_start_button=screen[2].start_button; _G.__removed_start_normal=screen[2].start_normal_image; local b=__removed_start_binding; return b.state.press(1) and b.state.armed and __removed_start_button._private.image==screen[2].start_pressed_image')
+                lua('screen[2]:emit_signal("removed"); screen[2]:fake_remove()')
+                assert 'true' in lua('return screen.count()==1 and not mousegrabber.isrunning() and screen[2]==nil and __removed_start_binding.state.destroyed and __removed_start_button._private.image==__removed_start_normal')
+                assert 'true' in lua('local s=screen[1]; return screen.fake_add(800,0,480,600) and screen[2].sidebar_data==s.sidebar_data')
                 wait('return tostring(screen[2].sidebar_scrollbar_panel.visible)', '"true"')
                 bar_point = lua('local b=screen[2].sidebar_scrollbar_panel; return (b.x+30)..":"..(b.y+6)')
                 bx, by = re.search(r'"(\d+):(\d+)"', bar_point).groups()

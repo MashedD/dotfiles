@@ -9,7 +9,7 @@ menubar.utils.terminal = "kitty"
 local config_dir = awesome.conffile:match("^(.*)/") or "."
 local appearance = dofile(config_dir .. "/appearance.lua")
 local interaction = dofile(config_dir .. "/interaction.lua")
-dofile(config_dir .. "/menu-release.lua").install(require("awful.menu"), awful, gears, mouse)
+dofile(config_dir .. "/menu-release.lua").install(require("awful.menu"), interaction, awful, gears)
 local panel = dofile(config_dir .. "/panel.lua")
 local sidebar = dofile(config_dir .. "/sidebar.lua")
 local home = assert(os.getenv("HOME"))
