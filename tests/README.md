@@ -13,6 +13,8 @@ From any directory, invoke the repository's runner:
 ./tests/run.sh             # syntax and unit tests (default)
 ./tests/run.sh --session   # also private Xvfb Awesome session
 ./tests/run.sh --visual    # also visual sessions without/with private Picom
+./tests/run.sh --session --scenario titlebars  # fast checks + focused runtime
+./tests/run.sh --visual --scenario titlebars   # fast checks + focused visual matrix
 ```
 
 The commands above assume the repository root; an absolute runner path also works.
@@ -41,6 +43,41 @@ python3 tests/test-awesome-autostart.py
 python3 tests/test-desktop-display.py
 python3 tests/test-screen-lock.py
 ```
+
+### Focused titlebars
+
+```sh
+python3 tests/test-awesome-session.py --scenario titlebars
+AWESOME_TEST_VISUAL=1 python3 tests/test-awesome-session.py --scenario titlebars
+AWESOME_TEST_VISUAL=1 python3 tests/test-awesome-session.py --scenario titlebars --composited
+```
+
+The direct Python command skips the fast suite; the shell runner always retains it.
+Only `all` (the default) and `titlebars` are supported, with one selector per invocation.
+`--help` describes the flags. Invalid arguments fail before launching the private bus
+or display; the shell selector requires `--session` or `--visual`.
+
+Titlebars initialize their own desktop/layout/sidebar baseline and normal fixture
+windows, then run the same control, tooltip, always-on-top, narrow normal/dialog,
+window-menu, Close, and unmanage/cancellation checks used by the full suite.
+They do not run sidebar interactions, workspaces, persistence/reload, broad fullscreen
+restoration, screen removal, or locking. Brief fullscreen interruptions of titlebar
+presses remain included. Shared fixture files, mocked collectors, startup/shutdown
+checks, optional screenshots, and private process cleanup remain unchanged.
+`helpers/awesome_titlebars.py` holds the extracted checks; full runs retain their
+original order, including the late destruction checks. There are no new production
+settings or runtime dependencies.
+
+Runs print executed titlebar groups and monotonic elapsed times; focused success is
+explicitly labeled, never reported as complete-suite success. In one sequential local
+verification matrix, private-session times were 29–30 seconds focused versus 79–81
+seconds complete (normal, visual, and XRender-composited). These exclude the shell
+runner's fast checks and are observations, not a portable timing guarantee or a
+production desktop performance improvement. Argument/dispatch and runner failure
+paths are tested without X11 by `test-awesome-session-runner.py` and
+`test-deployment.py`.
+
+### Complete session coverage
 
 The Awesome runtime test uses a private Xvfb display and private D-Bus bus,
 disables real autostart, and uses a temporary HOME/runtime directory. It

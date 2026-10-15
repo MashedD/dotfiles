@@ -1,11 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
-case "${1:-}" in
-  ''|--session|--visual) ;;
-  *) printf 'Usage: %s [--session|--visual]\n' "$0" >&2; exit 64 ;;
-esac
-if (( $# > 1 )); then printf 'Expected at most one option.\n' >&2; exit 64; fi
+usage() {
+  printf 'Usage: %s [--session|--visual] [--scenario all|titlebars]\n' "$0"
+  printf 'No mode: fast checks. --session: private runtime. --visual: runtime and XRender visual checks.\n'
+  printf '%s\n' '--scenario selects runtime checks (default: all); it requires --session or --visual.'
+}
+invalid() { usage >&2; exit 64; }
+mode='' scenario=''
+while (( $# )); do
+  case "$1" in
+    --help|-h) usage; exit 0 ;;
+    --session|--visual) [[ -z "$mode" ]] || invalid; mode=$1 ;;
+    --scenario|--scenario=*)
+      [[ -z "$scenario" ]] || invalid
+      if [[ "$1" == --scenario ]]; then
+        (( $# >= 2 )) || invalid
+        scenario=$2; shift
+      else scenario=${1#*=}; fi
+      case "$scenario" in all|titlebars) ;; *) invalid ;; esac ;;
+    *) invalid ;;
+  esac
+  shift
+done
+[[ -z "$scenario" || -n "$mode" ]] || invalid
+session_args=()
+if [[ -n "$scenario" ]]; then session_args=(--scenario "$scenario"); fi
 run() {
   printf '\n+ '; printf '%q ' "$@"; printf '\n'
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -16,13 +36,13 @@ run() {
 run bash -n stow.sh tests/run.sh
 run awesome -k -c dotfiles/.config/awesome/rc.lua
 for test in tests/test-awesome-*.lua; do run lua "$test"; done
-for test in tests/test-awesome-autostart.py tests/test-awesome-controls.py tests/test-awesome-lock.py tests/test-desktop-display.py tests/test-desktop-check.py tests/test-screen-lock.py tests/test-deployment.py tests/test-idle-audit.py; do
+for test in tests/test-awesome-autostart.py tests/test-awesome-controls.py tests/test-awesome-session-runner.py tests/test-awesome-lock.py tests/test-desktop-display.py tests/test-desktop-check.py tests/test-screen-lock.py tests/test-deployment.py tests/test-idle-audit.py; do
   run python3 "$test"
 done
-case "${1:-}" in
-  --session) run python3 tests/test-awesome-session.py ;;
+case "$mode" in
+  --session) run python3 tests/test-awesome-session.py "${session_args[@]}" ;;
   --visual)
     export AWESOME_TEST_VISUAL=1
-    run python3 tests/test-awesome-session.py
-    run python3 tests/test-awesome-session.py --composited ;;
+    run python3 tests/test-awesome-session.py "${session_args[@]}"
+    run python3 tests/test-awesome-session.py --composited "${session_args[@]}" ;;
 esac

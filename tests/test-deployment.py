@@ -208,16 +208,20 @@ class RunnerTests(unittest.TestCase):
     setUp = DeploymentTests.setUp
     stub = DeploymentTests.stub
     calls = DeploymentTests.calls
-    def test_runner_modes(self):
+    def prepare_runner(self):
         tests = self.repo / 'tests'
         tests.mkdir(exist_ok=True)
         shutil.copy(ROOT / 'tests/run.sh', tests)
         (tests / 'test-awesome-fake.lua').touch()
         for name in ['awesome', 'lua', 'python3']:
             self.stub(name)
+        return tests / 'run.sh'
+
+    def test_runner_modes(self):
+        runner = self.prepare_runner()
         for mode in ['', '--session', '--visual']:
             if self.log.exists(): self.log.unlink()
-            result = subprocess.run(['/bin/bash', str(tests / 'run.sh')] + ([mode] if mode else []),
+            result = subprocess.run(['/bin/bash', str(runner)] + ([mode] if mode else []),
                                     env=self.env, cwd=self.base, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             calls = self.calls()
@@ -225,7 +229,7 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(len(sessions), {'': 0, '--session': 1, '--visual': 2}[mode])
             if mode == '--visual': self.assertIn('--composited', sessions[-1])
         self.env['FAIL_TOOL'] = 'awesome'
-        self.assertEqual(subprocess.run(['/bin/bash', str(tests / 'run.sh')], env=self.env,
+        self.assertEqual(subprocess.run(['/bin/bash', str(runner)], env=self.env,
                                         capture_output=True).returncode, 9)
         del self.env['FAIL_TOOL']
         empty = self.base / 'empty'
@@ -233,8 +237,44 @@ class RunnerTests(unittest.TestCase):
         for tool in ['dirname', 'bash']:
             (empty / tool).symlink_to(shutil.which(tool))
         self.env['PATH'] = str(empty)
-        self.assertEqual(subprocess.run(['/bin/bash', str(tests / 'run.sh')], env=self.env,
+        self.assertEqual(subprocess.run(['/bin/bash', str(runner)], env=self.env,
                                         capture_output=True).returncode, 127)
+
+    def test_runner_scenarios_and_validation(self):
+        runner = self.prepare_runner()
+        for mode in ('--session', '--visual'):
+            for selector in (['--scenario', 'titlebars'], ['--scenario=all']):
+                if self.log.exists(): self.log.unlink()
+                result = subprocess.run(['/bin/bash', str(runner), mode, *selector],
+                                        env=self.env, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                sessions = [call for call in self.calls() if 'tests/test-awesome-session.py' in call]
+                self.assertEqual(len(sessions), 1 if mode == '--session' else 2)
+                expected = 'titlebars' if selector[0] == '--scenario' else 'all'
+                for call in sessions:
+                    index = call.index('--scenario')
+                    self.assertEqual(call[index+1], expected)
+                    self.assertEqual(call.count('--scenario'), 1)
+                if mode == '--visual': self.assertIn('--composited', sessions[-1])
+        for argv, status in [(['--help'],0), (['--scenario','titlebars'],64),
+                             (['--session','--visual'],64), (['--session','--session'],64),
+                             (['--session','--scenario'],64), (['--visual','--scenario=invalid'],64),
+                             (['--session','--scenario=all','--scenario','titlebars'],64),
+                             (['--session','--unknown'],64), (['--session','extra'],64)]:
+            if self.log.exists(): self.log.unlink()
+            result = subprocess.run(['/bin/bash', str(runner), *argv],env=self.env,
+                                    capture_output=True,text=True)
+            self.assertEqual(result.returncode,status,(argv,result.stderr))
+            self.assertEqual(self.calls(),[],argv)
+        stub = self.bin / 'python3'
+        stub.write_text(stub.read_text() + '\nif "tests/test-awesome-session.py" in sys.argv: sys.exit(17)\n')
+        for mode in ('--session','--visual'):
+            if self.log.exists(): self.log.unlink()
+            result = subprocess.run(['/bin/bash',str(runner),mode,'--scenario','titlebars'],
+                                    env=self.env,capture_output=True,text=True)
+            self.assertEqual(result.returncode,17,result.stderr)
+            sessions = [call for call in self.calls() if 'tests/test-awesome-session.py' in call]
+            self.assertEqual(len(sessions),1,'Failure must stop before a second runtime invocation')
 
 
 if __name__ == '__main__':
