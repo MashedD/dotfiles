@@ -1,0 +1,160 @@
+"""Isolated deployment and runner tests; never use the real HOME or desktop."""
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import tempfile
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+PATHS = ['.local/bin/codex-usage', '.local/bin/crypto-prices',
+         '.config/pcmanfm/default/desktop-items-0.conf',
+         '.config/pcmanfm/default/pcmanfm.conf']
+
+
+class DeploymentTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.base = Path(self.temp.name)
+        self.repo = self.base / 'repo'
+        self.repo.mkdir()
+        self.home = self.base / 'home'
+        self.home.mkdir()
+        self.bin = self.base / 'bin'
+        self.bin.mkdir()
+        self.log = self.base / 'calls'
+        shutil.copy(ROOT / 'stow.sh', self.repo)
+        self.env = dict(os.environ, HOME=str(self.home),
+                        PATH=f'{self.bin}:{os.environ["PATH"]}', CALLS=str(self.log))
+        self.stub('stow')
+        self.stub('fc-cache')
+
+    def stub(self, name):
+        file = self.bin / name
+        file.write_text(f'#!{shutil.which("python3")}\n'
+                        'import json, os, sys\n'
+                        'with open(os.environ["CALLS"], "a") as f:\n'
+                        ' f.write(json.dumps([os.path.basename(sys.argv[0])] + sys.argv[1:]) + "\\n")\n'
+                        'if "--simulate" in sys.argv and os.environ.get("FAIL_PREFLIGHT"):\n'
+                        ' sys.exit(1)\n'
+                        'if os.environ.get("FAIL_TOOL") == os.path.basename(sys.argv[0]):\n'
+                        ' sys.exit(9)\n')
+        file.chmod(0o755)
+
+    def invoke(self, *args):
+        return subprocess.run(['/bin/bash', str(self.repo / 'stow.sh'), *args],
+                              env=self.env, cwd=self.base, text=True, capture_output=True)
+
+    def calls(self):
+        return [json.loads(line) for line in self.log.read_text().splitlines()] if self.log.exists() else []
+
+    def test_default_and_actions(self):
+        self.assertEqual(self.invoke().returncode, 0)
+        self.assertEqual(len(self.calls()), 1)
+        self.assertIn('--simulate', self.calls()[0])
+        for action, flag in [('apply', '--restow'), ('unlink', '--delete')]:
+            self.log.unlink()
+            self.assertEqual(self.invoke(action).returncode, 0)
+            calls = self.calls()
+            self.assertEqual(len(calls), 3)
+            self.assertIn(flag, calls[0])
+            self.assertIn(flag, calls[1])
+            self.assertEqual(calls[2], ['fc-cache', '-f'])
+
+    def test_exact_exclusions_and_order(self):
+        for action in ['check', 'apply', 'unlink']:
+            for args in [(action, '--skip-local-conflicts'), ('--skip-local-conflicts', action)]:
+                if self.log.exists(): self.log.unlink()
+                result = self.invoke(*args)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                stow_calls = [c for c in self.calls() if c[0] == 'stow']
+                expected = ['--ignore=^' + p.replace('.', r'\.') + '$' for p in PATHS]
+                for call in stow_calls:
+                    patterns = [a for a in call if a.startswith('--ignore=')]
+                    self.assertEqual(patterns, expected)
+                    for path in PATHS:
+                        self.assertTrue(any(re.search(p[9:], path) for p in patterns))
+                        self.assertFalse(any(re.search(p[9:], 'other/' + path) for p in patterns))
+                    self.assertFalse(any(re.search(p[9:], '.local/bin/unrelated') for p in patterns))
+                for path in PATHS: self.assertIn(path, result.stdout)
+
+    def test_preflight_failure(self):
+        self.env['FAIL_PREFLIGHT'] = '1'
+        for action in ['apply', 'unlink']:
+            if self.log.exists(): self.log.unlink()
+            self.assertNotEqual(self.invoke(action, '--skip-local-conflicts').returncode, 0)
+            self.assertEqual(len(self.calls()), 1)
+
+    def test_invalid_arguments(self):
+        for args in [('bad',), ('--bad',), ('check', 'apply')]:
+            self.assertEqual(self.invoke(*args).returncode, 64)
+        self.assertEqual(self.calls(), [])
+
+    def test_real_stow_conflict_safety(self):
+        stow = shutil.which('stow')
+        self.assertIsNotNone(stow, 'GNU Stow is required for integration checks')
+        (self.bin / 'stow').unlink()
+        (self.bin / 'stow').symlink_to(stow)
+        for path in PATHS + ['.config/unrelated']:
+            source = self.repo / 'dotfiles' / path
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text('repository')
+        for path in PATHS:
+            target = self.home / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text('keep local')
+        self.assertNotEqual(self.invoke('apply').returncode, 0)
+        other = self.home / '.config/unrelated'
+        other.write_text('unrelated conflict')
+        self.assertNotEqual(self.invoke('apply', '--skip-local-conflicts').returncode, 0)
+        self.assertEqual(other.read_text(), 'unrelated conflict')
+        other.unlink()
+        result = self.invoke('apply', '--skip-local-conflicts')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(other.is_symlink())
+        self.assertEqual(self.invoke('unlink', '--skip-local-conflicts').returncode, 0)
+        self.assertFalse(other.exists())
+        for path in PATHS:
+            target = self.home / path
+            self.assertFalse(target.is_symlink())
+            self.assertEqual(target.read_text(), 'keep local')
+
+
+class RunnerTests(unittest.TestCase):
+    setUp = DeploymentTests.setUp
+    stub = DeploymentTests.stub
+    calls = DeploymentTests.calls
+    def test_runner_modes(self):
+        tests = self.repo / 'tests'
+        tests.mkdir(exist_ok=True)
+        shutil.copy(ROOT / 'tests/run.sh', tests)
+        (tests / 'test-awesome-fake.lua').touch()
+        for name in ['awesome', 'lua', 'python3']:
+            self.stub(name)
+        for mode in ['', '--session', '--visual']:
+            if self.log.exists(): self.log.unlink()
+            result = subprocess.run(['/bin/bash', str(tests / 'run.sh')] + ([mode] if mode else []),
+                                    env=self.env, cwd=self.base, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            calls = self.calls()
+            sessions = [c for c in calls if 'tests/test-awesome-session.py' in c]
+            self.assertEqual(len(sessions), {'': 0, '--session': 1, '--visual': 2}[mode])
+            if mode == '--visual': self.assertIn('--composited', sessions[-1])
+        self.env['FAIL_TOOL'] = 'awesome'
+        self.assertEqual(subprocess.run(['/bin/bash', str(tests / 'run.sh')], env=self.env,
+                                        capture_output=True).returncode, 9)
+        del self.env['FAIL_TOOL']
+        empty = self.base / 'empty'
+        empty.mkdir()
+        for tool in ['dirname', 'bash']:
+            (empty / tool).symlink_to(shutil.which(tool))
+        self.env['PATH'] = str(empty)
+        self.assertEqual(subprocess.run(['/bin/bash', str(tests / 'run.sh')], env=self.env,
+                                        capture_output=True).returncode, 127)
+
+
+if __name__ == '__main__':
+    unittest.main()

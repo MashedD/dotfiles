@@ -11,12 +11,14 @@ readonly package_name
 
 usage() {
   cat <<'EOF'
-Usage: ./stow.sh [check|apply|unlink|help]
+Usage: ./stow.sh [check|apply|unlink|help] [--skip-local-conflicts]
 
   check   Simulate applying the dotfiles package and report conflicts (default).
   apply   Apply the package only after a successful simulated preflight.
   unlink  Remove only links owned by this package after a simulated preflight.
   help    Show this message.
+
+  --skip-local-conflicts  Exclude the four documented local helper/PCManFM paths.
 
 Conflicts are never overwritten, backed up, or adopted automatically. Resolve
 them manually, then run `./stow.sh check` again before applying changes.
@@ -31,11 +33,11 @@ require_command() {
 }
 
 simulate() {
-  stow --simulate --verbose=1 --dir "$stow_dir" --target "$target_dir" "$@" "$package_name"
+  stow --simulate --verbose=1 --dir "$stow_dir" --target "$target_dir" "${ignore_args[@]}" "$@" "$package_name"
 }
 
 run_stow() {
-  stow --dir "$stow_dir" --target "$target_dir" "$@" "$package_name"
+  stow --dir "$stow_dir" --target "$target_dir" "${ignore_args[@]}" "$@" "$package_name"
 }
 
 check() {
@@ -74,12 +76,33 @@ unlink() {
   refresh_fonts
 }
 
-if [ "$#" -gt 1 ]; then
-  usage >&2
-  exit 64
+ignore_args=()
+action=''
+skip_local=false
+for arg in "$@"; do
+  case "$arg" in
+    --skip-local-conflicts) skip_local=true ;;
+    check|apply|unlink|help|--help|-h)
+      if [[ -n "$action" ]]; then usage >&2; exit 64; fi
+      action="$arg" ;;
+    *) usage >&2; exit 64 ;;
+  esac
+done
+if $skip_local; then
+  paths=(
+    '.local/bin/codex-usage'
+    '.local/bin/crypto-prices'
+    '.config/pcmanfm/default/desktop-items-0.conf'
+    '.config/pcmanfm/default/pcmanfm.conf'
+  )
+  printf 'Excluding local paths:\n'
+  for path in "${paths[@]}"; do
+    printf '  %s\n' "$path"
+    ignore_args+=("--ignore=^${path//./\\.}$")
+  done
 fi
 
-case "${1:-check}" in
+case "${action:-check}" in
   check)
     check
     ;;

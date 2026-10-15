@@ -1,5 +1,19 @@
 # Desktop tests
 
+From any directory, invoke the repository's runner:
+
+```sh
+./tests/run.sh             # syntax and unit tests (default)
+./tests/run.sh --session   # also private Xvfb Awesome session
+./tests/run.sh --visual    # also visual sessions without/with private Picom
+```
+
+The commands above assume the repository root; an absolute runner path also works.
+The runner stops on failure; missing dependencies are errors, not skipped checks.
+Fast checks need Bash, Awesome, Lua, and Python plus the helper-test dependencies
+below. Deployment/runner tests use temporary homes and stub commands; real Stow
+integration checks require GNU Stow. No tests change the live desktop.
+
 ## Awesome session
 
 ```sh
