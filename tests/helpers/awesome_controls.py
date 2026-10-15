@@ -94,6 +94,43 @@ def verify_sidebar_edge_scroll(*, lua, pointer, sidebar_title_point, log_text):
             failure.add_note(f"Button release also failed: {cleanup_error}")
 
 
+def verify_fullscreen_workspaces(*, lua, wait):
+    """An off-workspace fullscreen client must not suppress desktop controls."""
+    lua('__fs_client=client.focus; __fs_home=__fs_client.screen.selected_tag; __fs_other=__fs_client.screen.tags[__fs_home.index%4+1]')
+    shown = '''local s=__fs_client.screen; return tostring(s.panel.visible and s.sidebar.visible
+        and s.sidebar_mode==3 and s.sidebar:struts().right==s.sidebar.width
+        and s.workarea.y==s.panel.height and s.workarea.width==s.geometry.width-s.sidebar.width)'''
+    hidden = '''local c=__fs_client; local s=c.screen; local a=s.geometry;
+        return tostring(c.fullscreen and not s.panel.visible and not s.sidebar.visible
+        and not s.sidebar_scrollbar_panel.visible and s.sidebar:struts().right==0
+        and c.x==a.x and c.y==a.y and c.width==a.width and c.height==a.height)'''
+    try:
+        for _ in range(3):
+            lua('__fs_other:view_only()')
+            wait(shown, '"true"')
+            assert 'true' in lua('return __fs_client.fullscreen and not __fs_client:isvisible()')
+            lua('__fs_home:view_only()')
+            wait(hidden, '"true"')
+        lua('__fs_client.minimized=true')
+        wait(shown, '"true"')
+        lua('__fs_client.minimized=false')
+        wait(hidden, '"true"')
+        lua('__fs_client.hidden=true')
+        wait(shown, '"true"')
+        lua('__fs_client.hidden=false')
+        wait(hidden, '"true"')
+        lua('__fs_client:move_to_tag(__fs_other)')
+        wait(shown, '"true"')
+        lua('__fs_client.sticky=true')
+        wait(hidden, '"true"')
+        lua('__fs_client.sticky=false')
+        wait(shown, '"true"')
+        lua('__fs_client:move_to_tag(__fs_home)')
+        wait(hidden, '"true"')
+    finally:
+        lua('if __fs_client and __fs_client.valid then __fs_client.hidden=false; __fs_client.minimized=false; __fs_client.sticky=false; __fs_client:move_to_tag(__fs_home); __fs_home:view_only(); __fs_client:emit_signal("request::activate", "test", {raise=true}) end; __fs_client=nil; __fs_home=nil; __fs_other=nil')
+
+
 def verify_pointer_recovery(*, lua, pointer, wait):
     """Temporary controls retain detached nodes to exercise live-tree validation."""
     lua('''

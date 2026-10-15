@@ -147,9 +147,10 @@ menu; Applications opens Awesome's built-in application launcher, and Run
 opens xfce4-appfinder. Openbox-specific edge-resize/shade controls are not emulated;
 use Win+right-drag anywhere or plain left-drag on the bottom-right grip for
 resizing. Maximized/fullscreen windows hide the resize strip and borders;
-unmaximizing restores them. The top panel hides while any window on that
-monitor is fullscreen (e.g. YouTube/mpv) and reappears on exit or when the
-fullscreen window closes.
+unmaximizing restores them. The top panel hides only while a fullscreen window is visible on that monitor's
+selected workspace(s). Switching away restores the panel and reserved sidebar;
+switching back hides them again, without exiting the application's fullscreen.
+Minimizing or closing the fullscreen window also restores the controls.
 
 ## AMD Xorg crash investigation (this laptop)
 

@@ -23,6 +23,7 @@ map kp_multiply send_text all *
 map kp_subtract send_text all -
 map kp_add      send_text all +
 map kp_divide   send_text all /s use the `desktop-*` prefix.
+- Hide the panel and reserved sidebar only for fullscreen clients visible on the current workspace(s). A fullscreen client on another workspace must not hide desktop controls; restore them when switching away and preserve the client's fullscreen state.
 - The session uses four desktops: **1**, **2**, **3**, and **4**.
   - Win+1–4 switches desktops.
   - Win+Shift+1–4 sends the focused window to a desktop and follows it.

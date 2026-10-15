@@ -369,13 +369,13 @@ screen.connect_signal("property::geometry", wallpaper)
 
 local function screen_has_fullscreen(s)
     for _, c in ipairs(client.get(s)) do
-        if c.valid and c.fullscreen and not c.minimized then return true end
+        if c.valid and c.fullscreen and not c.minimized and c:isvisible() then return true end
     end
     return false
 end
 
 update_sidebar_mode = function(s)
-    if not s or not s.valid or not s.sidebar then return end
+    if not s or not s.valid or not s.sidebar or (s.sidebar_ui and s.sidebar_ui.disposed) then return end
     local mode = s.sidebar_mode or 0
     local fullscreen = screen_has_fullscreen(s)
     local reserve = mode == 3 and not fullscreen
@@ -576,15 +576,8 @@ end
 client.connect_signal("property::maximized", update_decorations)
 client.connect_signal("property::fullscreen", update_decorations)
 local function update_panel_for_fullscreen(s)
-    if not s or not s.valid or not s.panel then return end
-    local fullscreen = false
-    for _, c in ipairs(client.get(s)) do
-        if c.valid and c.fullscreen and not c.minimized then
-            fullscreen = true
-            break
-        end
-    end
-    s.panel.visible = not fullscreen
+    if not s or not s.valid or not s.panel or (s.sidebar_ui and s.sidebar_ui.disposed) then return end
+    s.panel.visible = not screen_has_fullscreen(s)
     if s.sidebar_mode == 3 then update_sidebar_mode(s) end
 end
 client.connect_signal("property::fullscreen", function(c)
@@ -597,6 +590,14 @@ client.connect_signal("property::screen", function(c, old_screen)
     update_panel_for_fullscreen(old_screen)
     update_panel_for_fullscreen(c.screen)
 end)
+tag.connect_signal("property::selected", function(t)
+    update_panel_for_fullscreen(t.screen)
+end)
+for _, signal in ipairs({"tagged", "untagged", "property::sticky", "property::hidden"}) do
+    client.connect_signal(signal, function(c)
+        update_panel_for_fullscreen(c.screen)
+    end)
+end
 client.connect_signal("unmanage", function(c)
     local s = c.screen
     if s then
