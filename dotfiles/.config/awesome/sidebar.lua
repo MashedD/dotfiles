@@ -8,30 +8,15 @@ local cairo = require("lgi").cairo
 local gstring = require("gears.string")
 local menubar = require("menubar")
 local sidebar = {}
-
-local palette = {
-    bg = "#07110dcc", card = "#101a15c8", line = "#6fb7c0aa",
-    bevel_light = "#9ee8f0bb", bevel_shadow = "#02080588",
-    text = "#d7e5dc", muted = "#a3b5aa", teal = "#70c5bd",
-    green = "#70c98b", neon = "#00ff41", amber = "#d6bd72",
-}
-
-local sidebar_gradient = gears.color {
-    type = "linear", from = {0, 0}, to = {300, 0},
-    stops = {{0, "#06110dcc"}, {0.32, "#123326b8"}, {0.72, "#1d4b34a8"}, {1, "#07160f92"}},
-}
-local card_gradient = gears.color {
-    type = "linear", from = {0, 0}, to = {0, 180},
-    stops = {{0, "#e7ffffff"}, {0.04, "#2b5b58c8"}, {0.22, "#17332fb8"}, {0.68, "#0f211ba8"}, {1, "#08130f96"}},
-}
-local sidebar_title_gradient = gears.color {
-    type = "linear", from = {0, 0}, to = {0, 30},
-    stops = {{0, "#f2ffffff"}, {0.09, "#9ee4ffed"}, {0.42, "#236ba9ed"}, {0.74, "#124b88ed"}, {1, "#0a2c58ed"}},
-}
-local section_header_gradient = gears.color {
-    type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#ffffffff"}, {0.12, "#a4dcffeb"}, {0.48, "#285d91e8"}, {1, "#123967e8"}},
-}
+local config_dir = awesome.conffile:match("^(.*)/") or "."
+local appearance = dofile(config_dir .. "/appearance.lua")
+local data = dofile(config_dir .. "/sidebar-data.lua")
+local weather_enabled = os.getenv("AWESOME_TEST_MODE") ~= "1" or os.getenv("AWESOME_TEST_WEATHER") == "1"
+local palette = appearance.palette
+local sidebar_gradient = appearance.forest(300)
+local card_gradient = appearance.gradient("card", 180)
+local sidebar_title_gradient = appearance.gradient("selected", 26)
+local section_header_gradient = appearance.gradient("blue", 24)
 local button_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
     stops = {{0, "#263a2c"}, {0.5, "#1a2a1f"}, {1, "#0d1811"}},
@@ -151,17 +136,28 @@ local function label(text, color, size, bold, align)
 end
 
 local function section_header(text, trailing_widget)
-    local title = label(text, "#edfaff", 10, true, "center")
+    local title = label(text, palette.title, 10, true, "center")
     local marker = label("−", "#d9f7f4", 10, true, "center")
     marker.forced_width = 18
-    local contents = wibox.layout.stack()
-    local adornments = wibox.layout.align.horizontal()
-    adornments:set_left(marker)
-    if trailing_widget then adornments:set_right(trailing_widget) end
-    contents:add(adornments)
-    contents:add(wibox.widget {
+    local centered_title = wibox.widget {
         title, halign = "center", valign = "center", widget = wibox.container.place,
-    })
+    }
+    local contents
+    if trailing_widget then
+        -- Reserve real space for status text, including the longer UNKNOWN state.
+        contents = wibox.layout.align.horizontal()
+        contents:set_left(marker)
+        contents:set_middle(centered_title)
+        contents:set_right(wibox.widget {
+            trailing_widget, left = 6, right = 2, widget = wibox.container.margin,
+        })
+    else
+        contents = wibox.layout.stack()
+        local adornments = wibox.layout.align.horizontal()
+        adornments:set_left(marker)
+        contents:add(adornments)
+        contents:add(centered_title)
+    end
     local header = wibox.widget {
         {
             {forced_height = 1, bg = "#efffffff", widget = wibox.container.background},
@@ -187,10 +183,7 @@ local function make_trash_icon()
     icon.fit = function() return 16, 18 end
     icon.full = nil
     icon.draw = function(_, _, cr)
-        local red, green, blue = icon.full == nil and 1 or (icon.full and 1 or 0.66),
-            icon.full == nil and 0.82 or (icon.full and 0.61 or 0.94),
-            icon.full == nil and 0.43 or (icon.full and 0.51 or 0.74)
-        cr:set_source_rgb(red, green, blue)
+        cr:set_source(gears.color(appearance.trash_color(icon.full)))
         cr:set_line_width(1.4)
         cr:set_line_cap(cairo.LineCap.ROUND)
         cr:move_to(2, 4); cr:line_to(14, 4)
@@ -495,6 +488,17 @@ local function network_stats()
     return rx, tx
 end
 
+-- Widget-independent sampling, shared by every screen subscriber.
+data.define("stats", 1, function(done)
+    local root_total, root_free = filesystem_stats()
+    local capacity, battery_state, mouse_capacity, mouse_state = battery_stats()
+    local rx, tx = network_stats()
+    done({stat = read("/proc/stat"), meminfo = read("/proc/meminfo") or "",
+        root_total = root_total, root_free = root_free, capacity = capacity,
+        battery_state = battery_state, mouse_capacity = mouse_capacity, mouse_state = mouse_state,
+        rx = rx, tx = tx, now = os.time()})
+end)
+
 local function action_button(text, callback, dismiss_menu)
     local button = style_button(wibox.widget {
         {label(text, palette.teal, 14, true, "center"),
@@ -641,8 +645,8 @@ function sidebar.create(s, dismiss_menu)
     mouse_battery_text.visible = false
     local root_text = label("Free /  reading…", palette.text, 10, false)
     local network_text = label("Network  measuring…", palette.text, 10, false)
-    local cpu_bar, memory_bar = progress(palette.neon), progress(palette.green)
-    local battery_bar, root_bar = progress(palette.amber), progress(palette.teal)
+    local cpu_bar, memory_bar = progress(palette.green), progress(palette.green)
+    local battery_bar, root_bar = progress(palette.green), progress(palette.green)
     local mouse_battery_bar = progress(palette.teal)
     mouse_battery_bar.visible = false
     local volume_text = label("Volume  --", palette.text, 10, false)
@@ -652,7 +656,7 @@ function sidebar.create(s, dismiss_menu)
     media_text.ellipsize = "end"
 
     local header_title = label("MashedD's AwesomeBar", "#f2fffb", 9, true)
-    header_title.font = "Segoe UI bold 9"
+    header_title.font = appearance.fonts.title
     local header = wibox.widget {
         {
             {forced_height = 1, bg = "#f2ffffff", widget = wibox.container.background},
@@ -789,39 +793,47 @@ function sidebar.create(s, dismiss_menu)
         weather_icon_slot, weather_text_centered, spacing = 8,
         layout = wibox.layout.fixed.horizontal,
     }
-    local weather_pending = false
-    local weather_url = "https://api.open-meteo.com/v1/forecast?latitude=53.1235&longitude=17.9871"
-        .. "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=Europe%2FWarsaw"
+    local function freshness(name, body)
+        local status = label("", palette.amber, 8, true, "center")
+        status.visible = false
+        body:add(status)
+        local tooltip = awful.tooltip {objects = {body}, timer_function = function()
+            local state = data.state(name)
+            if not state.updated then return gstring.xml_escape(state.error or "Waiting for first reading") end
+            return gstring.xml_escape(string.format("Last success: %s\nAge: %d minutes%s",
+                os.date("%Y-%m-%d %H:%M:%S", state.updated),
+                math.max(0, math.floor((os.time() - state.updated) / 60)),
+                state.error and ("\n" .. state.error) or ""))
+        end}
+        return function(state)
+            status.text = state.stale and "STALE" or ""
+            status.visible = state.stale == true
+            body:emit_signal("widget::layout_changed")
+        end, tooltip
+    end
     local function set_weather_icon(icon)
         weather_icon.markup = string.format("<span foreground='%s' size='22pt'>%s</span>", palette.teal, icon)
     end
-    local function update_weather()
-        if weather_pending then return end
-        weather_pending = true
-        awful.spawn.easy_async({"curl", "--fail", "--silent", "--show-error", "--max-time", "12", weather_url},
-            function(stdout, _, _, code)
-                weather_pending = false
-                local current = code == 0 and stdout:match('"current"%s*:%s*{([^}]+)}') or nil
-                local function field(name)
-                    return current and tonumber(current:match('"' .. name .. '"%s*:%s*([%-0-9.]+)')) or nil
-                end
-                local temperature, apparent = field("temperature_2m"), field("apparent_temperature")
-                local condition, wind = field("weather_code"), field("wind_speed_10m")
-                if not temperature then
-                    set_weather_icon("·")
-                    weather_main.text = "Weather unavailable"
-                    weather_detail.text = "Click to try again"
-                    return
-                end
-                set_weather_icon(weather_icon_for(condition))
-                weather_main.text = string.format("%.0f°C  •  %s", temperature, weather_description(condition))
-                weather_detail.text = string.format("Feels %.0f°C  •  Wind %.0f km/h", apparent or temperature, wind or 0)
-            end)
+    local function update_weather() data.refresh("weather") end
+    local function render_weather(state)
+        local value = state.value
+        if not value then
+            set_weather_icon("·")
+            weather_main.text = "Weather unavailable"
+            weather_detail.text = "Click to try again"
+            return
+        end
+        set_weather_icon(weather_icon_for(value.condition))
+        weather_main.text = string.format("%.0f°C  •  %s", value.temperature, weather_description(value.condition))
+        weather_detail.text = string.format("Feels %.0f°C  •  Wind %.0f km/h", value.apparent, value.wind)
     end
     local weather_body = wibox.widget {
         {weather_line, halign = "center", valign = "center", widget = wibox.container.place},
         spacing = 3, layout = wibox.layout.fixed.vertical,
     }
+    weather_body:buttons(gears.table.join(awful.button({}, 1, function()
+        if weather_enabled then update_weather() end
+    end)))
     local weather_card = collapsible_card("weather", "BYDGOSZCZ · WEATHER", weather_body)
 
     local function find_trezor_appimage()
@@ -897,45 +909,29 @@ function sidebar.create(s, dismiss_menu)
         spacing = compact_spacing, layout = wibox.layout.fixed.vertical,
     }
     local crypto_card = collapsible_card("crypto", "CRYPTO PRICES · USD", crypto_body)
-    local crypto_pending = false
-    local function refresh_crypto()
-        if crypto_pending then return end
-        crypto_pending = true
-        awful.spawn.easy_async({os.getenv("HOME") .. "/.local/bin/crypto-prices"}, function(stdout, _, _, code)
-            crypto_pending = false
-            local display = code == 0 and stdout:gsub("#%b[]", ""):gsub("%s+$", "") or ""
-            local btc, eth, ltc = display:match("BTC%s+(%S+)%s+ETH%s+(%S+)%s+LTC%s+(%S+)")
-            crypto_prices.BTC.set((btc or "--"):gsub("^%$", ""))
-            crypto_prices.ETH.set((eth or "--"):gsub("^%$", ""))
-            crypto_prices.LTC.set((ltc or "--"):gsub("^%$", ""))
-        end)
+    local function refresh_crypto() data.refresh("crypto") end
+    local function render_crypto(state)
+        for symbol, entry in pairs(crypto_prices) do entry.set(state.value and state.value[symbol] or "--") end
     end
 
     local trash_icon = make_trash_icon()
-    local trash_state = label("UNKNOWN", palette.amber, 9, true)
+    local trash_state = label("UNKNOWN", appearance.trash_color(nil), 9, true)
     local trash_status = wibox.widget {
         trash_icon, trash_state, spacing = 4,
         layout = wibox.layout.fixed.horizontal,
     }
-    local function refresh_trash_status()
+    local function refresh_trash_status() data.refresh("trash") end
+    local function render_trash(state)
         local full
-        local ok, enumerator = pcall(function()
-            return Gio.File.new_for_uri("trash:///"):enumerate_children("standard::name", 0)
-        end)
-        if ok and enumerator then
-            local read_ok, child = pcall(function() return enumerator:next_file() end)
-            pcall(function() enumerator:close() end)
-            if read_ok then full = child ~= nil end
-        end
+        if state.value and not state.error then full = state.value.full end
         trash_icon.full = full
         trash_icon:emit_signal("widget::redraw_needed")
         local text, color = full == nil and "UNKNOWN" or (full and "FULL" or "EMPTY"),
-            full == nil and "#ffd36e" or (full and "#ff9b82" or "#a8f0bd")
+            appearance.trash_color(full)
         trash_state.markup = string.format(
             "<span foreground='%s' size='9pt' weight='bold'>%s</span>", color, text)
         s.sidebar_trash_full = full
     end
-    refresh_trash_status()
     trash_status:buttons(gears.table.join(awful.button({}, 1, function()
         awful.spawn({"pcmanfm", "trash:///"})
     end)))
@@ -1007,49 +1003,31 @@ function sidebar.create(s, dismiss_menu)
         spacing = compact_spacing, layout = wibox.layout.fixed.vertical,
     }
     local codex_card = collapsible_card("codex", "CODEX", codex_body)
-    local codex_pending = false
-    local function refresh_codex()
-        if codex_pending then return end
-        codex_pending = true
-        awful.spawn.easy_async({os.getenv("HOME") .. "/.local/bin/codex-usage", "--sidebar"}, function(stdout, _, _, code)
-            codex_pending = false
-            local report = code == 0 and stdout or ""
-            local display, reset_dates = report:match("^(.-)\t([^\r\n]+)")
-            display = (display or report):gsub("#%b[]", ""):gsub("^C%*?%s*", ""):gsub("%s+$", "")
-            local pretty_reset_dates = reset_dates and reset_dates:gsub(" · ", "\n")
-            local reset_text = pretty_reset_dates and reset_dates ~= "--"
-                and pretty_reset_dates or "--"
-            codex_resets.markup = string.format(
-                "<span foreground='%s' size='9pt'>%s</span>", palette.teal, gstring.xml_escape(reset_text))
-            local five_left, five_reset, week_left, week_reset = display:match(
-                "5h%s+(%d+)%%@([%a]+%s+%d%d:%d%d)%s+7d%s+(%d+)%%@([%a]+%s+%d%d:%d%d)")
-            if five_left then
-                codex_5h.summary.markup = string.format(
-                    "<span foreground='%s' size='9pt'>5h  %s%% left · %s</span>", palette.text, five_left, five_reset)
-                codex_5h.remaining = tonumber(five_left) or 0
-                codex_5h.bar.value = codex_5h.remaining
+    local function refresh_codex() data.refresh("codex") end
+    local function render_codex(state)
+        local value = state.value
+        for _, row in ipairs({{codex_5h, "5h", "five"}, {codex_7d, "7d", "week"}}) do
+            local widget, period, key = row[1], row[2], row[3]
+            widget.remaining = value and value[key] or nil
+            widget.bar.visible = value ~= nil
+            if value then
+                widget.summary.markup = string.format(
+                    "<span foreground='%s' size='9pt'>%s  %d%% left · %s</span>",
+                    palette.text, period, value[key], gstring.xml_escape(value[key .. "_reset"]))
+                widget.bar.value = value[key]
+                widget.bar.color = appearance.remaining_color(value[key])
             else
-                codex_5h.summary.text = "5h usage unavailable"
-                codex_5h.remaining = nil
-                codex_5h.bar.value = 0
+                widget.summary.text = period .. " usage unavailable"
             end
-            if week_left then
-                codex_7d.summary.markup = string.format(
-                    "<span foreground='%s' size='9pt'>7d  %s%% left · %s</span>", palette.text, week_left, week_reset)
-                codex_7d.remaining = tonumber(week_left) or 0
-                codex_7d.bar.value = codex_7d.remaining
-            else
-                codex_7d.summary.text = "7d usage unavailable"
-                codex_7d.remaining = nil
-                codex_7d.bar.value = 0
-            end
-        end)
+        end
+        codex_resets.markup = string.format("<span foreground='%s' size='9pt'>%s</span>",
+            palette.muted, gstring.xml_escape(value and value.resets or "--"))
     end
 
     local media_controls = wibox.widget {
-        action_button("«", function() awful.spawn.easy_async({"playerctl", "previous"}, function() end) end, dismiss_menu),
-        action_button("▶", function() awful.spawn.easy_async({"playerctl", "play-pause"}, function() end) end, dismiss_menu),
-        action_button("»", function() awful.spawn.easy_async({"playerctl", "next"}, function() end) end, dismiss_menu),
+        action_button("«", function() data.command({"playerctl", "previous"}, function() return true end, function() end) end, dismiss_menu),
+        action_button("▶", function() data.command({"playerctl", "play-pause"}, function() return true end, function() end) end, dismiss_menu),
+        action_button("»", function() data.command({"playerctl", "next"}, function() return true end, function() end) end, dismiss_menu),
         spacing = 8, layout = wibox.layout.fixed.horizontal,
     }
     local media_controls_centered = {
@@ -1063,23 +1041,17 @@ function sidebar.create(s, dismiss_menu)
 
     volume_control:add(volume_text)
     volume_control:add(volume_bar)
-    local volume_pending = false
-    local function update_volume()
-        if volume_pending then return end
-        volume_pending = true
-        awful.spawn.easy_async({"wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"}, function(stdout, _, _, code)
-            volume_pending = false
-            local value = code == 0 and tonumber(stdout:match("Volume:%s*([%d.]+)")) or nil
-            local muted = stdout:find("MUTED", 1, true) ~= nil
-            volume_text.markup = string.format(
-                "<span foreground='%s' size='9pt'>Volume  %s</span>",
-                muted and palette.amber or palette.text,
-                value and (muted and "Mute" or string.format("%.0f%%", value * 100)) or "--")
-            volume_bar.value = value and math.floor(value * 100 + 0.5) or 0
-        end)
+    local function update_volume() data.refresh("volume") end
+    local function render_volume(state)
+        local value = not state.error and state.value
+        volume_text.markup = string.format(
+            "<span foreground='%s' size='9pt'>Volume  %s</span>",
+            value and value.muted and palette.amber or palette.text,
+            value and (value.muted and "Mute" or string.format("%.0f%%", value.level * 100)) or "--")
+        volume_bar.value = value and math.floor(value.level * 100 + 0.5) or 0
     end
     local function change_volume(action)
-        awful.spawn.easy_async({os.getenv("HOME") .. "/.local/bin/openbox-volume", action}, update_volume)
+        data.command({os.getenv("HOME") .. "/.local/bin/openbox-volume", action}, function() return true end, update_volume)
     end
     volume_control:buttons(gears.table.join(
         awful.button({}, 1, function() awful.spawn("pavucontrol") end),
@@ -1389,9 +1361,8 @@ function sidebar.create(s, dismiss_menu)
     end
     section_order = {}
     for _, id in ipairs(saved_order_ids) do
-        -- Quick Launch is a new default section; put it near TODO on first migration
-        -- instead of treating its previous appended position as a user reorder.
-        if id ~= "quick-launch" then append_ordered_section(id) end
+        -- Respect saved positions; only genuinely missing sections use defaults.
+        append_ordered_section(id)
     end
     for _, entry in ipairs(default_content_sections) do insert_missing_default(entry) end
     local content = wibox.layout.fixed.vertical()
@@ -1744,7 +1715,9 @@ function sidebar.create(s, dismiss_menu)
     end)
 
     local previous_total, previous_idle, previous_rx, previous_tx, previous_net_time
-    local function update_stats()
+    local function update_stats(state)
+        local snapshot = state.value
+        if not snapshot then return end
         clock.current_time = os.date("*t")
         clock:emit_signal("widget::redraw_needed")
         digital_time.markup = string.format("<span foreground='%s' size='24pt' weight='bold'>%s</span>",
@@ -1752,7 +1725,7 @@ function sidebar.create(s, dismiss_menu)
         date.markup = string.format("<span foreground='%s' size='12pt' weight='bold'>%s</span>",
             palette.teal, os.date("%A  •  %d %B %Y"))
 
-        local stat = read("/proc/stat")
+        local stat = snapshot.stat
         local first_line = stat and stat:match("^([^\n]+)")
         if first_line then
             local values = {}
@@ -1769,36 +1742,40 @@ function sidebar.create(s, dismiss_menu)
             previous_total, previous_idle = total, idle
         end
 
-        local mem_total = tonumber((read("/proc/meminfo") or ""):match("MemTotal:%s+(%d+)"))
-        local mem_available = tonumber((read("/proc/meminfo") or ""):match("MemAvailable:%s+(%d+)"))
+        local mem_total = tonumber(snapshot.meminfo:match("MemTotal:%s+(%d+)"))
+        local mem_available = tonumber(snapshot.meminfo:match("MemAvailable:%s+(%d+)"))
         if mem_total and mem_available and mem_total > 0 then
             local used = mem_total - mem_available
             memory_text.text = string.format("Memory  %.1f / %.1f GiB", used / 1048576, mem_total / 1048576)
             memory_bar.value = math.floor(used * 100 / mem_total + 0.5)
         end
 
-        local root_total, root_free = filesystem_stats()
-        if root_total and root_free then
+        local root_total, root_free = snapshot.root_total, snapshot.root_free
+        if root_total and root_total > 0 and root_free then
+            root_bar.color = appearance.remaining_color(root_free * 100 / root_total, 10, 5)
             root_text.text = string.format("Free /  %.1f GiB", root_free / 1073741824)
             root_bar.value = math.floor((root_total - root_free) * 100 / root_total + 0.5)
         end
 
-        local capacity, state, mouse_capacity, mouse_state = battery_stats()
+        local capacity, battery_state, mouse_capacity, mouse_state = snapshot.capacity,
+            snapshot.battery_state, snapshot.mouse_capacity, snapshot.mouse_state
         battery_text.visible, battery_bar.visible = capacity ~= nil, capacity ~= nil
         if capacity then
-            battery_text.text = string.format("Battery  %d%%  %s", capacity, state)
+            battery_text.text = string.format("Battery  %d%%  %s", capacity, battery_state)
             battery_bar.value = capacity
+            battery_bar.color = appearance.remaining_color(capacity)
         end
         mouse_battery_text.visible, mouse_battery_bar.visible = mouse_capacity ~= nil, mouse_capacity ~= nil
         if mouse_capacity then
             mouse_battery_text.text = string.format("Mouse  %d%%  %s", mouse_capacity, mouse_state or "Unknown")
             mouse_battery_bar.value = mouse_capacity
+            mouse_battery_bar.color = appearance.remaining_color(mouse_capacity)
         end
         stats_card:emit_signal("widget::layout_changed")
 
-        local rx, tx = network_stats()
+        local rx, tx = snapshot.rx, snapshot.tx
         if rx and tx then
-            local now = os.time()
+            local now = snapshot.now
             if previous_rx and previous_tx and previous_net_time and now > previous_net_time then
                 network_text.text = string.format("↓ %s   ↑ %s",
                     rate(math.max(0, rx - previous_rx) / (now - previous_net_time)),
@@ -1810,30 +1787,23 @@ function sidebar.create(s, dismiss_menu)
         end
     end
 
-    local media_pending = false
-    local function update_media()
-        if media_pending then return end
-        media_pending = true
-        awful.spawn.easy_async({"playerctl", "metadata", "--format", "{{artist}} — {{title}}"},
-            function(stdout, _, _, code)
-                media_pending = false
-                local track = stdout:gsub("%s+$", "")
-                media_text.text = code == 0 and track ~= "" and track or "Nothing playing"
-            end)
+    local function bind(name, render, body)
+        local mark, tooltip
+        if body then mark, tooltip = freshness(name, body) end
+        local handle = data.subscribe(name, function(state)
+            render(state)
+            if mark then mark(state) end
+        end)
+        handle.tooltip = tooltip -- retain tooltip for the lifetime of this subscriber
+        s["sidebar_" .. name .. "_timer"] = handle
     end
-
-    s.sidebar_stats_timer = gears.timer {
-        timeout = 1, autostart = true, call_now = true, callback = update_stats,
-    }
-    s.sidebar_volume_timer = gears.timer {
-        timeout = 3, autostart = true, call_now = true, callback = update_volume,
-    }
-    s.sidebar_media_timer = gears.timer {
-        timeout = 5, autostart = true, call_now = true, callback = update_media,
-    }
-    s.sidebar_trash_timer = gears.timer {
-        timeout = 30, autostart = true, call_now = false, callback = refresh_trash_status,
-    }
+    bind("stats", update_stats)
+    bind("volume", render_volume)
+    bind("media", function(state)
+        media_text.text = state.value and state.value ~= "" and state.value or "Nothing playing"
+    end)
+    bind("trash", render_trash)
+    s.sidebar_data = data -- inspectable session state for diagnostics and isolated tests
     s.sidebar_todo_refresh = refresh_todo
     s.sidebar_todo_timer = gears.timer {
         timeout = 60, autostart = true, call_now = false, callback = refresh_todo,
@@ -1842,16 +1812,10 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_calendar_timer = gears.timer {
         timeout = 60, autostart = true, call_now = false, callback = refresh_calendar,
     }
-    s.sidebar_crypto_timer = gears.timer {
-        timeout = 60, autostart = true, call_now = true, callback = refresh_crypto,
-    }
-    s.sidebar_codex_timer = gears.timer {
-        timeout = 60, autostart = true, call_now = true, callback = refresh_codex,
-    }
-    if os.getenv("AWESOME_TEST_MODE") ~= "1" then
-        s.sidebar_weather_timer = gears.timer {
-            timeout = 1800, autostart = true, call_now = true, callback = update_weather,
-        }
+    bind("crypto", render_crypto, crypto_body)
+    bind("codex", render_codex, codex_body)
+    if weather_enabled then
+        bind("weather", render_weather, weather_body)
     else
         weather_main.text = "Weather disabled in test"
     end
@@ -1865,6 +1829,14 @@ function sidebar.create(s, dismiss_menu)
         s.sidebar_crypto_timer:stop()
         s.sidebar_codex_timer:stop()
         if s.sidebar_weather_timer then s.sidebar_weather_timer:stop() end
+        for _, name in ipairs({"crypto", "codex", "weather"}) do
+            local handle = s["sidebar_" .. name .. "_timer"]
+            if handle and handle.tooltip then
+                handle.tooltip.visible = false
+                handle.tooltip:remove_from_object(
+                    name == "crypto" and crypto_body or (name == "codex" and codex_body or weather_body))
+            end
+        end
         panel.visible = false
     end)
 end

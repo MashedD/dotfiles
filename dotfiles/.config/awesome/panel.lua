@@ -3,6 +3,8 @@ local awful = require("awful")
 local gears = require("gears")
 local wibox = require("wibox")
 local beautiful = require("beautiful")
+local appearance = dofile((awesome.conffile:match("^(.*)/") or ".") .. "/appearance.lua")
+local palette = appearance.palette
 local panel = {}
 
 local task_order = setmetatable({}, {__mode = "k"})
@@ -53,22 +55,17 @@ local function reorder_task_clients(s, dragged, drop_index, visible_clients)
     if s.tasklist and s.tasklist._do_tasklist_update then s.tasklist._do_tasklist_update() end
     return true
 end
-local panel_gradient = gears.color {
-    type = "linear", from = {0, 0}, to = {0, 30},
-    stops = {{0, "#d8fbffff"}, {0.08, "#92d8ffdc"}, {0.36, "#236eafe8"}, {0.72, "#104781e8"}, {1, "#09264fe8"}},
-}
-local panel_item_gradient = gears.color {
-    type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#e9ffffff"}, {0.14, "#8fcaf0dc"}, {0.58, "#245787e8"}, {1, "#102d55e8"}},
-}
-local panel_focus_gradient = gears.color {
-    type = "linear", from = {0, 0}, to = {0, 24},
-    stops = {{0, "#ffffffff"}, {0.13, "#b7e8ffeb"}, {0.48, "#2874b6ed"}, {0.78, "#164b89ed"}, {1, "#0a2e60ed"}},
-}
+local panel_gradient = appearance.gradient("blue", 30)
+local panel_item_gradient = appearance.gradient("inactive", 24)
+local panel_focus_gradient = appearance.gradient("selected", 24)
+local function selection_border(self, selected)
+    local bg = self:get_children_by_id("background_role")[1]
+    if bg then bg.border_color = selected and palette.active_border or palette.inactive_border end
+end
 local function glass_clock(widget)
     return wibox.widget {
         {widget, left = 5, right = 5, top = 1, bottom = 1, widget = wibox.container.margin},
-        bg = panel_item_gradient, fg = "#f2fffb",
+        bg = panel_item_gradient, fg = palette.title,
         border_width = 1, border_color = "#6aabea",
         widget = wibox.container.background,
     }
@@ -100,9 +97,9 @@ function panel.create(s, menu, activate, window_menu)
 
     s.taglist = awful.widget.taglist {
         screen = s, filter = awful.widget.taglist.filter.all,
-        style = {bg_focus = panel_focus_gradient, fg_focus = "#f2fffb",
-            bg_empty = panel_item_gradient, fg_empty = "#d6e7e3",
-            bg_occupied = panel_item_gradient, fg_occupied = "#d6e7e3"},
+        style = {bg_focus = panel_focus_gradient, fg_focus = palette.title,
+            bg_empty = panel_item_gradient, fg_empty = palette.inactive,
+            bg_occupied = panel_item_gradient, fg_occupied = palette.inactive},
         buttons = gears.table.join(
             awful.button({}, 1, function(t) dismiss_menu(); t:view_only() end),
             awful.button({"Mod4"}, 1, function(t)
@@ -115,6 +112,8 @@ function panel.create(s, menu, activate, window_menu)
         ),
         layout = {spacing = 2, layout = wibox.layout.fixed.horizontal},
         widget_template = {
+            create_callback = function(self, t) selection_border(self, t.selected) end,
+            update_callback = function(self, t) selection_border(self, t.selected) end,
             {
                 {
                     {id = "text_role", align = "center", widget = wibox.widget.textbox},
@@ -131,9 +130,9 @@ function panel.create(s, menu, activate, window_menu)
     s.tasklist = awful.widget.tasklist {
         screen = s, filter = awful.widget.tasklist.filter.currenttags,
         source = ordered_task_source,
-        style = {bg_normal = panel_item_gradient, fg_normal = "#d6e7e3",
-            bg_focus = panel_focus_gradient, fg_focus = "#f2fffb",
-            bg_minimize = panel_item_gradient, fg_minimize = "#9ab6b0"},
+        style = {bg_normal = panel_item_gradient, fg_normal = palette.inactive,
+            bg_focus = panel_focus_gradient, fg_focus = palette.title,
+            bg_minimize = panel_item_gradient, fg_minimize = palette.minimized},
         buttons = gears.table.join(
             awful.button({}, 1, function(c)
                 dismiss_menu()
@@ -164,6 +163,7 @@ function panel.create(s, menu, activate, window_menu)
             },
             width = 160, strategy = "exact", widget = wibox.container.constraint,
             create_callback = function(self, c, index, clients)
+                selection_border(self, c == client.focus)
                 self._tasklist_index, self._tasklist_clients = index, clients
                 self:connect_signal("button::press", function(_, lx, _, button)
                     if button ~= 1 then return end
@@ -182,7 +182,8 @@ function panel.create(s, menu, activate, window_menu)
                     end, "fleur")
                 end)
             end,
-            update_callback = function(self, _, index, clients)
+            update_callback = function(self, c, index, clients)
+                selection_border(self, c == client.focus)
                 self._tasklist_index, self._tasklist_clients = index, clients
             end,
         },
@@ -194,8 +195,8 @@ function panel.create(s, menu, activate, window_menu)
     tray:set_screen("primary")
     local clock = wibox.widget.textclock("%H:%M", 1)
     local clock_container = glass_clock(clock)
-    clock.font = "Segoe UI bold 9"
-    clock.fg = "#f2fffb"
+    clock.font = appearance.fonts.title
+    clock.fg = palette.title
     clock.forced_width = 58
     clock.align = "center"
     local calendar = awful.widget.calendar_popup.month {
@@ -208,7 +209,7 @@ function panel.create(s, menu, activate, window_menu)
     clock:connect_signal("button::press", dismiss_menu)
     tray:connect_signal("button::press", dismiss_menu)
     s.panel = awful.wibar {
-        position = "top", screen = s, height = 30, bg = panel_gradient, fg = "#f2fffb",
+        position = "top", screen = s, height = 30, bg = panel_gradient, fg = palette.title,
         border_width = 0, ontop = true, restrict_workarea = true,
         type = "dock",
     }

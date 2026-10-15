@@ -3,6 +3,8 @@
 ## Awesome session
 
 ```sh
+lua tests/test-awesome-appearance.lua
+lua tests/test-awesome-data.lua
 python3 tests/test-awesome-session.py
 python3 tests/test-awesome-autostart.py
 python3 tests/test-openbox-display.py
@@ -17,8 +19,25 @@ borderless maximization/fullscreen, floating clients/titlebars, four tags,
 persistent sidebar fold/order and drag auto-scroll, send-and-follow, snapping,
 show-desktop, close/reload, Win+P output menu, Win+Shift+Q confirmation/cancel,
 and actual Win+L/i3lock.
-Requires Xvfb, awesome, awesome-client, xmessage, xdotool, xprop, i3lock and
-dbus-run-session. Only test-display i3lock processes are terminated afterward;
+It also checks weather/crypto/quota stale-data retention and recovery, genuine zero
+quota values, escaped reset text, and shared collectors when a second screen is
+added and removed. All weather requests use a mocked curl; no network is needed.
+Optional generated wallpaper PNGs use a test-only fallback fixture when absent.
+
+The Lua-only tests validate shared surface contrast over light/dark backgrounds,
+trash semantic colors, response parsing, collector lifecycle, overlapping-request
+prevention, command deadlines/spawn failures, stale aging, and late results.
+Run them from the repository root with Lua 5.3 or later.
+
+Requires Xvfb, awesome, awesome-client, xmessage, xdotool, xprop, i3lock, timeout and
+dbus-run-session. To capture light/dark visual-review screenshots as well, install
+ImageMagick and run:
+
+```sh
+AWESOME_TEST_SCREENSHOTS=/tmp/awesome-polish-shots python3 tests/test-awesome-session.py
+```
+
+Only test-display i3lock processes are terminated afterward;
 the live WM/display and lock are never modified.
 
 The mocked autostart test checks duplicate prevention on reload, tray startup

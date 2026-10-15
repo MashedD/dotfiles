@@ -7,20 +7,15 @@ local beautiful = require("beautiful")
 local menubar = require("menubar")
 menubar.utils.terminal = "kitty"
 local config_dir = awesome.conffile:match("^(.*)/") or "."
+local appearance = dofile(config_dir .. "/appearance.lua")
 local panel = dofile(config_dir .. "/panel.lua")
 local sidebar = dofile(config_dir .. "/sidebar.lua")
 local home = assert(os.getenv("HOME"))
 local mod = "Mod4"
 local test_mode = os.getenv("AWESOME_TEST_MODE") == "1"
 
-local titlebar_focus_gradient = gears.color {
-    type = "linear", from = {0, 0}, to = {0, 26},
-    stops = {{0, "#f2ffffff"}, {0.09, "#9de4ffed"}, {0.42, "#236ba9ed"}, {0.74, "#124b88ed"}, {1, "#0a2c58ed"}},
-}
-local titlebar_normal_gradient = gears.color {
-    type = "linear", from = {0, 0}, to = {0, 26},
-    stops = {{0, "#edf7ffff"}, {0.13, "#9ebde1df"}, {0.52, "#385d91e8"}, {1, "#142f58e8"}},
-}
+local titlebar_focus_gradient = appearance.gradient("selected", 26)
+local titlebar_normal_gradient = appearance.gradient("inactive", 26)
 local titlebar_button_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 20},
     stops = {{0, "#ffffffff"}, {0.18, "#bde5ffe6"}, {0.55, "#5599d8d0"}, {1, "#1d579aa8"}},
@@ -55,18 +50,18 @@ awesome.connect_signal("debug::error", function(err)
 end)
 
 beautiful.init({
-    font = "Microsoft Sans Serif 8",
+    font = appearance.fonts.body,
     bg_normal = "#c0c0c0", fg_normal = "#000000",
     bg_focus = "#001a00", fg_focus = "#00ff41",
     bg_urgent = "#001a00", fg_urgent = "#00ff41",
     border_width = 2, border_normal = "#808080", border_focus = "#538ed4",
-    titlebar_bg_normal = titlebar_normal_gradient, titlebar_fg_normal = "#d6e7e3",
-    titlebar_bg_focus = titlebar_focus_gradient, titlebar_fg_focus = "#f2fffb",
+    titlebar_bg_normal = titlebar_normal_gradient, titlebar_fg_normal = appearance.palette.inactive,
+    titlebar_bg_focus = titlebar_focus_gradient, titlebar_fg_focus = appearance.palette.title,
     menu_font = "Segoe UI 9", menu_height = 28, menu_width = 270,
     menu_bg_normal = menu_glass_gradient, menu_fg_normal = "#eaf6fb",
     menu_bg_focus = menu_selection_gradient, menu_fg_focus = "#ffffff",
     menu_border_width = 1, menu_border_color = "#8bdff0",
-    useless_gap = 0, bg_systray = "#d8fbffcc", systray_icon_spacing = 2,
+    useless_gap = 0, bg_systray = "#174a77", systray_icon_spacing = 2,
     maximized_hide_border = true, fullscreen_hide_border = true,
 })
 awful.layout.layouts = { awful.layout.suit.floating, awful.layout.suit.tile }
@@ -656,7 +651,7 @@ client.connect_signal("request::titlebars", function(c)
         awful.button({}, 3, function() window_menu(c) end)
     )
     local title = awful.titlebar.widget.titlewidget(c)
-    title:set_font("Segoe UI bold 9")
+    title:set_font(appearance.fonts.title)
     title:set_align("left")
     local icon = awful.titlebar.widget.iconwidget(c)
     icon:buttons(gears.table.join(awful.button({}, 1, function() window_menu(c) end)))
