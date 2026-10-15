@@ -2,6 +2,10 @@
 
 `rc.lua` composes the session, window rules, titlebar controls, and menus.
 `appearance.lua` owns shared palettes, gradients, opacity, and status thresholds.
+`titlebar-layout.lua` prioritizes Close on narrow windows, omitting always-on-top,
+minimize, then maximize as width runs out; the icon disappears below 62px. Normal
+button sizes/spacing remain intact where they fit. Alt+Space retains every action;
+no minimum client width is imposed. Omitted controls cancel presses and tooltips.
 `fullscreen-geometry.lua` separates fullscreen return state from Awesome 4.3's
 native maximize history. It delegates other geometry contexts unchanged, coalesces
 refits, and fits monitor-moved windows without replacing their native maximize

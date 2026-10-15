@@ -94,6 +94,131 @@ def verify_sidebar_edge_scroll(*, lua, pointer, sidebar_title_point, log_text):
             failure.add_note(f"Button release also failed: {cleanup_error}")
 
 
+def verify_narrow_titlebar(*, fixture, kind, lua, helper, pointer, wait, press,
+                          visual, capture_titlebar, compare_visual):
+    wait(f'for _,c in ipairs(client.get()) do if c.window=={fixture.window} then return "ready" end end; return "waiting"','"ready"')
+    lua(f'__narrow_c=nil; for _,c in ipairs(client.get()) do if c.window=={fixture.window} then __narrow_c=c end end')
+    wait('return tostring(__narrow_c and __narrow_c._private.release_controls~=nil)', '"true"')
+    assert 'true' in lua(f'return __narrow_c.type=="{kind}"')
+    helper('''__narrow_new_root=__narrow_c._private.titlebars.top.drawable.widget
+        __narrow_controls=h.titlebar_controls(__narrow_c)
+        __narrow_c:emit_signal("request::activate","test",{raise=true})
+        local mt=getmetatable(require("awful").menu); __narrow_menu_call=mt.__call
+        mt.__call=function(...) local menu=__narrow_menu_call(...); __narrow_menu=menu; return menu end
+        return true''')
+    wait('return tostring(client.focus==__narrow_c)','"true"')
+
+    def allocations():
+        output=helper('local a=h.titlebar_allocations(__narrow_c,__narrow_new_root); local r={}; for _,name in ipairs({"icon","title","ontop","minimize","maximize","close"}) do if a[name] then r[#r+1]=name..":"..table.concat(a[name],",") end end; return table.concat(r,";")')
+        match=re.search(r'string "([^"]*)"',output)
+        assert match,output
+        return {entry.split(':',1)[0]:tuple(map(float,entry.split(':',1)[1].split(',')))
+                for entry in match[1].split(';') if entry}
+
+    def resize(width):
+        pointer('mousemove',10,100)
+        lua(f'__narrow_c:geometry({{x=80,y=180,width={width},height=200}})')
+        close_x=width-23 if width>=25 else max(0,width-21)
+        wait(f'local h=package.loaded.__awesome_test_ui; local a=h.titlebar_allocations(__narrow_c,__narrow_new_root); return tostring(__narrow_c.width=={width} and a.close and a.close[1]=={close_x} and a.close[3]=={min(21,width)})', '"true"')
+        return allocations()
+
+    def point(name):
+        rect=allocations()[name]
+        output=lua('return __narrow_c.x..":"..__narrow_c.y..":"..__narrow_c.border_width')
+        x,y,border=map(int,re.search(r'(\d+):(\d+):(\d+)',output).groups())
+        return int(x+border+rect[0]+rect[2]/2),int(y+border+rect[1]+rect[3]/2)
+
+    try:
+        # Compare the same widgets under the historical wide layout and the new
+        # layout. No alternate fonts, styles, or committed screenshot goldens.
+        resize(400)
+        current=allocations()
+        helper('''local w=require("wibox"); local function item(name) return __narrow_new_root:get_children_by_id("titlebar_"..name)[1] end
+            __narrow_legacy=w.widget {item("icon"),item("title"),
+                {{item("ontop"),item("minimize"),item("maximize"),item("close"),spacing=2,layout=w.layout.fixed.horizontal},margins=2,widget=w.container.margin},
+                layout=w.layout.align.horizontal}
+            __narrow_c._private.titlebars.top.drawable:set_widget(__narrow_legacy); return true''')
+        time.sleep(.15)
+        assert allocations()==current,(allocations(),current)
+        legacy=capture_titlebar(kind+'-wide-legacy') if visual else None
+        lua('__narrow_c._private.titlebars.top.drawable:set_widget(__narrow_new_root)')
+        time.sleep(.15)
+        assert allocations()==current
+        if visual: compare_visual(legacy,capture_titlebar(kind+'-wide-responsive'),False)
+        assert 'true' in lua('return __narrow_new_root:get_children_by_id("titlebar_title")[1]:get_widget()._private.layout:get_ellipsize()=="END"')
+        for width in (16,21,24,25,39,40,61,62,84,85,107,108,130,131,160,400):
+            a=resize(width)
+            expected={'close'}
+            if width>=62: expected.add('icon')
+            if width>=85: expected.add('maximize')
+            if width>=108: expected.add('minimize')
+            if width>=131: expected.add('ontop')
+            row=(23*len(expected-{'icon'})+2) if width>=25 else min(width,21)
+            if width-row-(22 if width>=62 else 0)>0: expected.add('title')
+            assert set(a)==expected,(kind,width,a,expected)
+            for name,(x,y,w,h) in a.items():
+                assert x>=0 and y>=0 and w>0 and h>0 and x+w<=width and y+h<=26,(kind,width,name,a)
+            ordered=sorted(a.values())
+            assert all(left[0]+left[2]<=right[0] for left,right in zip(ordered,ordered[1:])),a
+            assert a['close'][2]==min(width,21)
+            assert 'true' in helper('local controls=h.titlebar_controls(__narrow_c); for _,id in ipairs({"titlebar_ontop","titlebar_minimize","titlebar_maximize","titlebar_close"}) do if not controls[id] then return false end end; return true')
+            pointer('mousemove',*point('close'),'mousedown',1)
+            assert 'true' in lua('return __narrow_controls.titlebar_close._titlebar_present and __narrow_c._private.release_controls.titlebar_close.state.armed')
+            pointer('mousemove',10,100,'mouseup',1)
+            assert 'true' in lua('return __narrow_c.valid and not __narrow_c._private.release_controls.titlebar_close.state.armed')
+        resize(131)
+        pointer('mousemove',*point('ontop'),'mousedown',1)
+        lua('__narrow_c.width=130')
+        wait('return tostring(not __narrow_c._private.release_controls.titlebar_ontop.state.armed and not mousegrabber.isrunning())','"true"')
+        pointer('mouseup',1)
+        assert 'true' in lua('return not __narrow_c.ontop and not __narrow_c.minimized and not __narrow_c.maximized')
+        # Pending and already-visible tooltips must both disappear on omission.
+        resize(131); pointer('mousemove',*point('ontop'))
+        lua('__narrow_c.width=130')
+        time.sleep(.65)
+        assert 'false' in lua('return tostring(__narrow_controls.titlebar_ontop._titlebar_tooltip.visible)')
+        resize(131); pointer('mousemove',*point('ontop'))
+        wait('return tostring(__narrow_controls.titlebar_ontop._titlebar_tooltip.visible)','"true"')
+        lua('__narrow_c.width=130')
+        wait('return tostring(__narrow_controls.titlebar_ontop._titlebar_tooltip.visible)','"false"')
+        pointer('mousemove',10,100)
+        lua('__narrow_normal=__narrow_controls.titlebar_ontop.bg; __narrow_c.ontop=true')
+        resize(131)
+        assert 'true' in lua('return __narrow_c.ontop and __narrow_controls.titlebar_ontop.bg~=__narrow_normal and not __narrow_c.sticky')
+        resize(130);lua('__narrow_c.ontop=false');resize(131)
+        assert 'true' in lua('return not __narrow_c.ontop and __narrow_controls.titlebar_ontop.bg==__narrow_normal')
+        # A tiny window still exposes omitted actions through real Alt+Space keys.
+        resize(16);press('alt+space')
+        wait('return tostring(__narrow_menu and __narrow_menu.wibox.visible)','"true"')
+        assert 'true' in lua('local names={}; for _,i in ipairs(__narrow_menu.items) do names[#names+1]=i.label.text end; return table.concat(names,",")=="Minimize,Maximize / Restore,Fullscreen,Always on top,All desktops,Close"')
+        for _ in range(4): press('Down')
+        press('Return');wait('return tostring(__narrow_c.ontop)','"true"')
+        resize(400)
+        assert 'true' in lua('return __narrow_controls.titlebar_ontop._titlebar_present and __narrow_controls.titlebar_ontop.bg~=__narrow_normal')
+        lua('__narrow_c.ontop=false')
+        # The minimum reserved title region still supports drag and double-click.
+        resize(62);time.sleep(.55)
+        start=point('title')
+        pointer('mousemove',*start,'mousedown',1)
+        pointer('mousemove','--sync',start[0]+14,start[1]+8,'mouseup',1)
+        wait('return tostring(__narrow_c.x>80 and __narrow_c.y>180)','"true"')
+        time.sleep(.55)
+        pointer('mousemove',*point('title'),'click','--repeat',2,'--delay',100,1)
+        wait('return tostring(__narrow_c.maximized)','"true"')
+        lua('__narrow_c.maximized=false')
+        wait('return tostring(not __narrow_c.maximized)','"true"')
+        resize(16)
+        pointer('mousemove',*point('close'),'mousedown',1)
+        assert 'true' in lua('return __narrow_c.valid and __narrow_c._private.release_controls.titlebar_close.state.armed')
+        pointer('mouseup',1)
+        fixture.wait_delete()
+        wait('return tostring(not __narrow_c.valid)','"true"')
+        assert fixture.delete_requests==1
+    finally:
+        pointer('mouseup',1)
+        lua('if __narrow_menu then __narrow_menu:hide() end; if __narrow_menu_call then getmetatable(require("awful").menu).__call=__narrow_menu_call end; __narrow_c=nil; __narrow_new_root=nil; __narrow_legacy=nil; __narrow_controls=nil; __narrow_normal=nil; __narrow_menu=nil; __narrow_menu_call=nil')
+
+
 def verify_titlebar_ontop(*, lua, helper, pointer, wait):
     pointer('mousemove', 10, 100)
     position = helper('''

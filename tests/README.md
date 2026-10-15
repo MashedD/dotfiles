@@ -114,9 +114,12 @@ Applications, the panel calendar, stale-data tooltips, and titlebar hover contro
 alongside the light/dark surface checks. The runtime test verifies menu palette
 inheritance, tooltip colors/borders, release-to-activate sidebar buttons and menu items,
 component teardown,
-titlebar control geometry and hover restoration, always-on-top release/cancel and
-external state synchronization (including hidden/destroyed controls), and rejects
-Pango color errors.
+titlebar control geometry and hover restoration, normal/dialog titlebars at 16–400px
+widths (including all responsive breakpoints), Close hit targets, Alt+Space fallback,
+narrow title dragging/double-clicking, omitted-control press/tooltip cancellation,
+and exact wide-titlebar pixel comparison against the historical layout. It also
+checks always-on-top release/cancellation and external state synchronization
+(including hidden/destroyed controls), and rejects Pango color errors.
 `tests/helpers/awesome-ui.lua` contains private-session inspection helpers; it is loaded
 and cached only in the isolated Awesome process, then naturally reloaded after a
 complete process restart. `tests/helpers/awesome_controls.py` groups menu and workspace

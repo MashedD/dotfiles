@@ -10,6 +10,12 @@ function H.titlebar_controls(client)
     local bars = client and client._private and client._private.titlebars
     local drawable = bars and bars.top and bars.top.drawable
     local widget = drawable and drawable.widget
+    if widget and widget.get_children_by_id then
+        for _, id in ipairs({"titlebar_ontop", "titlebar_minimize", "titlebar_maximize", "titlebar_close"}) do
+            local found=widget:get_children_by_id(id)[1]
+            if found then result[id]=found end
+        end
+    end
     for _, child in ipairs(widget and widget:get_all_children() or {}) do
         if child.get_children_by_id then
             for _, id in ipairs({"titlebar_ontop", "titlebar_minimize", "titlebar_maximize", "titlebar_close"}) do
@@ -18,6 +24,26 @@ function H.titlebar_controls(client)
             end
         end
     end
+    return result
+end
+function H.titlebar_allocations(client, lookup_root)
+    local drawable=client._private.titlebars.top.drawable
+    lookup_root=lookup_root or drawable.widget
+    local targets,result={},{}
+    for _,name in ipairs({'icon','title','ontop','minimize','maximize','close'}) do
+        local widget=lookup_root:get_children_by_id('titlebar_'..name)[1]
+        if widget then targets[widget]=name end
+    end
+    local function visit(hierarchy)
+        local name=targets[hierarchy:get_widget()]
+        if name then
+            local w,h=hierarchy:get_size()
+            local x,y,width,height=hierarchy:get_matrix_to_device():transform_rectangle(0,0,w,h)
+            if width>0 and height>0 then result[name]={x,y,width,height} end
+        end
+        for _,child in ipairs(hierarchy:get_children()) do visit(child) end
+    end
+    if drawable._widget_hierarchy then visit(drawable._widget_hierarchy) end
     return result
 end
 function H.rgb(pattern)

@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tests/helpers"))
 import awesome_controls
 from awesome_lock import PrivateLock
+from awesome_windows import FixtureWindow
 
 CONFIG = ROOT / "dotfiles/.config/awesome/rc.lua"
 
@@ -224,6 +225,13 @@ def main():
                         xlib.XFlush(display)
                     finally:
                         xlib.XCloseDisplay(display)
+
+                def capture_titlebar(name):
+                    geometry=lua('local c=__narrow_c; return (c.width+2*c.border_width).."x"..(26+2*c.border_width).."+"..c.x.."+"..c.y')
+                    bounds=re.search(r'(\d+x\d+\+\d+\+\d+)',geometry).group(1)
+                    path=visual_dir/(name+'.png')
+                    subprocess.run(['import','-window','root','-crop',bounds,str(path)],env=env,check=True,timeout=5)
+                    return path
 
                 def widget_point(expression, scroll=0, x=150):
                     if scroll:
@@ -758,6 +766,18 @@ def main():
                 wait('return tostring(__gesture_tip.visible)', '"true"')
                 assert 'true' in lua('return client.focus==__gesture_client')
                 lua('__gesture_tip.hide(); __gesture_tip=nil')
+                lua('__narrow_previous=client.focus')
+                try:
+                    for kind in ('normal','dialog'):
+                        fixture=FixtureWindow(env['DISPLAY'],kind)
+                        try:
+                            awesome_controls.verify_narrow_titlebar(fixture=fixture,kind=kind,lua=lua,helper=helper,
+                                pointer=pointer,wait=wait,press=press,visual=visual,
+                                capture_titlebar=capture_titlebar,compare_visual=compare_visual)
+                        finally:
+                            fixture.close()
+                finally:
+                    lua('if __narrow_previous and __narrow_previous.valid then __narrow_previous:emit_signal("request::activate","test",{raise=true}) end; __narrow_previous=nil')
                 awesome_controls.verify_titlebar_ontop(lua=lua, helper=helper, pointer=pointer, wait=wait)
                 control_state = helper('local controls=h.titlebar_controls(client.focus); for _,id in ipairs({"titlebar_ontop","titlebar_minimize","titlebar_maximize","titlebar_close"}) do local b=controls[id]; if not b then return id..":missing" end; if b.forced_width~=21 or b.forced_height~=19 or not b.fg then return id..":geometry" end; b:emit_signal("mouse::leave"); local normal=tostring(b.bg); b:emit_signal("mouse::enter"); if tostring(b.bg)==normal then return id..":hover" end; b:emit_signal("mouse::leave"); if tostring(b.bg)~=normal then return id..":restore" end end; _G.__polish_close_button=controls.titlebar_close; return true')
                 assert 'true' in control_state, control_state

@@ -9,6 +9,7 @@ menubar.utils.terminal = "kitty"
 local config_dir = awesome.conffile:match("^(.*)/") or "."
 local appearance = dofile(config_dir .. "/appearance.lua")
 local interaction = dofile(config_dir .. "/interaction.lua")
+local titlebar_layout = dofile(config_dir .. "/titlebar-layout.lua")
 local fullscreen_geometry = dofile(config_dir .. "/fullscreen-geometry.lua").install(client, awful, gears)
 dofile(config_dir .. "/menu-release.lua").install(require("awful.menu"), interaction, awful, gears)
 local panel = dofile(config_dir .. "/panel.lua")
@@ -655,7 +656,8 @@ local function control(c, ui, label, callback, is_close, widget_id, options)
     local binding = interaction.bind_button(button, {
         activate = callback,
         valid = function()
-            if not c.valid or c.fullscreen or c.minimized or not c:isvisible() then return false end
+            if not c.valid or c.fullscreen or c.minimized or not c:isvisible()
+                or button._titlebar_present == false then return false end
             local _, height = c:titlebar_top()
             return height > 0
         end,
@@ -666,7 +668,7 @@ local function control(c, ui, label, callback, is_close, widget_id, options)
     }, ui)
     if options.signal then ui.connect(c, options.signal, repaint) end
     repaint()
-    ui.tip(button, options.tooltip or (is_close and "Close" or (label == "−" and "Minimize" or "Maximize / restore")))
+    button._titlebar_tooltip = ui.tip(button, options.tooltip or (is_close and "Close" or (label == "−" and "Minimize" or "Maximize / restore")))
     c._private.release_controls = c._private.release_controls or {}
     c._private.release_controls[widget_id] = binding
     return button
@@ -691,6 +693,7 @@ client.connect_signal("request::titlebars", function(c)
     local title = awful.titlebar.widget.titlewidget(c)
     title:set_font(appearance.fonts.title)
     title:set_align("left")
+    title:set_ellipsize("end")
     local icon = awful.titlebar.widget.iconwidget(c)
     icon:buttons(gears.table.join(awful.button({}, 1, function() window_menu(c) end)))
     local ontop_button = control(c, ui, "↑", function()
@@ -710,22 +713,35 @@ client.connect_signal("request::titlebars", function(c)
     end, false, "titlebar_minimize")
     local maximize_button = control(c, ui, "□", function() maximize(c) end, false, "titlebar_maximize")
     local close_button = control(c, ui, "×", function() dismiss_start_menu(); c:kill() end, true, "titlebar_close")
-    awful.titlebar(c, {size = 26,
-        bg_normal = titlebar_normal_gradient, bg_focus = titlebar_focus_gradient}):setup {
-        {
+    local titlebar_widgets = {
+        icon = wibox.widget {
             {icon, forced_width = 18, widget = wibox.container.constraint},
             margins = 2, widget = wibox.container.margin,
         },
-        {title, buttons = drag, left = 3, widget = wibox.container.margin},
-        {
-            {
-                ontop_button, minimize_button, maximize_button, close_button,
-                spacing = 2, layout = wibox.layout.fixed.horizontal,
-            },
-            margins = 2, widget = wibox.container.margin,
-        },
-        layout = wibox.layout.align.horizontal,
+        title = wibox.widget {title, buttons = drag, left = 3, widget = wibox.container.margin},
+        ontop = ontop_button, minimize = minimize_button, maximize = maximize_button, close = close_button,
     }
+    local function update_controls(cancel_press)
+        if ui.disposed or not c.valid then return end
+        local plan = titlebar_layout.plan(c.width)
+        for _, name in ipairs({"ontop", "minimize", "maximize", "close"}) do
+            local button = titlebar_widgets[name]
+            local present = plan.controls[name] == true and not c.fullscreen and not c.minimized and not c.hidden
+            local binding = c._private.release_controls["titlebar_" .. name]
+            button._titlebar_present = present
+            if not present or (cancel_press and binding.state.armed) then
+                binding.cancel()
+                button._titlebar_tooltip.hide()
+            end
+        end
+    end
+    ui.connect(c, "property::geometry", function() update_controls(true) end)
+    for _, signal in ipairs({"property::fullscreen", "property::minimized", "property::hidden"}) do
+        ui.connect(c, signal, function() update_controls(false) end)
+    end
+    update_controls(false)
+    awful.titlebar(c, {size = 26,
+        bg_normal = titlebar_normal_gradient, bg_focus = titlebar_focus_gradient}):set_widget(titlebar_layout.create(titlebar_widgets))
     -- A conventional bottom-right grip: plain left-drag, no modifier required.
     local grip = wibox.widget.base.make_widget()
     grip.fit = function() return 16, 10 end
