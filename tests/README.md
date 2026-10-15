@@ -1,5 +1,8 @@
 # Desktop tests
 
+Opt-in idle audit (about 13 minutes; passive live sampling, then private fixtures):
+`python3 tests/audit-awesome-idle.py`. See [measurements and limitations](../docs/idle-performance.md).
+
 From any directory, invoke the repository's runner:
 
 ```sh
