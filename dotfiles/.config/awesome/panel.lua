@@ -154,16 +154,48 @@ function panel.create(s, menu, activate, window_menu, interaction)
             s.taglist_release_actions[tag] = action
             return
         end
-        action = {tag = tag}
+        action = {tag = tag, widget = widget}
         widget._workspace_action = action
         s.taglist_release_actions = s.taglist_release_actions or setmetatable({}, {__mode = "k"})
         s.taglist_release_actions[tag] = action
         local function valid()
             return s.valid and action.tag and action.tag.valid
         end
-        local function paint(pressed)
-            widget.border_color = pressed and "#a8f0bd" or "#173a6c"
+        local function normal_background()
+            return action.tag.selected and panel_focus_gradient or panel_item_gradient
         end
+        local background_widget = widget:get_children_by_id("background_role")[1]
+        local function paint(pressed)
+            if widget._workspace_pressed == pressed then return end
+            widget._workspace_pressed = pressed
+            local timer = widget._workspace_animation_timer
+            if timer then timer:stop(); widget._workspace_animation_timer = nil end
+            if taglist_ui.disposed then
+                background_widget.bg = normal_background()
+                return
+            end
+            local frames = pressed
+                and {"#b7e4d1", "#9bd6bb", "#80c8a8", "#69b996"}
+                or {"#80c8a8", "#9bd6bb", "#b7e4d1"}
+            local step = 0
+            widget._workspace_animation_timer = gears.timer.start_new(0.018, function()
+                step = step + 1
+                if step >= #frames then
+                    background_widget.bg = pressed and frames[step] or normal_background()
+                    widget._workspace_animation_timer = nil
+                    return false
+                end
+                background_widget.bg = frames[step]
+                return true
+            end)
+        end
+        widget._workspace_pressed = false
+        taglist_ui.add(function()
+            if widget._workspace_animation_timer then widget._workspace_animation_timer:stop() end
+            widget._workspace_animation_timer = nil
+            background_widget.bg = normal_background()
+            widget._workspace_pressed = false
+        end)
         action.view_binding = interaction.bind_button(widget, {
             modifiers = {}, valid = valid, paint = paint,
             activate = function()

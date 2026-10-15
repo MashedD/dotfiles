@@ -45,8 +45,8 @@ AWESOME_TEST_VISUAL=1 python3 tests/test-awesome-session.py
 ```
 
 `AWESOME_TEST_VISUAL=1` requires ImageMagick's `import` and `compare` commands. It
-captures a tight Start-button crop while normal, held, canceled, and restored, then
-asserts pixel-level difference/restoration; missing tools are an explicit failure.
+captures tight Start and workspace-button crops while normal, held, canceled, and
+restored, then asserts pixel-level difference/restoration; missing tools are an explicit failure.
 The same mode can be combined with `--composited`. Screenshots from
 `AWESOME_TEST_SCREENSHOTS` include Start, display selection, window actions, quit confirmation,
 Applications, the panel calendar, stale-data tooltips, and titlebar hover controls,

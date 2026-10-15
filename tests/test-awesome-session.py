@@ -217,6 +217,13 @@ def main():
                                    env=env, check=True, timeout=5)
                     return path
 
+                def capture_workspace(index, name):
+                    x, y = workspace_point(index)
+                    path = visual_dir / f"{name}.png"
+                    subprocess.run(["import", "-window", "root", "-crop", f"40x30+{x-20}+{y-15}", "+repage", str(path)],
+                                   env=env, check=True, timeout=5)
+                    return path
+
                 def compare_visual(left, right, different):
                     result = subprocess.run(["compare", "-metric", "AE", str(left), str(right), "null:"],
                         env=env, capture_output=True, text=True, timeout=5)
@@ -665,10 +672,21 @@ def main():
                 press('super+1')
                 wait('return screen[1].selected_tag.index', '1')
                 tag_point = workspace_point(3)
+                workspace_normal_crop = capture_workspace(3, "workspace-normal") if visual else None
+                lua('_G.__workspace_normal_bg=screen[1].taglist_release_actions[screen[1].tags[3]].widget:get_children_by_id("background_role")[1].bg')
                 pointer("mousemove", *tag_point, "mousedown", 1)
+                workspace_pressed = lua('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return tostring(a.view_binding.state.armed)..":"..tostring(screen[1].selected_tag.index)..":"..tostring(mousegrabber.isrunning())..":"..tostring(a.widget._workspace_pressed)')
+                assert 'true:1:true:true' in workspace_pressed, workspace_pressed
+                workspace_held_crop = capture_workspace(3, "workspace-held") if visual else None
+                pointer("mousemove", 500, 700)
+                wait('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return tostring(a.widget:get_children_by_id("background_role")[1].bg == __workspace_normal_bg)', '"true"')
+                workspace_cancel_crop = capture_workspace(3, "workspace-canceled") if visual else None
                 assert 'true' in lua('return screen[1].selected_tag.index == 1 and mousegrabber.isrunning()')
-                pointer("mousemove", 500, 700, "mouseup", 1)
+                pointer("mouseup", 1)
                 assert 'true' in lua('return screen[1].selected_tag.index == 1 and not mousegrabber.isrunning()')
+                if visual:
+                    compare_visual(workspace_normal_crop, workspace_held_crop, True)
+                    compare_visual(workspace_normal_crop, workspace_cancel_crop, False)
                 pointer("mousemove", *tag_point, "mousedown", 1)
                 assert 'true' in lua('return screen[1].selected_tag.index == 1')
                 pointer("mouseup", 1)
