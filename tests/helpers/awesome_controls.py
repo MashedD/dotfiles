@@ -94,6 +94,92 @@ def verify_sidebar_edge_scroll(*, lua, pointer, sidebar_title_point, log_text):
             failure.add_note(f"Button release also failed: {cleanup_error}")
 
 
+def verify_titlebar_ontop(*, lua, helper, pointer, wait):
+    pointer('mousemove', 10, 100)
+    position = helper('''
+        __ontop_client=client.focus; __ontop_client.ontop=false
+        __ontop_widget=h.titlebar_controls(__ontop_client).titlebar_ontop
+        assert(__ontop_widget and __ontop_widget.forced_width==21 and __ontop_widget.forced_height==19)
+        __ontop_normal=__ontop_widget.bg
+        local c=__ontop_client; local _,height=c:titlebar_top()
+        local drawable=c._private.titlebars.top.drawable
+        for x=0,c.width-1 do for _,v in ipairs(drawable:find_widgets(x,math.floor(height/2))) do
+            if v.widget==__ontop_widget then
+                return math.floor(c.x+c.border_width+v.x+v.width/2)..":"..math.floor(c.y+c.border_width+height/2)
+            end
+        end end; return "missing"
+    ''')
+    point = re.search(r'(\d+):(\d+)', position)
+    assert point, position
+    point = tuple(map(int, point.groups()))
+    try:
+        pointer('mousemove', *point, 'mousedown', 1)
+        assert 'true' in lua('return not __ontop_client.ontop and __ontop_client._private.release_controls.titlebar_ontop.state.armed')
+        pointer('mousemove', 10, 100, 'mouseup', 1)
+        assert 'true' in lua('return not __ontop_client.ontop and __ontop_widget.bg==__ontop_normal')
+        pointer('mousemove', *point, 'mousedown', 1)
+        pointer('mousemove', 10, 100)
+        pointer('mousemove', *point, 'mouseup', 1)
+        wait('return tostring(__ontop_client.ontop)', '"true"')
+        pointer('mousemove', 10, 100)
+        assert 'true' in lua('return __ontop_widget.bg~=__ontop_normal and not __ontop_client.sticky')
+        # Outside changes must repaint even without a hover or click transition.
+        lua('__ontop_client.ontop=false')
+        assert 'true' in lua('return __ontop_widget.bg==__ontop_normal')
+        lua('__ontop_client.ontop=true')
+        assert 'true' in lua('return __ontop_widget.bg~=__ontop_normal')
+        pointer('mousemove', *point, 'click', 1)
+        wait('return tostring(__ontop_client.ontop)', '"false"')
+        pointer('mousemove', 10, 100)
+        assert 'true' in lua('return __ontop_widget.bg==__ontop_normal')
+        pointer('mousemove', *point, 'click', 3)
+        assert 'false' in lua('return tostring(__ontop_client.ontop)')
+        # Becoming fullscreen cancels a held press and must not toggle on release.
+        pointer('mousemove', *point, 'mousedown', 1)
+        lua('__ontop_client.fullscreen=true')
+        wait('return tostring(not __ontop_client._private.release_controls.titlebar_ontop.state.armed and not mousegrabber.isrunning())', '"true"')
+        pointer('mouseup', 1)
+        assert 'false' in lua('return tostring(__ontop_client.ontop)')
+        lua('__ontop_client.fullscreen=false')
+    finally:
+        pointer('mouseup', 1)
+        lua('if __ontop_client and __ontop_client.valid then __ontop_client.ontop=false; __ontop_client.fullscreen=false end; __ontop_client=nil; __ontop_widget=nil; __ontop_normal=nil')
+
+
+def verify_fullscreen_decorations(*, lua, wait, x11_state):
+    """Check published frame extents as well as outer and actual client geometry."""
+    lua('__frame_client=client.focus; __frame_geometry=__frame_client:geometry()')
+    def geometry_matches_saved():
+        return 'local c=__frame_client; local g=__frame_geometry; return tostring(c.x==g.x and c.y==g.y and c.width==g.width and c.height==g.height)'
+    def fullscreen():
+        lua('__frame_client.fullscreen=true')
+        wait('local c=__frame_client; local a=c.screen.geometry; local _,top=c:titlebar_top(); local _,bottom=c:titlebar_bottom(); return tostring(c.fullscreen and top==0 and bottom==0 and c.border_width==0 and c.x==a.x and c.y==a.y and c.width==a.width and c.height==a.height)', '"true"')
+        state = x11_state('__frame_client')
+        assert state['extents'] == (0, 0, 0, 0), state
+        expected = lua('local a=__frame_client.screen.geometry; return table.concat({a.x,a.y,a.width,a.height}, ",")')
+        assert ','.join(map(str, state['geometry'])) in expected, (state, expected)
+    def normal():
+        wait('local c=__frame_client; local _,top=c:titlebar_top(); local _,bottom=c:titlebar_bottom(); return tostring(not c.fullscreen and not c.maximized and top==26 and bottom==10 and c.border_width==2)', '"true"')
+        wait(geometry_matches_saved(), '"true"')
+        state = x11_state('__frame_client')
+        assert state['extents'] == (2, 2, 28, 12), state
+    try:
+        for _ in range(3):
+            fullscreen()
+            lua('__frame_client.fullscreen=false')
+            normal()
+        lua('__frame_client.maximized=true')
+        wait('local c=__frame_client; local a=c.screen.workarea; return tostring(c.maximized and c.x==a.x and c.y==a.y and c.width==a.width and c.height==a.height)', '"true"')
+        fullscreen()
+        lua('__frame_client.fullscreen=false')
+        wait('local c=__frame_client; local a=c.screen.workarea; local _,top=c:titlebar_top(); local _,bottom=c:titlebar_bottom(); return tostring(c.maximized and top==26 and bottom==0 and c.x==a.x and c.y==a.y and c.width==a.width and c.height==a.height)', '"true"')
+        assert x11_state('__frame_client')['extents'][2:] == (26, 0)
+    finally:
+        # Restore the fixture explicitly: this test covers returning to maximized,
+        # not Awesome 4.3's separate nested maximize/fullscreen restore history.
+        lua('if __frame_client and __frame_client.valid then __frame_client.fullscreen=false; __frame_client.maximized=false; __frame_client.border_width=2; __frame_client:geometry(__frame_geometry) end; __frame_client=nil; __frame_geometry=nil')
+
+
 def verify_fullscreen_workspaces(*, lua, wait):
     """An off-workspace fullscreen client must not suppress desktop controls."""
     lua('__fs_client=client.focus; __fs_home=__fs_client.screen.selected_tag; __fs_other=__fs_client.screen.tags[__fs_home.index%4+1]')

@@ -18,7 +18,7 @@
 - Configure the WM through `dotfiles/.config/awesome/rc.lua` and `autostart`.
 - `startx` uses `dotfiles/.config/X11/xinitrc`, with `dotfiles/.xinitrc` as a forwarding entry point.
 - Use floating by default; Win+Space toggles the current desktop between floating and tile layouts. The native panel is in `dotfiles/.config/awesome/panel.lua`; do not start LXPanel or another tray manager.
-- Click-to-focus; keep square Win98 window geometry but give titlebars a restrained Frutiger Aero glass gradient, clear text, teal/mint minimize and maximize controls, and a glossy red close button. Normal windows have a bottom-right left-drag resize grip; maximized/fullscreen windows have no borders or bottom strip. Shared X11 helper# Numpad operators → regular ASCII characters
+- Click-to-focus; keep square Win98 window geometry but give titlebars a restrained Frutiger Aero glass gradient, clear text, teal/mint controls (always-on-top toggle, minimize, maximize), and a glossy red close button. The ↑ always-on-top button sits left of minimize and stays visibly pressed while enabled; it follows `client.ontop` without changing sticky/workspace state. Normal windows have a bottom-right left-drag resize grip; maximized/fullscreen windows have no borders or bottom strip. Fullscreen also hides the top titlebar and advertises zero X11 frame extents; maximized windows retain the 26px titlebar. Shared X11 helper# Numpad operators → regular ASCII characters
 map kp_multiply send_text all *
 map kp_subtract send_text all -
 map kp_add      send_text all +

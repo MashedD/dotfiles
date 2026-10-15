@@ -42,7 +42,10 @@ The Awesome runtime test uses a private Xvfb display and private D-Bus bus,
 disables real autostart, and uses a temporary HOME/runtime directory. It
 checks the native 30px panel/strut, date, volume controls (mocked audio commands),
 Start menu, calendar, XEmbed tray ownership, wallpaper, plain corner resizing,
-borderless maximization/fullscreen, workspace-aware panel/sidebar restoration
+borderless maximization/fullscreen, zero fullscreen `_NET_FRAME_EXTENTS` and
+screen-sized native client bounds (not just WM outer geometry), repeated floating
+fullscreen round trips without size drift, maximized fullscreen/titlebar restoration,
+workspace-aware panel/sidebar restoration
 (including repeated switches, client retagging, sticky/hidden/minimized states),
 floating clients/titlebars, four tags,
 persistent sidebar fold/order and drag auto-scroll, send-and-follow, snapping,
@@ -94,7 +97,9 @@ Applications, the panel calendar, stale-data tooltips, and titlebar hover contro
 alongside the light/dark surface checks. The runtime test verifies menu palette
 inheritance, tooltip colors/borders, release-to-activate sidebar buttons and menu items,
 component teardown,
-titlebar control geometry and hover restoration, and rejects Pango color errors.
+titlebar control geometry and hover restoration, always-on-top release/cancel and
+external state synchronization (including hidden/destroyed controls), and rejects
+Pango color errors.
 `tests/helpers/awesome-ui.lua` contains private-session inspection helpers; it is loaded
 and cached only in the isolated Awesome process, then naturally reloaded after a
 complete process restart. `tests/helpers/awesome_controls.py` groups menu and workspace

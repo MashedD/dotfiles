@@ -12,7 +12,7 @@ function H.titlebar_controls(client)
     local widget = drawable and drawable.widget
     for _, child in ipairs(widget and widget:get_all_children() or {}) do
         if child.get_children_by_id then
-            for _, id in ipairs({"titlebar_minimize", "titlebar_maximize", "titlebar_close"}) do
+            for _, id in ipairs({"titlebar_ontop", "titlebar_minimize", "titlebar_maximize", "titlebar_close"}) do
                 local found = child:get_children_by_id(id)[1]
                 if found then result[id] = found end
             end

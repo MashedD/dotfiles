@@ -136,8 +136,9 @@ Win+P opens the display menu: internal only, HDMI only, extended desktop, or
 automatic hotplug layout. Explicit HDMI modes prefer 2560×1440/144 Hz; the
 internal display stays enabled until a requested mode succeeds. Mouse: drag
 titlebar to move, double-click to maximize, Win+left-drag to move,
-Win+right-drag to resize. Titlebars have icon, title, minimize, maximize and
-close. Alt+Space/right-click title opens window actions. Win+Left/Right snaps
+Win+right-drag to resize. Titlebars have icon, title, an ↑ always-on-top toggle, minimize, maximize and
+close. The ↑ button stays pressed while enabled and its tooltip reports the state;
+it does not make the window sticky or move it between workspaces. Alt+Space/right-click title opens window actions. Win+Left/Right snaps
 a window to a screen half. Alt+Tab/Shift+Alt+Tab cycles; Alt+F4 closes;
 Alt+F11 toggles fullscreen. Win+D toggles show-desktop. Ctrl+Alt+arrows switches
 workspaces without wrapping; Win+Shift+arrows focuses directionally.

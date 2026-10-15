@@ -553,24 +553,47 @@ awful.rules.rules = {
 
 local function update_decorations(c)
     if c.type ~= "normal" and c.type ~= "dialog" then return end
-    if c._private and c._private.titlebars and c._private.titlebars.bottom then
+    local titlebars = c._private and c._private.titlebars
+    if not titlebars then return end
+    local changed = false
+    local geometry = c:geometry()
+    if titlebars.top then
+        local _, height = c:titlebar_top()
+        -- Fullscreen must advertise zero frame extents to the application, not
+        -- just cover the titlebar with a screen-sized outer window.
+        if c.fullscreen and height > 0 then
+            awful.titlebar.hide(c, "top")
+            changed = true
+        elseif not c.fullscreen and height == 0 then
+            awful.titlebar.show(c, "top")
+            changed = true
+        end
+    end
+    if titlebars.bottom then
         local _, height = c:titlebar_bottom()
         if c.maximized or c.fullscreen then
             if height > 0 then
                 awful.titlebar.hide(c, "bottom")
-                -- Hiding a titlebar shrinks the outer geometry. Refit after
-                -- Awesome's maximize request, without replacing restore geometry.
-                gears.timer.delayed_call(function()
-                    if c.valid and (c.maximized or c.fullscreen) then
-                        awful.placement.maximize(c, {honor_workarea = not c.fullscreen,
-                            honor_padding = not c.fullscreen, store_geometry = false,
-                            ignore_border_width = true})
-                    end
-                end)
+                changed = true
             end
         elseif height == 0 then
             awful.titlebar.show(c, "bottom")
+            changed = true
         end
+    end
+    if changed and not c.maximized and not c.fullscreen then
+        -- Showing decorations expands the outer frame; keep the geometry that
+        -- Awesome just restored rather than growing the window on every exit.
+        c:geometry(geometry)
+    elseif changed then
+        -- Refit after the decoration change without replacing restore geometry.
+        gears.timer.delayed_call(function()
+            if c.valid and (c.maximized or c.fullscreen) then
+                awful.placement.maximize(c, {honor_workarea = not c.fullscreen,
+                    honor_padding = not c.fullscreen, store_geometry = false,
+                    ignore_border_width = true})
+            end
+        end)
     end
 end
 client.connect_signal("property::maximized", update_decorations)
@@ -608,7 +631,8 @@ client.connect_signal("unmanage", function(c)
 end)
 
 -- Square glass controls keep Win98 geometry with a restrained Aero sheen.
-local function control(c, ui, label, callback, is_close, widget_id)
+local function control(c, ui, label, callback, is_close, widget_id, options)
+    options = options or {}
     local text = wibox.widget.textbox(label)
     text.align = "center"
     text.valign = "center"
@@ -622,6 +646,15 @@ local function control(c, ui, label, callback, is_close, widget_id)
         widget = wibox.container.background,
     }
     local pressed_bg = appearance.gradient(is_close and "close_pressed" or "control_pressed", 20)
+    local held, hovered = false, false
+    local function repaint()
+        local active = c.valid and options.active and options.active() or false
+        button.bg = (held or active) and pressed_bg or (is_close
+            and (hovered and titlebar_close_hover or titlebar_close_gradient)
+            or (hovered and titlebar_button_hover or titlebar_button_gradient))
+        button.border_color = (held or hovered or active) and appearance.palette.title
+            or (is_close and appearance.palette.close_border or appearance.palette.control_border)
+    end
     local binding = interaction.bind_button(button, {
         activate = callback,
         valid = function()
@@ -629,15 +662,14 @@ local function control(c, ui, label, callback, is_close, widget_id)
             local _, height = c:titlebar_top()
             return height > 0
         end,
-        paint = function(pressed, hovered)
-            button.bg = pressed and pressed_bg or (is_close
-                and (hovered and titlebar_close_hover or titlebar_close_gradient)
-                or (hovered and titlebar_button_hover or titlebar_button_gradient))
-            button.border_color = (pressed or hovered) and appearance.palette.title
-                or (is_close and appearance.palette.close_border or appearance.palette.control_border)
+        paint = function(pressed, inside)
+            held, hovered = pressed, inside
+            repaint()
         end,
     }, ui)
-    ui.tip(button, is_close and "Close" or (label == "−" and "Minimize" or "Maximize / restore"))
+    if options.signal then ui.connect(c, options.signal, repaint) end
+    repaint()
+    ui.tip(button, options.tooltip or (is_close and "Close" or (label == "−" and "Minimize" or "Maximize / restore")))
     c._private.release_controls = c._private.release_controls or {}
     c._private.release_controls[widget_id] = binding
     return button
@@ -664,6 +696,15 @@ client.connect_signal("request::titlebars", function(c)
     title:set_align("left")
     local icon = awful.titlebar.widget.iconwidget(c)
     icon:buttons(gears.table.join(awful.button({}, 1, function() window_menu(c) end)))
+    local ontop_button = control(c, ui, "↑", function()
+        dismiss_start_menu()
+        c.ontop = not c.ontop
+        if c.ontop then c:raise() end
+    end, false, "titlebar_ontop", {
+        active = function() return c.ontop end,
+        signal = "property::ontop",
+        tooltip = function() return "Always on top: " .. (c.ontop and "on (click to disable)" or "off (click to enable)") end,
+    })
     local minimize_button = control(c, ui, "−", function()
         dismiss_start_menu()
         gears.timer.delayed_call(function()
@@ -681,7 +722,7 @@ client.connect_signal("request::titlebars", function(c)
         {title, buttons = drag, left = 3, widget = wibox.container.margin},
         {
             {
-                minimize_button, maximize_button, close_button,
+                ontop_button, minimize_button, maximize_button, close_button,
                 spacing = 2, layout = wibox.layout.fixed.horizontal,
             },
             margins = 2, widget = wibox.container.margin,

@@ -175,6 +175,16 @@ def main():
                     subprocess.run(["xdotool", *map(str, args)], env=env, check=True, timeout=3)
                     time.sleep(0.08)
 
+                def x11_state(expression):
+                    window = re.search(r'\d+', lua('return tostring(' + expression + '.window)')).group(0)
+                    extents = subprocess.run(['xprop', '-id', window, '_NET_FRAME_EXTENTS'], env=env,
+                                             capture_output=True, text=True, check=True, timeout=3).stdout
+                    values = tuple(map(int, re.search(r'=\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)', extents).groups()))
+                    output = subprocess.run(['xdotool', 'getwindowgeometry', '--shell', window], env=env,
+                                            capture_output=True, text=True, check=True, timeout=3).stdout
+                    geometry = dict(line.split('=', 1) for line in output.splitlines())
+                    return dict(extents=values, geometry=tuple(int(geometry[key]) for key in ('X', 'Y', 'WIDTH', 'HEIGHT')))
+
                 def widget_point(expression, scroll=0, x=150):
                     if scroll:
                         lua(f'screen[1].sidebar_scroll_by({scroll})')
@@ -708,7 +718,8 @@ def main():
                 wait('return tostring(__gesture_tip.visible)', '"true"')
                 assert 'true' in lua('return client.focus==__gesture_client')
                 lua('__gesture_tip.hide(); __gesture_tip=nil')
-                control_state = helper('local controls=h.titlebar_controls(client.focus); for _,id in ipairs({"titlebar_minimize","titlebar_maximize","titlebar_close"}) do local b=controls[id]; if not b then return id..":missing" end; if b.forced_width~=21 or b.forced_height~=19 or not b.fg then return id..":geometry" end; b:emit_signal("mouse::leave"); local normal=tostring(b.bg); b:emit_signal("mouse::enter"); if tostring(b.bg)==normal then return id..":hover" end; b:emit_signal("mouse::leave"); if tostring(b.bg)~=normal then return id..":restore" end end; _G.__polish_close_button=controls.titlebar_close; return true')
+                awesome_controls.verify_titlebar_ontop(lua=lua, helper=helper, pointer=pointer, wait=wait)
+                control_state = helper('local controls=h.titlebar_controls(client.focus); for _,id in ipairs({"titlebar_ontop","titlebar_minimize","titlebar_maximize","titlebar_close"}) do local b=controls[id]; if not b then return id..":missing" end; if b.forced_width~=21 or b.forced_height~=19 or not b.fg then return id..":geometry" end; b:emit_signal("mouse::leave"); local normal=tostring(b.bg); b:emit_signal("mouse::enter"); if tostring(b.bg)==normal then return id..":hover" end; b:emit_signal("mouse::leave"); if tostring(b.bg)~=normal then return id..":restore" end end; _G.__polish_close_button=controls.titlebar_close; return true')
                 assert 'true' in control_state, control_state
                 lua('__polish_close_button:emit_signal("mouse::enter")')
                 capture("titlebar-close-hover")
@@ -803,6 +814,7 @@ def main():
                 assert 'true' in maximum, lua('local c=client.focus; local _,b=c:titlebar_bottom(); local a=c.screen.workarea; return "border="..c.border_width.." bottom="..b.." c="..c.x..","..c.y..","..c.width..","..c.height.." area="..a.x..","..a.y..","..a.width..","..a.height')
                 lua('client.focus.maximized=false')
                 assert 'true' in lua('local c=client.focus; local _,b=c:titlebar_bottom(); return c.border_width == 2 and b == 10')
+                awesome_controls.verify_fullscreen_decorations(lua=lua, wait=wait, x11_state=x11_state)
                 press('super+shift+s')
                 press('super+shift+s')
                 press('super+shift+s')
@@ -853,14 +865,16 @@ def main():
                 wait('return tostring(__awesome_quit_confirmation.wibox.visible)', '"false"')
                 assert wm.poll() is None
                 # Closing never happens on mouse-down; destroyed clients cancel their grab.
-                for name in ("AwesomeGestureCancel", "AwesomeGestureRelease"):
+                for name in ("AwesomeGestureCancel", "AwesomeGestureRelease", "AwesomeOntopCancel"):
                     processes.append(subprocess.Popen(["xmessage", "-name", name, "-geometry", "300x160", name], env=env, stdout=log, stderr=log))
                     wait(f'return client.focus and client.focus.instance', name)
-                    coords = lua('_G.__closing_client=client.focus; _G.__closing_group=client.focus._private.titlebar_ui; _G.__closing_binding=client.focus._private.release_controls.titlebar_close; return (client.focus.x+client.focus.width-13)..":"..(client.focus.y+13)')
+                    control = 'titlebar_ontop' if name == 'AwesomeOntopCancel' else 'titlebar_close'
+                    offset = 82 if name == 'AwesomeOntopCancel' else 13
+                    coords = lua(f'_G.__closing_client=client.focus; _G.__closing_group=client.focus._private.titlebar_ui; _G.__closing_binding=client.focus._private.release_controls.{control}; return (client.focus.x+client.focus.width-{offset})..":"..(client.focus.y+13)')
                     cx, cy = re.search(r'"(\d+):(\d+)"', coords).groups()
                     pointer("mousemove", cx, cy, "mousedown", 1)
                     assert 'true' in lua('return __closing_client.valid and __closing_binding.state.armed')
-                    if name == "AwesomeGestureCancel":
+                    if name in ("AwesomeGestureCancel", "AwesomeOntopCancel"):
                         lua('__closing_client:kill()')
                         wait('return tostring(__closing_group.disposed and not mousegrabber.isrunning())', '"true"')
                     pointer("mouseup", 1)
