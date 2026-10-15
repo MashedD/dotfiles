@@ -186,15 +186,19 @@ def main():
                     assert match, f"Could not locate widget {expression}: {position}"
                     return tuple(map(int, match.groups()))
 
-                def workspace_point(index):
-                    position = lua('local s=screen[1]; local target=s.tags[' + str(index) + ']; '
+                def workspace_bounds(index):
+                    bounds = lua('local s=screen[1]; local target=s.tags[' + str(index) + ']; '
                         'for y=0,s.panel.height-1 do for x=65,420 do for _,v in ipairs(s.panel:find_widgets(x,y)) do '
                         'local a=v.widget._workspace_action; if a and a.tag==target then '
-                        'return tostring(s.panel.x+math.floor(v.x+v.width/2))..":"..tostring(s.panel.y+math.floor(v.y+v.height/2)) '
+                        'return table.concat({math.floor(s.panel.x+v.x),math.floor(s.panel.y+v.y),math.ceil(v.width),math.ceil(v.height)}, ":") '
                         'end end end end; return "missing"')
-                    match = re.search(r'(\d+):(\d+)', position)
-                    assert match, f"Could not locate workspace {index}: {position}"
+                    match = re.search(r'(\d+):(\d+):(\d+):(\d+)', bounds)
+                    assert match, f"Could not locate workspace {index}: {bounds}"
                     return tuple(map(int, match.groups()))
+
+                def workspace_point(index):
+                    x, y, width, height = workspace_bounds(index)
+                    return x + width // 2, y + height // 2
 
                 def menu_item_point(menu_expression, index, x=100):
                     position = lua('local m=' + menu_expression + '; local item=m.items[' + str(index) + ']; local x=' + str(x) + '; '
@@ -218,9 +222,9 @@ def main():
                     return path
 
                 def capture_workspace(index, name):
-                    x, y = workspace_point(index)
+                    x, y, width, height = workspace_bounds(index)
                     path = visual_dir / f"{name}.png"
-                    subprocess.run(["import", "-window", "root", "-crop", f"40x30+{x-20}+{y-15}", "+repage", str(path)],
+                    subprocess.run(["import", "-window", "root", "-crop", f"{width}x{height}+{x}+{y}", "+repage", str(path)],
                                    env=env, check=True, timeout=5)
                     return path
 
@@ -675,11 +679,17 @@ def main():
                 workspace_normal_crop = capture_workspace(3, "workspace-normal") if visual else None
                 lua('_G.__workspace_normal_bg=screen[1].taglist_release_actions[screen[1].tags[3]].widget:get_children_by_id("background_role")[1].bg')
                 pointer("mousemove", *tag_point, "mousedown", 1)
-                workspace_pressed = lua('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return tostring(a.view_binding.state.armed)..":"..tostring(screen[1].selected_tag.index)..":"..tostring(mousegrabber.isrunning())..":"..tostring(a.widget._workspace_pressed)')
-                assert 'true:1:true:true' in workspace_pressed, workspace_pressed
+                workspace_pressed = lua('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return tostring(a.view_binding.state.armed)..":"..tostring(screen[1].selected_tag.index)..":"..tostring(mousegrabber.isrunning())..":"..tostring(a.widget._workspace_pressed)..":"..tostring(a.widget._workspace_animation_alpha>0)..":"..tostring(a.overlay.bg~=nil)')
+                assert 'true:1:true:true:true:true' in workspace_pressed, workspace_pressed
+                lua('screen[1].tags[3]:view_only()')
+                wait('return screen[1].selected_tag.index', '3')
+                assert 'true' in lua('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return a.overlay.bg~=nil and a.widget._workspace_animation_alpha>0')
+                lua('screen[1].tags[1]:view_only()')
+                wait('return screen[1].selected_tag.index', '1')
+                assert 'true' in lua('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return a.overlay.bg~=nil and a.widget:get_children_by_id("background_role")[1].bg==__workspace_normal_bg')
                 workspace_held_crop = capture_workspace(3, "workspace-held") if visual else None
                 pointer("mousemove", 500, 700)
-                wait('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return tostring(a.widget:get_children_by_id("background_role")[1].bg == __workspace_normal_bg)', '"true"')
+                wait('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return tostring(a.widget._workspace_animation_alpha==0 and a.overlay.bg==nil)', '"true"')
                 workspace_cancel_crop = capture_workspace(3, "workspace-canceled") if visual else None
                 assert 'true' in lua('return screen[1].selected_tag.index == 1 and mousegrabber.isrunning()')
                 pointer("mouseup", 1)
@@ -688,7 +698,11 @@ def main():
                     compare_visual(workspace_normal_crop, workspace_held_crop, True)
                     compare_visual(workspace_normal_crop, workspace_cancel_crop, False)
                 pointer("mousemove", *tag_point, "mousedown", 1)
-                assert 'true' in lua('return screen[1].selected_tag.index == 1')
+                assert 'true' in lua('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return a.view_binding.state.armed and a.view_binding.state.inside and screen[1].selected_tag.index==1')
+                pointer("mousemove", 500, 700)
+                wait('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return tostring(a.view_binding.state.armed and not a.view_binding.state.inside and a.widget._workspace_animation_alpha==0)', '"true"')
+                pointer("mousemove", *tag_point)
+                assert 'true' in lua('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return a.view_binding.state.armed and a.view_binding.state.inside and a.widget._workspace_animation_alpha>0')
                 pointer("mouseup", 1)
                 wait('return screen[1].selected_tag.index', '3')
                 press('super+1')
@@ -714,9 +728,27 @@ def main():
                     processes.append(subprocess.Popen(["xmessage", "-name", name, "-geometry", "400x200", name],
                                                        env=env, stdout=log, stderr=log))
                 wait('local n=0; for _,c in ipairs(client.get()) do if c.class == "Xmessage" then n=n+1 end end; return n', '2')
+                lua('for _,c in ipairs(client.get()) do if c.instance=="AwesomeSmokeB" then __workspace_state_client=c; c:move_to_tag(screen[1].tags[3]) end end')
+                wait('return __workspace_state_client.first_tag.index', '3')
+                state_point = workspace_point(3)
+                pointer("mousemove", *state_point, "mousedown", 1)
+                wait('return tostring(__workspace_state_client.first_tag.index==3 and screen[1].taglist_release_actions[screen[1].tags[3]].overlay.bg~=nil)', '"true"')
+                lua('__workspace_state_client.urgent=true')
+                wait('return tostring(__workspace_state_client.urgent)', '"true"')
+                assert 'true' in lua('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return a.overlay.bg~=nil and a.widget._workspace_animation_alpha>0')
+                lua('__workspace_state_client.urgent=false; __workspace_state_client:move_to_tag(screen[1].tags[1])')
+                wait('return __workspace_state_client.first_tag.index', '1')
+                assert 'true' in lua('local a=screen[1].taglist_release_actions[screen[1].tags[3]]; return a.overlay.bg~=nil and a.widget._workspace_animation_alpha>0')
+                pointer("mousemove", 500, 700)
+                wait('return tostring(screen[1].taglist_release_actions[screen[1].tags[3]].overlay.bg==nil)', '"true"')
+                pointer("mouseup", 1)
+                assert 'true' in lua('return screen[1].selected_tag.index==1 and not mousegrabber.isrunning()')
+                lua('__workspace_state_client=nil')
                 titlebar_state = lua('local r=""; for _,c in ipairs(client.get()) do if c.class == "Xmessage" then local top=c._private and c._private.titlebars and c._private.titlebars.top; r=r..tostring(c.floating)..":"..tostring(top and top.args.size)..":"..tostring(c.y)..";" end end; return r')
                 assert titlebar_state.count("true:26:") == 2, (titlebar_state, logfile.read_text())
                 # Real pointer gestures: mouse-down never activates; release location matters.
+                lua('for _,c in ipairs(client.get()) do if c.instance=="AwesomeSmokeA" then c.minimized=false; client.focus=c; c:raise() end end')
+                wait('return client.focus and client.focus.instance', '"AwesomeSmokeA"')
                 lua('_G.__gesture_client=client.focus')
                 coordinates = lua('local c=__gesture_client; return (c.x+c.width-36)..":"..(c.y+13)..":"..(c.x-20)')
                 gx, gy, outside_x = re.search(r'"(\d+):(\d+):(\d+)"', coordinates).groups()
@@ -940,8 +972,9 @@ def main():
                 assert 'true' in lua('local d=screen[1].sidebar_data; _G.__polish_requests=d.collectors.crypto.requests; screen.fake_add(800,0,480,600); return screen[2].sidebar_data==d and d.collectors.crypto.requests==__polish_requests and screen[2].sidebar_crypto_prices.BTC.text==screen[1].sidebar_crypto_prices.BTC.text')
                 wait('return tostring(screen[2].sidebar_scrollbar_panel.visible)', '"true"')
                 assert 'true' in lua('_G.__removed_start_binding=screen[2].start_release_binding; _G.__removed_start_button=screen[2].start_button; _G.__removed_start_normal=screen[2].start_normal_image; local b=__removed_start_binding; return b.state.press(1) and b.state.armed and __removed_start_button._private.image==screen[2].start_pressed_image')
+                assert 'true' in lua('_G.__removed_workspace_action=screen[2].taglist_release_actions[screen[2].tags[2]]; local a=__removed_workspace_action; local b=a.view_binding.state; b.press(1); local pressed=a.widget._workspace_animation_alpha; b.move(false); local leaving=a.widget._workspace_animation_alpha; b.move(true); local reentered=a.widget._workspace_animation_alpha; b.release(1,true); local quick=a.widget._workspace_animation_alpha; return pressed==42 and leaving>0 and leaving<pressed and reentered>leaving and quick>0 and screen[2].selected_tag==a.tag and a.widget._workspace_animation_timer~=nil and a.overlay.bg~=nil')
                 lua('screen[2]:emit_signal("removed"); screen[2]:fake_remove()')
-                assert 'true' in lua('return screen.count()==1 and not mousegrabber.isrunning() and screen[2]==nil and __removed_start_binding.state.destroyed and __removed_start_button._private.image==__removed_start_normal')
+                assert 'true' in lua('local a=__removed_workspace_action; return screen.count()==1 and not mousegrabber.isrunning() and screen[2]==nil and __removed_start_binding.state.destroyed and __removed_start_button._private.image==__removed_start_normal and a.view_binding.state.destroyed and a.widget._workspace_animation_alpha==0 and a.widget._workspace_animation_timer==nil and a.overlay.bg==nil')
                 assert 'true' in lua('local s=screen[1]; return screen.fake_add(800,0,480,600) and screen[2].sidebar_data==s.sidebar_data')
                 wait('return tostring(screen[2].sidebar_scrollbar_panel.visible)', '"true"')
                 bar_point = lua('local b=screen[2].sidebar_scrollbar_panel; return (b.x+30)..":"..(b.y+6)')

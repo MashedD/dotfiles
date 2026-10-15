@@ -161,39 +161,55 @@ function panel.create(s, menu, activate, window_menu, interaction)
         local function valid()
             return s.valid and action.tag and action.tag.valid
         end
-        local function normal_background()
-            return action.tag.selected and panel_focus_gradient or panel_item_gradient
+        -- Keep the tint above native tag backgrounds so taglist refreshes cannot erase it.
+        local overlay = widget:get_children_by_id("workspace_pressed_overlay")[1]
+        action.overlay = overlay
+        local function set_alpha(alpha)
+            alpha = math.max(0, math.min(0xa8, math.floor(alpha + 0.5)))
+            if widget._workspace_animation_alpha == alpha then return end
+            widget._workspace_animation_alpha = alpha
+            if alpha == 0 then overlay.bg = nil
+            else overlay.bg = string.format("#0a3529%02x", alpha) end
         end
-        local background_widget = widget:get_children_by_id("background_role")[1]
-        local function paint(pressed)
-            if widget._workspace_pressed == pressed then return end
-            widget._workspace_pressed = pressed
+        local function animate(pressed)
+            -- Apply a visible first step synchronously, then retarget from the live alpha.
             local timer = widget._workspace_animation_timer
             if timer then timer:stop(); widget._workspace_animation_timer = nil end
-            if taglist_ui.disposed then
-                background_widget.bg = normal_background()
+            local start = widget._workspace_animation_alpha or 0
+            local target = pressed and 0xa8 or 0
+            local first = start + (target - start) * 0.25
+            set_alpha(first)
+            if first == target or taglist_ui.disposed then
+                if taglist_ui.disposed then set_alpha(0) end
                 return
             end
-            local frames = pressed
-                and {"#b7e4d1", "#9bd6bb", "#80c8a8", "#69b996"}
-                or {"#80c8a8", "#9bd6bb", "#b7e4d1"}
             local step = 0
             widget._workspace_animation_timer = gears.timer.start_new(0.018, function()
+                if taglist_ui.disposed then
+                    widget._workspace_animation_timer = nil
+                    set_alpha(0)
+                    return false
+                end
                 step = step + 1
-                if step >= #frames then
-                    background_widget.bg = pressed and frames[step] or normal_background()
+                set_alpha(first + (target - first) * (step / 4))
+                if step >= 4 then
                     widget._workspace_animation_timer = nil
                     return false
                 end
-                background_widget.bg = frames[step]
                 return true
             end)
         end
+        local function paint(pressed)
+            if widget._workspace_pressed == pressed then return end
+            widget._workspace_pressed = pressed
+            animate(pressed)
+        end
         widget._workspace_pressed = false
+        widget._workspace_animation_alpha = 0
         taglist_ui.add(function()
             if widget._workspace_animation_timer then widget._workspace_animation_timer:stop() end
             widget._workspace_animation_timer = nil
-            background_widget.bg = normal_background()
+            set_alpha(0)
             widget._workspace_pressed = false
         end)
         action.view_binding = interaction.bind_button(widget, {
@@ -249,9 +265,15 @@ function panel.create(s, menu, activate, window_menu, interaction)
             end,
             {
                 {
-                    {id = "text_role", align = "center", widget = wibox.widget.textbox},
-                    left = 6, right = 6, top = 1, bottom = 1,
-                    widget = wibox.container.margin,
+                    {id = "workspace_pressed_overlay", bg = nil,
+                        widget = wibox.container.background,
+                        {text = "", widget = wibox.widget.textbox}},
+                    {
+                        {id = "text_role", align = "center", widget = wibox.widget.textbox},
+                        left = 6, right = 6, top = 1, bottom = 1,
+                        widget = wibox.container.margin,
+                    },
+                    layout = wibox.layout.stack,
                 },
                 id = "background_role", border_width = 1, border_color = "#8ecbff",
                 widget = wibox.container.background,

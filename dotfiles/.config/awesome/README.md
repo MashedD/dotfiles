@@ -15,8 +15,8 @@ immediate failures without disabling entries or waiting for application exit.
 `menu-release.lua` changes native `awful.menu` entries to activate on a valid
 left-button release inside the same item; keyboard navigation and right-click dismissal
 remain native. Start uses a generated darkened image while held and toggles its menu
-only on release inside; workspace actions use the shared grab/release handler and a brief
-mint-tinted pressed animation. The coordinator adapts component handles back to existing `s.sidebar_*` diagnostics;
+only on release inside; workspace actions use the shared grab/release handler and an
+immediate, fading dark-teal overlay that preserves native taglist backgrounds. The coordinator adapts component handles back to existing `s.sidebar_*` diagnostics;
 document formats and persisted state are unchanged.
 
 | Component | Constructor inputs | Returned operations/handles |
