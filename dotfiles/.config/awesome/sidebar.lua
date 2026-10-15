@@ -1409,22 +1409,23 @@ function sidebar.create(s, dismiss_menu)
         local x = (width - thumb_width) * s.sidebar_scroll_position / scroll_max
         return x, thumb_width
     end
+    local scrollbar_thumb = appearance.gradient("scrollbar", scrollbar_height)
     scrollbar = wibox.widget.base.make_widget()
     scrollbar.visible = false
     scrollbar.forced_height = 0
     scrollbar.fit = function(_, _, width) return width, scrollbar_height end
     scrollbar.draw = function(_, _, cr, width, height)
-        cr:set_source_rgb(0.025, 0.07, 0.05)
+        cr:set_source(gears.color(palette.scrollbar_track))
         cr:rectangle(0, 0, width, height)
         cr:fill()
-        cr:set_source_rgb(0.16, 0.28, 0.25)
+        cr:set_source(gears.color(palette.scrollbar_rail))
         cr:rectangle(0, math.floor(height / 2) - 2, width, 4)
         cr:fill()
         local x, thumb_width = thumb_geometry(width)
-        cr:set_source_rgb(0.44, 0.77, 0.74)
+        cr:set_source(scrollbar_thumb)
         cr:rectangle(x, 1, thumb_width, height - 2)
         cr:fill()
-        cr:set_source_rgb(0.78, 1, 0.91)
+        cr:set_source(gears.color(palette.scrollbar_highlight))
         cr:rectangle(x + 1, 1, math.max(0, thumb_width - 2), 1)
         cr:fill()
     end
@@ -1433,10 +1434,10 @@ function sidebar.create(s, dismiss_menu)
         width = sidebar_width - 2, height = scrollbar_height,
         x = s.geometry.x + s.geometry.width - sidebar_width + 2,
         y = s.geometry.y + s.geometry.height - scrollbar_height,
-        bg = "#07120d", border_width = 0, restrict_workarea = false,
+        bg = palette.scrollbar_track, border_width = 0, restrict_workarea = false,
     }
     scrollbar_panel:setup {
-        scrollbar, bg = "#07120d", widget = wibox.container.background,
+        scrollbar, bg = palette.scrollbar_track, widget = wibox.container.background,
     }
     sidebar_column = wibox.widget.base.make_widget()
     sidebar_column.fit = function(_, _, width, height) return width, height end

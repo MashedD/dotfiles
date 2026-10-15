@@ -38,8 +38,10 @@ AWESOME_TEST_SCREENSHOTS=/tmp/awesome-polish-shots python3 tests/test-awesome-se
 ```
 
 Captures include Start, display selection, window actions, quit confirmation,
-Applications, and the panel calendar, alongside the light/dark surface checks.
-The runtime test verifies menu palette inheritance and rejects Pango color errors.
+Applications, the panel calendar, stale-data tooltips, and titlebar hover controls,
+alongside the light/dark surface checks. The runtime test verifies menu palette
+inheritance, tooltip colors/borders, titlebar control geometry and hover restoration,
+and rejects Pango color errors.
 
 Only test-display i3lock processes are terminated afterward;
 the live WM/display and lock are never modified.

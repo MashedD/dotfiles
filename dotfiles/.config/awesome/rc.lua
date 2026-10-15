@@ -16,22 +16,10 @@ local test_mode = os.getenv("AWESOME_TEST_MODE") == "1"
 
 local titlebar_focus_gradient = appearance.gradient("selected", 26)
 local titlebar_normal_gradient = appearance.gradient("inactive", 26)
-local titlebar_button_gradient = gears.color {
-    type = "linear", from = {0, 0}, to = {0, 20},
-    stops = {{0, "#ffffffff"}, {0.18, "#bde5ffe6"}, {0.55, "#5599d8d0"}, {1, "#1d579aa8"}},
-}
-local titlebar_button_hover = gears.color {
-    type = "linear", from = {0, 0}, to = {0, 20},
-    stops = {{0, "#ffffffff"}, {0.2, "#e6f6ffff"}, {0.6, "#83c5f5e6"}, {1, "#2b78bfc0"}},
-}
-local titlebar_close_gradient = gears.color {
-    type = "linear", from = {0, 0}, to = {0, 20},
-    stops = {{0, "#fff7f2ff"}, {0.2, "#ffc2ade8"}, {0.58, "#df624dd4"}, {1, "#812927b4"}},
-}
-local titlebar_close_hover = gears.color {
-    type = "linear", from = {0, 0}, to = {0, 20},
-    stops = {{0, "#ffffffff"}, {0.2, "#ffe0c5ff"}, {0.58, "#ff8569e8"}, {1, "#aa352ecc"}},
-}
+local titlebar_button_gradient = appearance.gradient("control", 20)
+local titlebar_button_hover = appearance.gradient("control_hover", 20)
+local titlebar_close_gradient = appearance.gradient("close", 20)
+local titlebar_close_hover = appearance.gradient("close_hover", 20)
 local menu_glass_gradient = appearance.gradient("menu", 340)
 local menu_selection_gradient = appearance.gradient("selected", 28)
 
@@ -61,6 +49,10 @@ beautiful.init({
     prompt_font = appearance.fonts.menu, prompt_fg = appearance.palette.text,
     prompt_bg = appearance.palette.menu_base,
     prompt_fg_cursor = appearance.palette.menu_base, prompt_bg_cursor = appearance.palette.green,
+    tooltip_bg = appearance.palette.menu_base, tooltip_fg = appearance.palette.text,
+    tooltip_font = appearance.fonts.menu, tooltip_border_width = 1,
+    tooltip_border_color = appearance.palette.menu_border,
+    tooltip_opacity = 1, tooltip_shape = gears.shape.rectangle,
     useless_gap = 0, bg_systray = "#174a77", systray_icon_spacing = 2,
     maximized_hide_border = true, fullscreen_hide_border = true,
 })
@@ -623,8 +615,8 @@ local function control(label, callback, is_close, widget_id)
     local button = wibox.widget {
         {text, left = 2, right = 2, top = 1, bottom = 1, widget = wibox.container.margin},
         bg = is_close and titlebar_close_gradient or titlebar_button_gradient,
-        fg = "#f4fffb", border_width = 1,
-        border_color = is_close and "#ffd0bd" or "#b9f5e9",
+        fg = appearance.palette.title, border_width = 1,
+        border_color = is_close and appearance.palette.close_border or appearance.palette.control_border,
         forced_width = 21, forced_height = 19, id = widget_id,
         widget = wibox.container.background,
     }
@@ -632,7 +624,8 @@ local function control(label, callback, is_close, widget_id)
         button.bg = is_close
             and (hovered and titlebar_close_hover or titlebar_close_gradient)
             or (hovered and titlebar_button_hover or titlebar_button_gradient)
-        button.border_color = hovered and "#ffffff" or (is_close and "#ffd0bd" or "#b9f5e9")
+        button.border_color = hovered and appearance.palette.title
+            or (is_close and appearance.palette.close_border or appearance.palette.control_border)
     end
     button:connect_signal("mouse::enter", function() set_hover(true) end)
     button:connect_signal("mouse::leave", function() set_hover(false) end)

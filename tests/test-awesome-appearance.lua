@@ -31,6 +31,7 @@ local function sample(stops, position, wallpaper)
 end
 for name, foregrounds in pairs({
     menu = {'text','title','muted'},
+    control = {'title'}, control_hover = {'title'}, close = {'title'}, close_hover = {'title'},
     blue = {'title','text','green','amber'}, selected = {'title'},
     inactive = {'inactive','minimized'}, card = {'text','muted','teal'},
     forest = {'text','muted'},
@@ -45,6 +46,13 @@ for name, foregrounds in pairs({
         end
     end
 end
+for _, background in ipairs({'scrollbar_track', 'scrollbar_rail'}) do
+    for step=0,100 do
+        assert(contrast(sample(appearance.stops.scrollbar, step/100, 0),
+            rgb(appearance.palette[background])) >= 3, 'Scrollbar thumb must stand out from its track')
+    end
+end
+assert(contrast(rgb(appearance.palette.text), rgb(appearance.palette.menu_base)) >= 4.5)
 assert(appearance.remaining_color(21) == appearance.palette.green)
 assert(appearance.remaining_color(20) == appearance.palette.amber)
 assert(appearance.remaining_color(10) == appearance.palette.red)

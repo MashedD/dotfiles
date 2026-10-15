@@ -9,9 +9,21 @@ appearance.palette = {
     title = "#f2fffb", inactive = "#d6e7e3", minimized = "#c1d1dd",
     active_border = "#b4e8ff", inactive_border = "#527797",
     menu_border = "#73a7c5", menu_separator = "#527b96", menu_base = "#183d5b",
+    control_border = "#93d6c2", close_border = "#eaa39a",
+    scrollbar_track = "#0b2338", scrollbar_rail = "#122d43",
+    scrollbar_highlight = "#c1edff",
 }
 appearance.fonts = {body = "Microsoft Sans Serif 8", title = "Segoe UI bold 9", menu = "Segoe UI 9"}
 appearance.stops = {
+    scrollbar = {{0, "#afdff0"}, {0.14, "#659fc4"}, {0.55, "#3d82b4"}, {1, "#397ca6"}},
+    control = {{0, "#ddfff2"}, {0.035, "#82d2bc"}, {0.10, "#17634f"},
+        {0.55, "#12513e"}, {1, "#0a3529"}},
+    control_hover = {{0, "#effff7"}, {0.035, "#a0e8cf"}, {0.10, "#1c7159"},
+        {0.55, "#176049"}, {1, "#0e4432"}},
+    close = {{0, "#fff0e8"}, {0.035, "#edaca0"}, {0.10, "#a83936"},
+        {0.55, "#8c2929"}, {1, "#581a21"}},
+    close_hover = {{0, "#fff8ef"}, {0.035, "#ffc2ae"}, {0.10, "#bd4238"},
+        {0.55, "#a7332d"}, {1, "#742227"}},
     -- Whole-popup surface: no broad pale highlight behind the first menu rows.
     menu = {{0, "#204665"}, {0.45, "#183d5b"}, {1, "#102b43"}},
     blue = {{0, "#d8fbff"}, {0.035, "#83bddb"}, {0.10, "#245a86"},
