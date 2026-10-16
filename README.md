@@ -32,7 +32,10 @@ From the repository root:
 
 Existing files are never overwritten or adopted. Mutable MC/PCManFM state stays
 local; see [deployment details](docs/desktop.md#install-and-deploy).
-Helpers use `desktop-*` names. Use `./stow.sh unlink` to remove package-owned links.
+Helpers use `desktop-*` names. After Stow deployment, run `updaterepo` inside a
+Git repository to fetch and fast-forward only when the worktree is clean; it also
+initializes submodules and updates Git-Fat data when configured. Use
+`./stow.sh unlink` to remove package-owned links.
 
 ## Validate
 

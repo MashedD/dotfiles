@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! repo_root=$(git rev-parse --show-toplevel 2>/dev/null); then
+  printf '%s\n' 'updaterepo: not inside a Git repository.' >&2
+  exit 1
+fi
+cd -- "$repo_root"
+
+printf 'Fetching updates for %s\n' "$repo_root"
+git fetch --prune
+
+local_changes=$(git status --porcelain --untracked-files=all)
+if [[ -n $local_changes ]]; then
+  printf '%s\n' 'updaterepo: local changes found; fetched, but skipped pull to avoid conflicts:' >&2
+  printf '%s\n' "$local_changes" >&2
+  exit 1
+fi
+
+git pull --ff-only
+
+if [[ -f .gitmodules ]]; then
+  git submodule sync --recursive
+  git submodule update --init --recursive
+fi
+
+if [[ -f .gitfat ]]; then
+  git fat submodule update --init --recursive
+  git fat pull
+fi

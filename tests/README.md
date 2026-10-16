@@ -140,7 +140,9 @@ updates cannot leave cached old label content.
 
 `test-desktop-check.py` uses isolated command/theme/font/process fixtures to verify quiet
 and verbose output, static and runtime checks, no-display skipping, required/optional
-service failures, validator diagnostics and read-only behavior.
+service failures, validator diagnostics and read-only behavior. `test-updaterepo.py`
+stubs Git to check clean-tree fast-forward ordering, recursive submodule/Git-Fat updates,
+and skipping the pull when local changes are present.
 `test-awesome-fullscreen.lua` checks geometry delegation, independent restore state,
 missing state, reentrancy/error cleanup, refit coalescing and installation with fake
 clients. The private restore tests assert native results before fixture cleanup;
