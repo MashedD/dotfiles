@@ -144,13 +144,11 @@ def main():
         codex_helper = helpers / "codex-usage"
         codex_helper.write_text("#!/bin/sh\nprintf 'codex-v1\\tfresh\\t%s\\t%s\\t%s\\n' \"$(date +%s)\" 'C 5h #[fg=#55ff99]84%#[fg=#006400]@#[fg=#55ff99]Sat 13:46 7d #[fg=#55ff99]33%#[fg=#006400]@#[fg=#55ff99]Wed 06:41' 'Sat 24.10 13:46 · Tue 27.10 13:46 · Fri 30.10 13:46'\n")
         codex_helper.chmod(0o755)
-        shutil.copy2(ROOT / "dotfiles/.local/share/wallpapers/lock-win98-tux.png",
-                     testhome / ".local/share/wallpapers/lock-win98-tux.png")
         aurora_fixture = ROOT / "dotfiles/.local/share/wallpapers/aurora-cabin.png"
         shutil.copy2(aurora_fixture, testhome / ".local/share/wallpapers/aurora-cabin.png")
         shutil.copy2(aurora_fixture, testhome / "Pictures/Wallpapers/pictures-wallpaper.png")
-        icon_source = Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share"))) / "icons/hicolor/32x32/apps/vax-tux-start.png"
-        icon_target = testhome / ".local/share/icons/hicolor/32x32/apps/vax-tux-start.png"
+        icon_source = ROOT / "dotfiles/.local/share/icons/hicolor/32x32/apps/tux-start.png"
+        icon_target = testhome / ".local/share/icons/hicolor/32x32/apps/tux-start.png"
         icon_target.parent.mkdir(parents=True)
         shutil.copy2(icon_source, icon_target)
         weather_response = directory / "weather.json"
@@ -695,13 +693,13 @@ def main():
                 wait('return screen[1].sidebar_root_text.text', 'Free /')
                 assert 'aurora-cabin.png' in lua('return screen[1].sidebar_wallpaper_name.text')
                 next_buttons = lua('local b=screen[1].sidebar_wallpaper_next; return tostring(screen[1].sidebar_wallpaper_count)..":"..tostring(#b:buttons())..":"..tostring(b._sidebar_release_binding~=nil)')
-                assert '3:0:true' in next_buttons, next_buttons
+                assert '2:0:true' in next_buttons, next_buttons
                 lua('screen[1].sidebar_wallpaper_next_action()')
                 wallpaper_name = lua('return tostring(screen[1].sidebar_wallpaper_index)..":"..screen[1].sidebar_wallpaper_name.text')
-                assert '2:lock-win98-tux.png' in wallpaper_name, wallpaper_name
+                assert '2:pictures-wallpaper.png' in wallpaper_name, wallpaper_name
                 lua('screen[1].sidebar_wallpaper_next_action()')
                 wallpaper_name = lua('return tostring(screen[1].sidebar_wallpaper_index)..":"..screen[1].sidebar_wallpaper_name.text')
-                assert '3:pictures-wallpaper.png' in wallpaper_name, wallpaper_name
+                assert '1:aurora-cabin.png' in wallpaper_name, wallpaper_name
                 lua('screen[1].sidebar_wallpaper_previous_action(); screen[1].sidebar_wallpaper_previous_action(); screen[1].sidebar_wallpaper_apply()')
                 assert (testhome / ".local/state/awesome/wallpaper").read_text().strip().endswith("aurora-cabin.png")
                 # Release outside cancels; release inside activates precisely once.

@@ -26,9 +26,13 @@ files below were backed up and preserved locally before their source copies were
 
 - **Wallpaper assets resolved:** the default is now the bundled `aurora-cabin.png`,
   copied byte-for-byte from the selected picture. Explicit wallpaper state remains
-  authoritative and was not rewritten. The unused Aurora SVG was removed and the
-  obsolete `win98-teal.svg` checker requirement dropped. `lock-win98-tux.png` remains
-  an active emergency fallback and private-session fixture, not a deletion candidate.
+  authoritative and was not rewritten. The unused Aurora SVG was removed; the
+  unlicensed `lock-win98-tux.png` wallpaper and its emergency fallback were
+  removed. The cabin remains the single bundled wallpaper.
+- **GTK theme cleanup:** the inactive VAX GTK generator/templates and its generated
+  user theme were removed. GTK now uses Adwaita controls/cursors, Breeze icons and
+  blue selection. The Tux Start asset is directly Stow-managed in hicolor; terminal
+  VAX palettes are unchanged.
 - **Approved path/state cleanup completed:** opencode's zsh PATH uses `$HOME`;
   the old `HYPRSHOT_DIR` export is removed. MC panel state/hotlist and all three
   PCManFM state files stay local, with contents and symlink metadata backed up as

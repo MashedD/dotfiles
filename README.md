@@ -1,18 +1,18 @@
 # Awesome desktop dotfiles
 
 CachyOS/X11, floating AwesomeWM, four desktops, native panel and sidebar.
-Frutiger Aero-inspired blue desktop chrome, Adwaita GTK controls and VAX terminals.
+Frutiger Aero-inspired blue desktop chrome, Adwaita GTK controls/cursors, Breeze icons and VAX terminals.
 Legacy configurations remain for reference; they are not the active session.
 
 ## Install
 
-Required desktop packages (Breeze icons are provided by `breeze-icons`; Chicago95 theme assets remain external for cursors and VAX generation):
+Required desktop packages (Breeze icons are provided by `breeze-icons`; Adwaita GTK controls and cursors are provided by the desktop GTK theme packages):
 
 ```sh
 sudo pacman -S --needed stow awesome xsettingsd snixembed \
   xorg-xrandr xorg-xset xclip xdotool maim \
   xss-lock i3lock dunst dmenu pcmanfm \
-  gtk2 gtk3 breeze-icons fontconfig dbus util-linux xdg-terminal-exec \
+  gtk2 gtk3 adwaita-icon-theme breeze-icons fontconfig dbus util-linux xdg-terminal-exec \
   kitty xfce4-appfinder lxqt-policykit wireplumber brightnessctl \
   playerctl pavucontrol picom
 ```
@@ -25,7 +25,6 @@ From the repository root:
 ```sh
 ./stow.sh check                 # read-only preflight; also the default
 ./stow.sh apply                 # preflight, deploy links, refresh fonts
-./setup-vax-theme               # generate VAX from installed Chicago95
 ~/.local/bin/desktop-check      # read-only config/package health check
 ~/.local/bin/desktop-check --runtime  # also query the active X11 session
 ```

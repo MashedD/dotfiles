@@ -3,7 +3,7 @@
 int main(int argc, char **argv) {
     gtk_init(&argc, &argv);
     GtkIconTheme *theme = gtk_icon_theme_get_default();
-    GtkIconInfo *info = gtk_icon_theme_lookup_icon(theme, "vax-tux-start", 32, 0);
+    GtkIconInfo *info = gtk_icon_theme_lookup_icon(theme, "tux-start", 32, 0);
     if (info == NULL) {
         return 1;
     }

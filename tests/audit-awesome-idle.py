@@ -156,7 +156,7 @@ def prepare(directory, profiled, rendering=False, cached=False):
         (trash/str(index)).write_text('fixture')
     (home/'Documents/todo.md').write_text('## Sidebar\n' + ''.join(f'- Fixture task {i}\n' for i in range(5)))
     (home/'Documents/calendar.md').write_text('2030-01-01 12:00 Fixture event\n')
-    for name in ['aurora-cabin.png', 'lock-win98-tux.png']:
+    for name in ['aurora-cabin.png']:
         shutil.copy2(ROOT/'dotfiles/.local/share/wallpapers'/name, home/'.local/share/wallpapers'/name)
     commands = {
         'curl': 'printf \'%s\\n\' \'{"current":{"temperature_2m":12,"apparent_temperature":10,"weather_code":3,"wind_speed_10m":9}}\'',

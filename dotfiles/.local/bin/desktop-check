@@ -97,11 +97,12 @@ for config in awesome/rc.lua awesome/panel.lua awesome/autostart picom/picom.con
 done
 xsettings_config="$config_home/xsettingsd/xsettingsd.conf"
 if [ -f "$xsettings_config" ]; then
-  gtk_theme=no gtk_blue=no gtk_icons=no
+  gtk_theme=no gtk_blue=no gtk_icons=no gtk_cursor=no
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in
       'Net/ThemeName "Adwaita"') gtk_theme=yes ;;
       'Net/IconThemeName "Breeze"') gtk_icons=yes ;;
+      'Gtk/CursorThemeName "Adwaita"') gtk_cursor=yes ;;
       *'selected_bg_color:#3584e4'*) gtk_blue=yes ;;
     esac
   done < "$xsettings_config"
@@ -111,6 +112,8 @@ if [ -f "$xsettings_config" ]; then
   else fail "GTK selection accent: expected #3584e4 in $xsettings_config"; fi
   if [ "$gtk_icons" = yes ]; then ok 'GTK icon theme Breeze'
   else fail "GTK icon theme: expected Breeze in $xsettings_config"; fi
+  if [ "$gtk_cursor" = yes ]; then ok 'GTK cursor theme Adwaita'
+  else fail "GTK cursor theme: expected Adwaita in $xsettings_config"; fi
 fi
 terminal_list="$config_home/xdg-terminals.list"
 if [ -f "$terminal_list" ]; then
@@ -124,45 +127,7 @@ fi
 validate awesome -k -c "$config_home/awesome/rc.lua"
 validate picom --config "$config_home/picom/picom.conf" --diagnostics
 check_file asset "$HOME/.local/share/wallpapers/aurora-cabin.png"
-check_file asset "$data_home/icons/hicolor/32x32/apps/vax-tux-start.png"
-for file in gtk-2.0/gtkrc gtk-3.0/gtk.css index.theme; do
-  check_file theme "$data_home/themes/VAX/$file"
-done
-generated_marker="$data_home/themes/VAX/.vax-generated"
-check_file marker "$generated_marker"
-check_file marker "$data_home/icons/hicolor/32x32/apps/vax-tux-start.png.vax-generated"
-chicago95=''
-if [ -f "$generated_marker" ]; then
-  while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in chicago95=*) chicago95=${line#chicago95=}; break ;; esac
-  done < "$generated_marker"
-  if [ -z "$chicago95" ] || [ ! -d "$chicago95" ]; then
-    fail "external recorded Chicago95 source: ${chicago95:-<empty marker>}"
-    chicago95=''
-  fi
-else
-  for candidate in "$data_home/themes/Chicago95" "$HOME/.themes/Chicago95" /usr/local/share/themes/Chicago95 /usr/share/themes/Chicago95; do
-    if [ -d "$candidate" ]; then chicago95=$candidate; break; fi
-  done
-fi
-if [ -n "$chicago95" ]; then
-  for file in index.theme gtk-2.0/gtkrc gtk-3.0/gtk.css gtk-2.0/panel/panel-button.png gtk-2.0/panel/panel-button-active.png misc/GTK2_start_buttons/tux_30px.png; do
-    check_file external "$chicago95/$file"
-  done
-else
-  fail 'external Chicago95 theme directory'
-fi
-for theme in Chicago95 Chicago95_Standard_Cursors; do
-  found=false
-  for candidate in "$data_home/icons/$theme" "$HOME/.icons/$theme" "/usr/local/share/icons/$theme" "/usr/share/icons/$theme"; do
-    if [ -f "$candidate/index.theme" ]; then
-      check_file external "$candidate/index.theme"
-      found=true
-      break
-    fi
-  done
-  if ! "$found"; then fail "external $theme icon theme"; fi
-done
+check_file asset "$data_home/icons/hicolor/32x32/apps/tux-start.png"
 if command -v fc-match >/dev/null 2>&1; then
   if font=$(fc-match -f '%{family}\n' 'Microsoft Sans Serif' 2>&1); then
     case "$font" in

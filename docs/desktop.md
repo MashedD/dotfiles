@@ -8,7 +8,7 @@ This is the active desktop configuration for a CachyOS X11 session:
 - AwesomeWM with four workspaces, floating-by-default windows (Win+Space toggles the current tag to tile) and Win98/Matrix titlebars
 - Native Awesome 30px Win98/Matrix top panel and XEmbed tray, with snixembed bridge
 - kitty, xfce4-appfinder, pcmanfm, dunst, lxqt-policykit, and xss-lock/i3lock
-- Adwaita GTK controls with blue selection and Breeze icons; VAX colors remain in terminals. Chicago95 cursors are retained during the theme trial.
+- Adwaita GTK controls with blue selection, Breeze icons, and Adwaita cursors; VAX colors remain in terminals.
 - HDMI-A-1-0 preferred at 2560×1440/144 Hz, with internal-display recovery
 
 See the [configuration audit](config-audit.md) for references and deployment.
@@ -33,7 +33,7 @@ not modified by this repository. Its desktop package section, plus local
 stow awesome xsettingsd snixembed
 xorg-xrandr xorg-xset xclip xdotool maim
 xss-lock i3lock dunst dmenu pcmanfm
-gtk2 gtk3 breeze-icons fontconfig dbus util-linux
+gtk2 gtk3 adwaita-icon-theme breeze-icons fontconfig dbus util-linux
 kitty xfce4-appfinder lxqt-policykit wireplumber brightnessctl
 playerctl pavucontrol picom curl jq coreutils
 ```
@@ -58,26 +58,14 @@ existing file or symlink:
 ./stow.sh unlink          # preflight, then remove only Stow-owned links
 ```
 
-The active GTK widget theme is system Adwaita with a blue selection accent.
-Chicago95 remains external for its cursor theme and for generating the legacy
-VAX overlay and named panel icon; Breeze supplies the active icon theme:
+The GTK setup is intentionally simple: Adwaita controls and cursors, Breeze
+icons, and the blue selection accent. The complete Tux Start image is a regular
+Stow-managed hicolor asset; no separate theme-generation step or external theme
+package is needed. The VAX palette remains available in terminals.
 
-```sh
-./setup-vax-theme
-./setup-vax-theme --path "/path/to/Chicago95"
-~/.local/bin/desktop-check
-```
-
-The helper searches standard user and system theme directories, writes the
-VAX theme to `${XDG_DATA_HOME:-~/.local/share}/themes/VAX`, and keeps Chicago95's
-GTK2 controls plus the GTK3 Matrix-green selection overlay available for rollback.
-The active GTK theme remains Adwaita. It creates a
-compatibility `~/.themes/VAX` symlink only when that path is absent or is the
-old repository-owned VAX symlink. Unmarked themes, files, icon paths, and
-unrelated symlinks are refused. Re-run it after updating Chicago95.
-
-`desktop-check` is read-only: it checks Awesome syntax, commands, the configured
-Adwaita/Breeze/blue GTK settings, assets, fonts, generated theme files and helper executability. Default output shows failures,
+`desktop-check` is read-only: it checks Awesome syntax, commands, Adwaita GTK
+controls/cursors, Breeze icons, blue selection, assets, fonts and helper executability.
+Default output shows failures,
 warnings and a summary; `desktop-check --verbose` also shows successful checks
 and validator output. Required failures exit 1; optional warnings alone exit 0.
 `desktop-check --runtime` additionally queries the current X display and Awesome,

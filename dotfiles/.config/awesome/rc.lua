@@ -356,9 +356,6 @@ local function wallpaper(s)
     if state_file then state_file:close() end
     local path = selected and gears.filesystem.file_readable(selected) and selected
         or home .. "/.local/share/wallpapers/aurora-cabin.png"
-    if not gears.filesystem.file_readable(path) then
-        path = home .. "/.local/share/wallpapers/lock-win98-tux.png"
-    end
     if gears.filesystem.file_readable(path) then
         gears.wallpaper.maximized(path, s, false)
     else

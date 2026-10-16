@@ -32,22 +32,11 @@ class HealthCheckTests(unittest.TestCase):
                      'picom/picom.conf', 'X11/xinitrc']:
             self.file(self.config / name)
         self.file(self.config / 'xsettingsd/xsettingsd.conf',
-                  'Net/ThemeName "Adwaita"\nNet/IconThemeName "Breeze"\nGtk/ColorScheme "selected_bg_color:#3584e4\\nselected_fg_color:#ffffff"\n')
+                  'Net/ThemeName "Adwaita"\nNet/IconThemeName "Breeze"\nGtk/CursorThemeName "Adwaita"\nGtk/ColorScheme "selected_bg_color:#3584e4\\nselected_fg_color:#ffffff"\n')
         self.file(self.config / 'xdg-terminals.list', 'kitty.desktop\n')
         for name in ['aurora-cabin.png']:
             self.file(self.home / '.local/share/wallpapers' / name)
-        for name in ['icons/hicolor/32x32/apps/vax-tux-start.png',
-                     'icons/hicolor/32x32/apps/vax-tux-start.png.vax-generated',
-                     'themes/VAX/gtk-2.0/gtkrc', 'themes/VAX/gtk-3.0/gtk.css',
-                     'themes/VAX/index.theme', 'icons/Chicago95/index.theme',
-                     'icons/Chicago95_Standard_Cursors/index.theme']:
-            self.file(self.data / name)
-        chicago = self.home / 'Chicago95 source with spaces'
-        for name in ['index.theme', 'gtk-2.0/gtkrc', 'gtk-3.0/gtk.css',
-                     'gtk-2.0/panel/panel-button.png', 'gtk-2.0/panel/panel-button-active.png',
-                     'misc/GTK2_start_buttons/tux_30px.png']:
-            self.file(chicago / name)
-        self.file(self.data / 'themes/VAX/.vax-generated', f'chicago95={chicago}\n')
+        self.file(self.data / 'icons/hicolor/32x32/apps/tux-start.png')
         for name in ['lock', 'display', 'screenshot', 'battery-watch', 'brightness', 'volume']:
             path = self.helpers / f'desktop-{name}'
             self.file(path, '#!/bin/sh\nexit 99\n')  # Must only inspect, never execute.
@@ -171,7 +160,7 @@ esac
         self.assertIn('xdg-terminals.list', result.stdout)
         self.assertIn('1 required failure(s)', result.stdout)
 
-    def test_adwaita_breeze_icons_and_blue_selection_are_required(self):
+    def test_adwaita_breeze_icons_cursor_and_blue_selection_are_required(self):
         settings = self.config / 'xsettingsd/xsettingsd.conf'
         result = self.invoke()
         self.assertEqual(result.returncode, 0, result.stdout)
@@ -181,6 +170,7 @@ esac
         self.assertIn('GTK theme: expected Adwaita', result.stdout)
         self.assertIn('GTK selection accent: expected #3584e4', result.stdout)
         self.assertIn('GTK icon theme: expected Breeze', result.stdout)
+        self.assertIn('GTK cursor theme: expected Adwaita', result.stdout)
 
     def test_missing_default_wallpaper_is_required(self):
         (self.home / '.local/share/wallpapers/aurora-cabin.png').unlink()

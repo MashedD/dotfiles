@@ -252,25 +252,17 @@ that cancellation saves or copies nothing. The lock-helper test checks foregroun
 waiting, image cleanup, conversion-failure fallback, inherited suspend FD and
 duplicate prevention using a mock locker.
 
-## Theme smoke test
+## Start icon smoke test
 
-`icon-probe.c` verifies that the named `vax-tux-start` icon resolves through
-the active GTK icon theme. Run it after `setup-vax-theme` has generated VAX at
-`$XDG_DATA_HOME/themes/VAX` (or the default `~/.local/share/themes/VAX`):
+`icon-probe.c` verifies the stowed `tux-start` asset resolves through GTK's
+standard hicolor icon theme, without a generated VAX theme:
 
 ```sh
-probe_dir=$(mktemp -d /tmp/vax-icon-probe.XXXXXX)
-gcc -Wall -Wextra tests/icon-probe.c \
-  $(pkg-config --cflags --libs gtk+-2.0) -o "$probe_dir/gtk2-probe"
+probe_dir=$(mktemp -d /tmp/tux-icon-probe.XXXXXX)
 gcc -Wall -Wextra tests/icon-probe.c \
   $(pkg-config --cflags --libs gtk+-3.0) -o "$probe_dir/gtk3-probe"
-
-GTK2_RC_FILES="${XDG_DATA_HOME:-$HOME/.local/share}/themes/VAX/gtk-2.0/gtkrc" \
-XDG_DATA_DIRS="${XDG_DATA_HOME:-$HOME/.local/share}:/usr/local/share:/usr/share" \
-  timeout 5s xvfb-run -a "$probe_dir/gtk2-probe"
 XDG_DATA_DIRS="${XDG_DATA_HOME:-$HOME/.local/share}:/usr/local/share:/usr/share" \
   timeout 5s xvfb-run -a "$probe_dir/gtk3-probe"
 ```
 
-Both commands should print the generated
-`icons/hicolor/32x32/apps/vax-tux-start.png` path.
+It should print the `icons/hicolor/32x32/apps/tux-start.png` path.

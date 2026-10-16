@@ -85,7 +85,7 @@ function panel.create(s, menu, activate, window_menu, interaction)
     end
     local icon = wibox.widget.imagebox()
     local icon_path = (os.getenv("XDG_DATA_HOME") or os.getenv("HOME") .. "/.local/share")
-        .. "/icons/hicolor/32x32/apps/vax-tux-start.png"
+        .. "/icons/hicolor/32x32/apps/tux-start.png"
     local start_normal_image
     if gears.filesystem.file_readable(icon_path) then
         local ok, image = pcall(surface.load, icon_path)
