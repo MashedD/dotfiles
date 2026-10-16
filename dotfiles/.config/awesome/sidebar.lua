@@ -507,7 +507,7 @@ function sidebar.create(s, dismiss_menu)
     local mouse_battery_text = label("Mouse  --", palette.text, 10, false)
     mouse_battery_text.visible = false
     local root_text = label("Free /  reading…", palette.text, 10, false)
-    local network_text = label("Network  measuring…", palette.text, 10, false)
+    local network_text = label("↓ ?   ↑ ?", palette.text, 10, false)
     local cpu_bar, memory_bar = progress(palette.green), progress(palette.green)
     local battery_bar, root_bar = progress(palette.green), progress(palette.green)
     local mouse_battery_bar = progress(palette.teal)
@@ -1352,7 +1352,7 @@ function sidebar.create(s, dismiss_menu)
                 rate(math.max(0, rx - previous_rx) / (now - previous_net_time)),
                 rate(math.max(0, tx - previous_tx) / (now - previous_net_time))))
         else
-            set_text(network_text, "Network  measuring…")
+            set_text(network_text, "↓ ?   ↑ ?")
         end
         previous_rx, previous_tx, previous_net_time = rx, tx, now
     end
