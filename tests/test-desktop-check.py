@@ -46,7 +46,7 @@ class HealthCheckTests(unittest.TestCase):
                      'misc/GTK2_start_buttons/tux_30px.png']:
             self.file(chicago / name)
         self.file(self.data / 'themes/VAX/.vax-generated', f'chicago95={chicago}\n')
-        for name in ['lock', 'display', 'screenshot', 'battery-watch', 'brightness', 'clipboard', 'volume']:
+        for name in ['lock', 'display', 'screenshot', 'battery-watch', 'brightness', 'volume']:
             path = self.helpers / f'desktop-{name}'
             self.file(path, '#!/bin/sh\nexit 99\n')  # Must only inspect, never execute.
             path.chmod(0o755)
@@ -183,7 +183,6 @@ esac
         result = self.invoke()
         self.assertEqual(result.returncode, 0)
         self.assertIn('optional command: firefox', result.stdout)
-        self.assertNotIn('clipboard', result.stdout.lower())
         self.assertIn('0 required failure(s), 1 warning(s)', result.stdout)
 
     def test_font_fallback_missing_font_and_probe_failure(self):

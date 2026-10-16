@@ -166,7 +166,7 @@ if command -v fc-match >/dev/null 2>&1; then
   fi
 fi
 bin_root=${DESKTOP_HELPER_ROOT:-$HOME/.local/bin}
-for helper in desktop-lock desktop-display desktop-screenshot desktop-battery-watch desktop-brightness desktop-clipboard desktop-volume; do
+for helper in desktop-lock desktop-display desktop-screenshot desktop-battery-watch desktop-brightness desktop-volume; do
   if [ -x "$bin_root/$helper" ]; then ok "helper $bin_root/$helper"; else fail "helper $bin_root/$helper"; fi
 done
 if "$runtime"; then check_runtime; fi

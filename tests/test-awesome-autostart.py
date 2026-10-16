@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Mock services to verify reload-safe autostart without starting real daemons."""
+import configparser
 import os
 from pathlib import Path
 import subprocess
@@ -11,6 +12,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class AutostartTest(unittest.TestCase):
+    def test_clipman_xdg_autostart_is_disabled(self):
+        entry = ROOT / "dotfiles/.config/autostart/xfce4-clipman-plugin-autostart.desktop"
+        parser = configparser.ConfigParser(interpolation=None)
+        self.assertTrue(parser.read(entry), f"missing autostart override: {entry}")
+        self.assertTrue(parser.getboolean("Desktop Entry", "Hidden", fallback=False))
+
     def test_services_are_not_duplicated_on_reload(self):
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)
