@@ -1,5 +1,7 @@
 -- One collector per session, independent of screen/widget lifetimes.
 local M = {}
+-- Source samples are refreshed every 60s; allow one missed cycle.
+M.SOURCE_MAX_AGE = 120
 
 function M.new(runtime)
     local collectors = {}
@@ -7,7 +9,7 @@ function M.new(runtime)
     local function stale(c)
         if c.state.updated == nil then return false end
         local age = runtime.now() - c.state.updated
-        return c.state.error ~= nil or age < 0 or age >= 2 * c.interval
+        return c.state.error ~= nil or age < 0 or age >= (c.max_age or 2 * c.interval)
     end
     local function equal(a, b)
         if a == b then return true end
@@ -32,9 +34,10 @@ function M.new(runtime)
         if old_stale ~= c.state.stale or old_error ~= c.state.error
             or not equal(old_value, c.state.value) then notify(c) end
     end
-    function service.define(name, interval, fetch)
+    function service.define(name, interval, fetch, max_age)
         assert(not collectors[name], "duplicate collector: " .. name)
-        collectors[name] = {interval = interval, fetch = fetch, listeners = {}, state = {}, generation = 0}
+        collectors[name] = {interval = interval, max_age = max_age,
+            fetch = fetch, listeners = {}, state = {}, generation = 0}
     end
     function service.refresh(name)
         local c = assert(collectors[name], name)
@@ -146,7 +149,7 @@ local function source_sample(stdout,kind,parse,now)
     if not status then return nil,'Missing source freshness metadata' end
     if status~='fresh' then return nil,'Source '..status..'; current value unavailable' end
     stamp=tonumber(stamp); now=now or os.time()
-    if not stamp or stamp<=0 or stamp>now or now-stamp>=120 then return nil,'Source sample expired or clock invalid' end
+    if not stamp or stamp<=0 or stamp>now or now-stamp>=M.SOURCE_MAX_AGE then return nil,'Source sample expired or clock invalid' end
     local value=parse(body)
     if not value then return nil,'Invalid source response' end
     value.source_updated=stamp
@@ -185,10 +188,10 @@ service.define("weather", 1800, function(done)
 end)
 service.define("crypto", 60, function(done)
     service.command({home .. "/.local/bin/crypto-prices", "--sidebar-data"}, M.parse_crypto_sample, done)
-end)
+end, M.SOURCE_MAX_AGE)
 service.define("codex", 60, function(done)
     service.command({home .. "/.local/bin/codex-usage", "--sidebar-data"}, M.parse_codex_sample, done)
-end)
+end, M.SOURCE_MAX_AGE)
 service.define("volume", 3, function(done)
     service.command({"wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"}, function(stdout)
         local level = tonumber(stdout:match("Volume:%s+([%d.]+)"))

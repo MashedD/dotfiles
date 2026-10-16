@@ -533,6 +533,7 @@ def main():
                 codex_helper.write_text('#!/bin/sh\nexit 1\n')
                 lua('screen[1].sidebar_codex_refresh()')
                 wait('return tostring(screen[1].sidebar_data.state("codex").stale)', 'true')
+                assert 'true' in lua('local t=screen[1].sidebar_codex_timer.tooltip; t.timer_function(); return t.textbox.markup:find("Last success:",1,true)~=nil and t.textbox.markup:find("Command failed",1,true)~=nil')
                 assert 'true' in lua('local s=screen[1]; return s.sidebar_data.state("codex").value.five==0 and s.sidebar_codex_5h.remaining==nil and not s.sidebar_codex_5h.bar.visible and s.sidebar_codex_5h.summary.text:find("unavailable",1,true)~=nil')
                 # A successful helper invocation is not proof of fresh source data.
                 for output,reason in (('codex-v1\\tstale\\t1\\tC 5h 99%@Sat 13:46 7d 99%@Wed 06:41\\t--','Source stale'),
@@ -542,6 +543,7 @@ def main():
                     lua('screen[1].sidebar_codex_refresh()')
                     wait('local d=screen[1].sidebar_data; return tostring(not d.collectors.codex.pending and d.state("codex").error~=nil)', '"true"')
                     assert 'true' in lua(f'return screen[1].sidebar_data.state("codex").error:find("{reason}",1,true)~=nil')
+                    assert 'true' in lua(f'local t=screen[1].sidebar_codex_timer.tooltip; t.timer_function(); return t.textbox.markup:find("Last success:",1,true)~=nil and t.textbox.markup:find("{reason}",1,true)~=nil')
                     assert 'true' in lua('local s=screen[1]; return s.sidebar_codex_5h.remaining==nil and s.sidebar_codex_7d.remaining==nil and not s.sidebar_codex_5h.bar.visible and not s.sidebar_codex_7d.bar.visible and s.sidebar_data.state("codex").value.five==0 and not s.sidebar_codex_5h.summary.text:find("%",1,true) and not s.sidebar_codex_7d.summary.text:find("%",1,true)')
                 codex_helper.write_text('#!/bin/sh\nprintf "codex-v1\\tfresh\\t%s\\tC 5h 0%%@Sat 13:46 7d 33%%@Wed 06:41\\t--\\n" "$(date +%s)"\n')
                 lua('screen[1].sidebar_codex_refresh()')

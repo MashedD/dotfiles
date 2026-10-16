@@ -118,10 +118,10 @@ def instrument(config, rendering=False):
     source = replace_once(source, 'local function notify(c)', 'local function notify_impl(c)')
     source = replace_once(source, '    local function publish_if_changed',
                           '    local notify = __idle_prof.notify(notify_impl)\n    local function publish_if_changed')
-    source = replace_once(source, '    function service.define(name, interval, fetch)',
-                          '    function service.define(name, interval, fetch)\n        fetch = __idle_prof.fetch(name, fetch)')
-    source = replace_once(source, 'collectors[name] = {interval = interval, fetch = fetch, listeners = {}, state = {}, generation = 0}',
-                          'collectors[name] = {name=name, interval = interval, fetch = fetch, listeners = {}, state = {}, generation = 0}\n        __idle_prof.collectors[name] = collectors[name]')
+    source = replace_once(source, '    function service.define(name, interval, fetch, max_age)',
+                          '    function service.define(name, interval, fetch, max_age)\n        fetch = __idle_prof.fetch(name, fetch)')
+    source = replace_once(source, 'collectors[name] = {interval = interval, max_age = max_age,\n            fetch = fetch, listeners = {}, state = {}, generation = 0}',
+                          'collectors[name] = {name=name, interval = interval, max_age = max_age, fetch = fetch, listeners = {}, state = {}, generation = 0}\n        __idle_prof.collectors[name] = collectors[name]')
     source = replace_once(source, '        if c.pending then return end',
                           '        if c.pending then __idle_prof.count("pending."..name); return end')
     path.write_text(source)

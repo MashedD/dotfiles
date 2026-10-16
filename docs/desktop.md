@@ -35,7 +35,7 @@ xorg-xrandr xorg-xset xclip xdotool maim
 xss-lock i3lock dunst clipmenu dmenu pcmanfm
 gtk2 gtk3 fontconfig dbus util-linux
 kitty xfce4-appfinder lxqt-policykit wireplumber brightnessctl
-playerctl pavucontrol picom curl jq
+playerctl pavucontrol picom curl jq coreutils
 ```
 
 Clipboard history uses `clipmenu` + `clipmenud` only. Clipman is disabled in
@@ -242,8 +242,15 @@ are unchanged; failed/expired fallbacks are explicitly marked `C*` / `STALE`.
 Awesome uses the versioned `--sidebar-data` TSV channel, carrying freshness status
 and the original confirmation timestamp. Reading fallback data cannot renew its age.
 Crypto and weather may retain last-known values with a visible STALE badge; quota
-history is never presented as current headroom. Other status collectors read their
-existing direct sources and do not use these on-disk helper caches.
+history is never presented as current headroom. Codex hover details include the
+last source-confirmation time and the current failure/expiry reason. Codex app-server
+fetches have a 12-second total budget (`CODEX_USAGE_FETCH_TIMEOUT`) and a
+5-second per-transport cap (`CODEX_USAGE_TIMEOUT`), leaving time for stdio fallback
+beneath Awesome's outer 20-second command timeout; transport process groups are
+terminated and reaped on completion/cancellation. The 120-second
+source-age policy is shared by parsing and collector stale state. Other status
+collectors read their existing direct sources and do not use these on-disk helper
+caches.
 
 ## Sidebar keyboard navigation
 

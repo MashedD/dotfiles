@@ -116,9 +116,11 @@ cover irregular timing, direction changes, inactive edges and lifecycle resets.
 caches and fake backends, never a real account or network. It covers legacy orphan
 lock directories, advisory-lock contention and SIGKILL recovery, original cache
 age, malformed/partial quota responses, true zero and conservative fractional
-percentages, future timestamps, and the actual helper-to-Lua-parser wire format.
-Native quota tests assert that errors/stale data hide every percentage/bar, and
-that alternating plain-text/markup updates cannot leave cached old label content.
+percentages, future timestamps, bounded Codex transport fallback and process-group
+cleanup, and the actual helper-to-Lua-parser wire format.
+Native quota tests assert that errors/stale data hide every percentage/bar, tooltips
+retain source-confirmation time and failure reasons, and alternating plain-text/markup
+updates cannot leave cached old label content.
 
 `test-desktop-check.py` uses isolated command/theme/font fixtures to verify quiet and
 verbose output, warning/failure exits, validator diagnostics and read-only behavior.

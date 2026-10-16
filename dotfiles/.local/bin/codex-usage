@@ -4,6 +4,7 @@ set -u
 
 readonly refresh_interval="${CODEX_USAGE_REFRESH_INTERVAL:-60}"
 readonly request_timeout="${CODEX_USAGE_TIMEOUT:-5}"
+readonly fetch_timeout="${CODEX_USAGE_FETCH_TIMEOUT:-12}"
 readonly cache_root="${XDG_CACHE_HOME:-${HOME:?HOME must be set}/.cache}/codex"
 readonly cache_file="${CODEX_USAGE_CACHE:-$cache_root/tmux-usage.json}"
 # Kernel-owned locks survive neither exit nor SIGKILL; legacy .lock directories
@@ -99,11 +100,13 @@ format_result() {
 }
 
 fetch_from_command() {
-  local command="$1"
-  local app_in app_out app_pid line result_line initialized
+  local command="$1" budget="${2:-$request_timeout}"
+  local app_in app_out app_pid line result_line initialized deadline remaining
 
+  deadline=$((SECONDS + budget))
   coproc CODEX_USAGE_APP_SERVER {
-    timeout --signal=TERM --kill-after=1s "$request_timeout" sh -c "$command" 9>&- 2>/dev/null
+    # Isolate the transport so cleanup can reap app-server descendants too.
+    setsid timeout --signal=TERM --kill-after=1s "$budget" sh -c "$command" 9>&- 2>/dev/null
   }
   app_in="${CODEX_USAGE_APP_SERVER[1]}"
   app_out="${CODEX_USAGE_APP_SERVER[0]}"
@@ -115,7 +118,7 @@ fetch_from_command() {
     '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"tmux-codex-usage","version":"1.0"}}}' \
     >&"$app_in"
 
-  while IFS= read -r -t "$request_timeout" line <&"$app_out"; do
+  while (( (remaining = deadline - SECONDS) > 0 )) && IFS= read -r -t "$remaining" line <&"$app_out"; do
     if jq -e '.id == 1 and .result != null' >/dev/null 2>&1 <<<"$line"; then
       initialized=1
       break
@@ -131,7 +134,7 @@ fetch_from_command() {
       '{"jsonrpc":"2.0","id":2,"method":"account/rateLimits/read","params":{"excludeResetCreditDetails":false}}' \
       >&"$app_in"
 
-    while IFS= read -r -t "$request_timeout" line <&"$app_out"; do
+    while (( (remaining = deadline - SECONDS) > 0 )) && IFS= read -r -t "$remaining" line <&"$app_out"; do
       if jq -e '.id == 2 and (.result.rateLimits != null or .result.rateLimitsByLimitId != null)' >/dev/null 2>&1 <<<"$line"; then
         result_line="$line"
         break
@@ -139,20 +142,26 @@ fetch_from_command() {
     done
   fi
 
-  kill "$app_pid" 2>/dev/null || true
+  kill -TERM -- "-$app_pid" 2>/dev/null || kill -TERM "$app_pid" 2>/dev/null || true
+  sleep 0.1
+  kill -KILL -- "-$app_pid" 2>/dev/null || true
   wait "$app_pid" 2>/dev/null || true
   printf '%s\n' "$result_line"
 }
 
 fetch_result() {
-  local proxy_command stdio_command response
+  local proxy_command stdio_command response remaining
+  local deadline=$((SECONDS + fetch_timeout))
 
   proxy_command="${CODEX_USAGE_PROXY:-codex app-server proxy}"
   stdio_command="${CODEX_USAGE_STDIO:-codex app-server --listen stdio://}"
 
-  response="$(fetch_from_command "$proxy_command" 2>/dev/null || true)"
+  remaining=$((deadline - SECONDS)); (( remaining > request_timeout )) && remaining=$request_timeout
+  response=""
+  if (( remaining > 0 )); then response="$(fetch_from_command "$proxy_command" "$remaining" 2>/dev/null || true)"; fi
   if [[ -z "$response" ]]; then
-    response="$(fetch_from_command "$stdio_command" 2>/dev/null || true)"
+    remaining=$((deadline - SECONDS)); (( remaining > request_timeout )) && remaining=$request_timeout
+    if (( remaining > 0 )); then response="$(fetch_from_command "$stdio_command" "$remaining" 2>/dev/null || true)"; fi
   fi
   [[ -n "$response" ]] || return 1
   jq -c '.result' <<<"$response" 2>/dev/null
@@ -243,7 +252,7 @@ main() {
   fi
 }
 
-if ! command -v jq >/dev/null 2>&1 || ! command -v timeout >/dev/null 2>&1 || ! command -v flock >/dev/null 2>&1; then
+if ! command -v jq >/dev/null 2>&1 || ! command -v timeout >/dev/null 2>&1 || ! command -v flock >/dev/null 2>&1 || ! command -v setsid >/dev/null 2>&1; then
   print_unavailable "${1:-}"
   exit 0
 fi

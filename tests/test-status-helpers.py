@@ -95,6 +95,27 @@ for line in sys.stdin:
                 self.assertTrue(legacy.startswith('C* ') if kind=='codex' else legacy.startswith('STALE '),legacy)
                 self.setup_kind(kind);self.assertEqual(self.sample()[1],'fresh')
 
+    def test_codex_transport_budget_falls_back_and_reaps_children(self):
+        self.setup_kind('codex')
+        child_pid=self.base/'proxy-child.pid'
+        proxy=self.base/'blocked-proxy'
+        proxy.write_text('#!/bin/sh\nsleep 8 &\necho $! > "$PROXY_CHILD_PID"\nwait\n')
+        proxy.chmod(0o755)
+        self.env.update(CODEX_USAGE_PROXY=str(proxy),CODEX_USAGE_TIMEOUT='2',
+                        CODEX_USAGE_FETCH_TIMEOUT='8',PROXY_CHILD_PID=str(child_pid))
+        started=time.monotonic();sample=self.sample();elapsed=time.monotonic()-started
+        self.assertEqual(sample[1],'fresh','stdio fallback should succeed after proxy timeout')
+        self.assertLess(elapsed,6,'proxy timeout must leave time for stdio fallback')
+        pid=int(child_pid.read_text())
+        try:
+            os.kill(pid,0)
+        except ProcessLookupError:
+            pass
+        else:
+            stat=Path(f'/proc/{pid}/stat')
+            self.assertTrue(stat.exists() and stat.read_text().split()[2]=='Z',
+                            'proxy descendant must be terminated, not left running')
+
     def test_invalid_partial_quota_zero_and_fractional_percentages(self):
         self.setup_kind('codex')
         for used,expected in ((100,'0%'),(0,'100%'),(3.2,'96%')):
