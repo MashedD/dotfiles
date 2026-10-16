@@ -42,9 +42,9 @@ files below were backed up and preserved locally before their source copies were
   Wayland daemon. The only deployed XDG autostart file is the Clipman disabling
   override. External NetworkManager and systemd services remain outside this audit.
 - **Health report:** the two missing-default-asset failures are resolved by the
-  bundled cabin image and corrected checker requirements. Clipboard history may be
-  unavailable and Liberation Sans is the supported font fallback; these remain
-  warnings rather than required failures.
+  bundled cabin image and corrected checker requirements. Clipboard history is
+  intentionally not provided; ordinary copy/paste and screenshot-to-clipboard remain.
+  Liberation Sans is the supported font fallback.
 
 No additional deletion is justified solely by this inventory. Further application
 cleanup requires actual usage evidence; machine-specific display configuration is unchanged.

@@ -7,13 +7,13 @@ This is the active desktop configuration for a CachyOS X11 session:
 
 - AwesomeWM with four workspaces, floating-by-default windows (Win+Space toggles the current tag to tile) and Win98/Matrix titlebars
 - Native Awesome 30px Win98/Matrix top panel and XEmbed tray, with snixembed bridge
-- kitty, xfce4-appfinder, pcmanfm, dunst, clipboard history, lxqt-policykit, and xss-lock/i3lock
+- kitty, xfce4-appfinder, pcmanfm, dunst, lxqt-policykit, and xss-lock/i3lock
 - Chicago95 controls with Matrix-green (`#001a00` / `#00ff41`) active states
 - HDMI-A-1-0 preferred at 2560×1440/144 Hz, with internal-display recovery
 
 See the [configuration audit](config-audit.md) for references and deployment.
 Shared X11 helpers use `desktop-*` names for volume, display, brightness,
-clipboard, screenshots and locking. Overrides use `DESKTOP_*` environment names.
+screenshots and locking. Overrides use `DESKTOP_*` environment names.
 Display/battery lock filenames retain their original identities to coordinate with
 running processes.
 
@@ -32,17 +32,16 @@ not modified by this repository. Its desktop package section, plus local
 ```text
 stow awesome xsettingsd snixembed
 xorg-xrandr xorg-xset xclip xdotool maim
-xss-lock i3lock dunst clipmenu dmenu pcmanfm
+xss-lock i3lock dunst dmenu pcmanfm
 gtk2 gtk3 fontconfig dbus util-linux
 kitty xfce4-appfinder lxqt-policykit wireplumber brightnessctl
 playerctl pavucontrol picom curl jq coreutils
 ```
 
-Clipboard history uses `clipmenu` + `clipmenud` only. Clipman is disabled in
-both session autostart and its XDG desktop entry; there is no fallback. If
-clipmenu is absent, Win+V reports that history is unavailable rather than
-launching Clipman. Microsoft Sans Serif is preferred; a weak
-fontconfig alias uses Liberation Sans when the proprietary font is absent.
+No clipboard history manager is used. Standard application copy/paste and
+`xclip` screenshot copying remain available; Clipman stays disabled in the XDG
+desktop entry and is never used as a fallback. Microsoft Sans Serif is preferred;
+a weak fontconfig alias uses Liberation Sans when the proprietary font is absent.
 
 Optional application packages in the notes (games, development tools, office
 software, and unrelated services) are not required by this desktop package.
@@ -78,7 +77,7 @@ warnings and a summary; `desktop-check --verbose` also shows successful checks
 and validator output. Required failures exit 1; optional warnings alone exit 0.
 `desktop-check --runtime` additionally queries the current X display and Awesome,
 then checks required session services for the current user. It skips runtime checks
-when `DISPLAY` is unset; missing optional SNI/clipboard services are warnings. It
+when `DISPLAY` is unset; a missing optional SNI bridge is a warning. It
 never installs packages, starts services, sends notifications, or changes settings.
 
 The checker expects Microsoft Sans Serif or its Liberation Sans fallback
@@ -323,9 +322,8 @@ the externally managed NetworkManager applet untouched, uses Awesome's native
 tray as the sole owner, and leaves removable-drive handling unchanged. The display watcher is asynchronous,
 single-instance, polls every three seconds, and exits if the X server vanishes.
 The same Openbox session services are retained: xsettingsd, display watcher,
-battery alerts, snixembed, dunst, lxqt-policykit, clipmenud when installed,
-and xss-lock. Solaar is not autostarted; Logitech mouse battery status is
-shown in the sidebar. Syncthing, MPD and the conditional notes HTTP server from the old
+battery alerts, snixembed, dunst, lxqt-policykit, and xss-lock. Solaar is not
+autostarted; Logitech mouse battery status is shown in the sidebar. Syncthing, MPD and the conditional notes HTTP server from the old
 xinitrc are also retained. Only LXPanel and feh are replaced by built-in widgets
 and wallpaper rendering. User applications that were not autostarted before
 (e.g. Firefox/Gajim) are not newly autostarted.
@@ -343,4 +341,4 @@ dunstctl reload
 ```
 
 A new login starts the autostart services; do not launch duplicate panel,
-notification, clipboard, display-watcher, or lock daemons manually.
+notification, clipboard-manager, display-watcher, or lock daemons manually.

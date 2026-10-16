@@ -167,7 +167,7 @@ class ConfigCleanupTests(unittest.TestCase):
 class HelperNamesTests(unittest.TestCase):
     def test_desktop_helpers_without_old_aliases(self):
         helpers = ROOT / 'dotfiles/.local/bin'
-        names = ['battery-watch', 'brightness', 'check', 'clipboard', 'display',
+        names = ['battery-watch', 'brightness', 'check', 'display',
                  'locale-setup', 'lock', 'screenshot', 'volume']
         for name in names:
             helper = helpers / f'desktop-{name}'

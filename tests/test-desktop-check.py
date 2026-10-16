@@ -28,8 +28,6 @@ class HealthCheckTests(unittest.TestCase):
             for name in commands:
                 self.command(name)
         self.command('id')
-        self.command('clipmenu')
-        self.command('clipmenud')
         for name in ['awesome/rc.lua', 'awesome/panel.lua', 'awesome/autostart',
                      'picom/picom.conf', 'X11/xinitrc']:
             self.file(self.config / name)
@@ -95,7 +93,6 @@ case "$name" in
       *lxqt-policykit-agent*) service=lxqt-policykit-agent ;;
       *xss-lock*) service=xss-lock ;;
       *snixembed*) service=snixembed ;;
-      *clipmenud*) service=clipmenud ;;
       *) exit 1 ;;
     esac
     case " ${ACTIVE_PROCESSES:-} " in *" $service "*) exit 0 ;; *) exit 1 ;; esac
@@ -181,14 +178,13 @@ esac
         self.assertIn('1 required failure(s)', result.stdout)
         self.assertNotIn('win98-teal', result.stdout)
 
-    def test_optional_warnings_and_disabled_clipboard(self):
+    def test_optional_warnings(self):
         (self.bin / 'firefox').unlink()
-        (self.bin / 'clipmenud').unlink()
         result = self.invoke()
         self.assertEqual(result.returncode, 0)
         self.assertIn('optional command: firefox', result.stdout)
-        self.assertIn('Clipman is deliberately disabled', result.stdout)
-        self.assertIn('0 required failure(s), 2 warning(s)', result.stdout)
+        self.assertNotIn('clipboard', result.stdout.lower())
+        self.assertIn('0 required failure(s), 1 warning(s)', result.stdout)
 
     def test_font_fallback_missing_font_and_probe_failure(self):
         self.env['MATCH_FONT'] = 'Liberation Sans'
@@ -233,7 +229,7 @@ esac
 
     def test_runtime_checks_live_services_and_optional_services(self):
         self.env['DISPLAY'] = ':93'
-        self.env['ACTIVE_PROCESSES'] = 'picom dunst lxqt-policykit-agent xss-lock snixembed clipmenud'
+        self.env['ACTIVE_PROCESSES'] = 'picom dunst lxqt-policykit-agent xss-lock snixembed'
         result = self.invoke('--runtime', '--verbose')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         for detail in ['X11 display reachable', 'Awesome runtime query succeeded',
@@ -242,7 +238,7 @@ esac
             self.assertIn(detail, result.stdout)
         self.assertIn('0 required failure(s), 0 warning(s)', result.stdout)
 
-        self.env['ACTIVE_PROCESSES'] = 'picom dunst lxqt-policykit-agent snixembed clipmenud'
+        self.env['ACTIVE_PROCESSES'] = 'picom dunst lxqt-policykit-agent snixembed'
         result = self.invoke('--runtime')
         self.assertEqual(result.returncode, 1)
         self.assertIn('required runtime service not running: xss-lock', result.stdout)
@@ -266,8 +262,7 @@ esac
         result = self.invoke('--runtime')
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertIn('optional runtime service not running: snixembed', result.stdout)
-        self.assertIn('optional runtime service not running: clipmenud', result.stdout)
-        self.assertIn('0 required failure(s), 2 warning(s)', result.stdout)
+        self.assertIn('0 required failure(s), 1 warning(s)', result.stdout)
 
     def test_help_and_bad_options(self):
         self.assertEqual(self.invoke('--help').returncode, 0)

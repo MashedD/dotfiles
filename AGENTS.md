@@ -9,7 +9,9 @@
 - File manager and desktop: pcmanfm
 - Wallpaper: Awesome and the lock screen use the current selected wallpaper (default `aurora-cabin.png`, bundled cabin image).
 - Notifications: dunst
-- Clipboard history: clipmenu only when installed; Win+V. Clipman is explicitly disabled; do not add it as a fallback.
+- No clipboard history manager or daemon. Preserve ordinary clipboard copy/paste and
+  `xclip` screenshot copying; Clipman is explicitly disabled and must not be added
+  as a fallback.
 - Authentication agent: lxqt-policykit
 - Screen lock: xss-lock + i3lock (Win+L; locks after 10 minutes idle and before suspend)
 
@@ -58,7 +60,7 @@ ld
 | `dotfiles/.config/X11/` | Active startx entry point and X resources |
 | `themes/VAX/` | VAX source templates; generated output is installed separately by `setup-vax-theme` |
 | `dotfiles/.config/dunst/` | Active notification theme |
-| `dotfiles/.local/bin/` | Active shared helpers (`desktop-*`) for volume, brightness, clipboard, locking, and battery alerts |
+| `dotfiles/.local/bin/` | Active shared helpers (`desktop-*`) for volume, brightness, screenshots, locking, and battery alerts |
 | `configs/` | Manual system-wide zsh environment reference (not Stowed) |
 
 ## Validation and reload
@@ -68,4 +70,4 @@ ld
 - Reload Awesome: `awesome-client 'awesome.restart()'`
 - Lock-helper unit test: `python3 tests/test-screen-lock.py`
 - Reload dunst: `dunstctl reload`
-- A new login starts the autostart services; do not launch duplicate panel, notification, clipboard, or lock daemons manually.
+- A new login starts the autostart services; do not launch duplicate panel, notification, clipboard-manager, or lock daemons manually.

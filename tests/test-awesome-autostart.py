@@ -54,23 +54,14 @@ with open(os.environ['TEST_STATE'], 'a+') as f:
                 time.sleep(2.2)
             calls = log.read_text().splitlines()
             for name in names[:10]:
-                expected = 0 if name == "lxpanel" else 1
+                expected = 0 if name in ("lxpanel", "clipmenud") else 1
                 self.assertEqual(calls.count(name), expected, f"duplicate/missing service {name}: {calls}")
             self.assertEqual(calls.count("dbus-update-activation-environment"), 2)
             self.assertNotIn("lxpanel", calls)
             self.assertNotIn("solaar", calls)
             self.assertNotIn("openbox", calls)
-            clipboard = ROOT / "dotfiles/.local/bin/desktop-clipboard"
-            subprocess.run(["/bin/sh", str(clipboard)], env=env, check=True, timeout=3)
-            (bin_dir / "clipmenu").unlink()
-            (bin_dir / "clipmenud").unlink()
-            for _ in range(2):
-                subprocess.run(["/bin/sh", str(ROOT / "dotfiles/.config/awesome/autostart")],
-                               env=env, capture_output=True, check=True, timeout=10)
-            missing = subprocess.run(["/bin/sh", str(clipboard)], env=env, capture_output=True, timeout=3)
-            self.assertEqual(missing.returncode, 1)
-            calls = log.read_text().splitlines()
-            self.assertEqual(calls.count("clipmenu"), 1)
+            self.assertNotIn("clipmenu", calls)
+            self.assertNotIn("clipmenud", calls)
             self.assertEqual(calls.count("xfce4-clipman"), 0)
             self.assertEqual(calls.count("xfce4-popup-clipman"), 0)
 

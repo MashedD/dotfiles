@@ -35,10 +35,7 @@ fi
 once '(^|/)picom( |$)' picom --config "$HOME/.config/picom/picom.conf"
 once '(^|/)dunst( |$)' dunst -conf "$HOME/.config/dunst/dunstrc"
 once '(^|/)lxqt-policykit-agent( |$)' lxqt-policykit-agent
-if command -v clipmenud >/dev/null 2>&1 && command -v clipmenu >/dev/null 2>&1; then
-    once '(^|/)clipmenud( |$)' clipmenud
-fi
-# Clipman is deliberately disabled; no automatic clipboard-manager fallback.
+# Clipboard managers are not started; Clipman is deliberately disabled.
 if command -v i3lock >/dev/null 2>&1; then
     once '(^|/)xss-lock( |$)' xss-lock --transfer-sleep-lock -- "$HOME/.local/bin/desktop-lock"
 fi

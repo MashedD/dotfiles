@@ -11,7 +11,7 @@ Required desktop packages (Chicago95 must be installed separately):
 ```sh
 sudo pacman -S --needed stow awesome xsettingsd snixembed \
   xorg-xrandr xorg-xset xclip xdotool maim \
-  xss-lock i3lock dunst clipmenu dmenu pcmanfm \
+  xss-lock i3lock dunst dmenu pcmanfm \
   gtk2 gtk3 fontconfig dbus util-linux xdg-terminal-exec \
   kitty xfce4-appfinder lxqt-policykit wireplumber brightnessctl \
   playerctl pavucontrol picom
@@ -49,7 +49,8 @@ Deployment and tests do not restart the live desktop.
 
 Log out of the old WM before running `startx`. The real session uses the existing
 systemd user D-Bus bus: **do not wrap Awesome in `dbus-run-session`**.
-Do not manually start duplicate panel, notification, clipboard, or lock services.
+No clipboard-history service is used; do not start clipboard managers or duplicate
+panel, notification, or lock services.
 
 [Shortcuts, session details, troubleshooting](docs/desktop.md) ·
 [Awesome components](dotfiles/.config/awesome/README.md)
