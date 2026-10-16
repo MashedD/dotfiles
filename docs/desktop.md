@@ -38,10 +38,13 @@ kitty xfce4-appfinder lxqt-policykit wireplumber brightnessctl
 playerctl pavucontrol picom curl jq coreutils
 ```
 
-No clipboard history manager is used. Standard application copy/paste and
-`xclip` screenshot copying remain available; Clipman stays disabled in the XDG
-desktop entry and is never used as a fallback. Microsoft Sans Serif is preferred;
-a weak fontconfig alias uses Liberation Sans when the proprietary font is absent.
+Clipboard history is off by default. Run `DESKTOP_CLIPMENU_AUTOSTART=1 startx`
+(or export it before starting Awesome) to opt into clipmenu autostart when both
+`clipmenu` and `clipmenud` are installed. Manual launching remains available.
+Standard application copy/paste and `xclip` screenshot copying are unaffected. Clipman's
+XDG autostart entry is hidden for this profile, but manual launching is not
+blocked. Microsoft Sans Serif is preferred; a weak fontconfig alias uses
+Liberation Sans when the proprietary font is absent.
 
 Optional application packages in the notes (games, development tools, office
 software, and unrelated services) are not required by this desktop package.
@@ -323,7 +326,8 @@ tray as the sole owner, and leaves removable-drive handling unchanged. The displ
 single-instance, polls every three seconds, and exits if the X server vanishes.
 The same Openbox session services are retained: xsettingsd, display watcher,
 battery alerts, snixembed, dunst, lxqt-policykit, and xss-lock. Solaar is not
-autostarted; Logitech mouse battery status is shown in the sidebar. Syncthing, MPD and the conditional notes HTTP server from the old
+started by this profile; manual launching remains available. Logitech mouse
+battery status is shown in the sidebar. Syncthing, MPD and the conditional notes HTTP server from the old
 xinitrc are also retained. Only LXPanel and feh are replaced by built-in widgets
 and wallpaper rendering. User applications that were not autostarted before
 (e.g. Firefox/Gajim) are not newly autostarted.

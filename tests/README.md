@@ -240,9 +240,11 @@ Only test-display i3lock processes are terminated afterward;
 the live WM/display and lock are never modified.
 
 The mocked autostart test checks duplicate prevention on reload, tray startup
-delay, no LXPanel, clipboard manager, Solaar, or Clipman startup
-without launching real services. Display profile tests mock all RandR
-calls and assert internal-only, HDMI-only, and extended layouts. The display-helper test mocks RandR and does not change hardware modes.
+delay, default-off clipboard history, clipmenu opt-in startup, and that LXPanel,
+Solaar, and Clipman are not started by this profile, without launching real
+services. Display profile tests mock all RandR calls and assert internal-only,
+HDMI-only, and extended layouts. The display-helper test mocks RandR and does not
+change hardware modes.
 The lock-helper test checks foreground waiting, image cleanup, conversion-failure
 fallback, inherited suspend FD and duplicate prevention using a mock locker.
 

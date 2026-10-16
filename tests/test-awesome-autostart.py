@@ -29,10 +29,13 @@ class AutostartTest(unittest.TestCase):
             helpers.mkdir(parents=True)
             (home / "Documents/notes/html").mkdir(parents=True)
             log = home / "calls"
-            names = ["xsettingsd", "lxpanel", "snixembed", "dunst", "lxqt-policykit-agent",
-                     "clipmenud", "xss-lock", "syncthing", "mpd", "python3",
-                     "dbus-update-activation-environment", "xset", "localedef", "i3lock", "clipmenu", "xfce4-clipman", "xfce4-popup-clipman", "solaar"]
-            for path in [bin_dir / name for name in names] + [helpers / name for name in
+            started_by_default = ["xsettingsd", "snixembed", "dunst", "lxqt-policykit-agent",
+                                  "xss-lock", "syncthing", "mpd", "python3"]
+            not_started_by_default = ["lxpanel", "clipmenud", "clipmenu", "xfce4-clipman",
+                                      "xfce4-popup-clipman", "solaar"]
+            support_commands = ["dbus-update-activation-environment", "xset", "localedef", "i3lock"]
+            command_names = started_by_default + not_started_by_default + support_commands
+            for path in [bin_dir / name for name in command_names] + [helpers / name for name in
                          ["desktop-display", "desktop-battery-watch", "desktop-locale-setup"]]:
                 path.write_text('#!/bin/sh\nprintf "%s\\n" "${0##*/}" >> "$TEST_LOG"\n')
                 path.chmod(0o755)
@@ -53,24 +56,35 @@ with open(os.environ['TEST_STATE'], 'a+') as f:
             pgrep.chmod(0o755)
             env = dict(os.environ, HOME=str(home), PATH=str(bin_dir),
                        TEST_LOG=str(log), TEST_STATE=str(home / "state"))
+            env.pop("DESKTOP_CLIPMENU_AUTOSTART", None)
+            autostart = ["/bin/sh", str(ROOT / "dotfiles/.config/awesome/autostart")]
             for _ in range(2):
-                result = subprocess.run(["/bin/sh", str(ROOT / "dotfiles/.config/awesome/autostart")],
-                                        env=env, capture_output=True, text=True, timeout=10)
+                result = subprocess.run(autostart, env=env, capture_output=True, text=True, timeout=10)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 # The tray bridge intentionally waits for Awesome's native systray.
                 time.sleep(2.2)
             calls = log.read_text().splitlines()
-            for name in names[:10]:
-                expected = 0 if name in ("lxpanel", "clipmenud") else 1
-                self.assertEqual(calls.count(name), expected, f"duplicate/missing service {name}: {calls}")
+            for name in started_by_default:
+                self.assertEqual(calls.count(name), 1, f"duplicate/missing service {name}: {calls}")
             self.assertEqual(calls.count("dbus-update-activation-environment"), 2)
-            self.assertNotIn("lxpanel", calls)
-            self.assertNotIn("solaar", calls)
-            self.assertNotIn("openbox", calls)
-            self.assertNotIn("clipmenu", calls)
-            self.assertNotIn("clipmenud", calls)
-            self.assertEqual(calls.count("xfce4-clipman"), 0)
-            self.assertEqual(calls.count("xfce4-popup-clipman"), 0)
+            for name in not_started_by_default + ["openbox"]:
+                self.assertNotIn(name, calls, f"unexpected automatic launch: {name}: {calls}")
+
+            env["DESKTOP_CLIPMENU_AUTOSTART"] = "1"
+            for _ in range(2):
+                result = subprocess.run(autostart, env=env, capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 0, result.stderr)
+            time.sleep(0.1)
+            calls = log.read_text().splitlines()
+            self.assertEqual(calls.count("clipmenud"), 1, f"opt-in should start once: {calls}")
+
+            # Opt-in remains harmless if the user has not installed clipmenu.
+            (bin_dir / "clipmenu").unlink()
+            (home / "state").write_text("")
+            log.write_text("")
+            result = subprocess.run(autostart, env=env, capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn("clipmenud", log.read_text().splitlines())
 
 
 if __name__ == "__main__":

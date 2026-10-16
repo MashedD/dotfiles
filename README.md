@@ -49,8 +49,10 @@ Deployment and tests do not restart the live desktop.
 
 Log out of the old WM before running `startx`. The real session uses the existing
 systemd user D-Bus bus: **do not wrap Awesome in `dbus-run-session`**.
-No clipboard-history service is used; do not start clipboard managers or duplicate
-panel, notification, or lock services.
+Clipboard history is off by default. To opt into clipmenu autostart when both
+binaries are installed, run `DESKTOP_CLIPMENU_AUTOSTART=1 startx` (or export
+that variable before starting Awesome). Manual launching remains available;
+ordinary copy/paste and `xclip` screenshot copying are unaffected.
 
 [Shortcuts, session details, troubleshooting](docs/desktop.md) ·
 [Awesome components](dotfiles/.config/awesome/README.md)

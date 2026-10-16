@@ -13,7 +13,7 @@ files below were backed up and preserved locally before their source copies were
 | `.config/kitty/`, `btop/`, `libfm/` | Launcher/sidebar invokes kitty, btop and PCManFM; btop VAX config is repository-linked | Active application configuration; retain |
 | `.config/pcmanfm/default/pcmanfm.conf`, `desktop-items-0.conf`, `desktop-items-1.conf` | All three live files are regular machine-local files; repository copies removed after backup/detachment | Keep geometry, wallpaper and icon state local; not part of deployment |
 | `.config/mc/panels.ini`, `.config/mc/hotlist` | Live panel state and personal bookmark preserved as regular files; repository copies removed after backup/detachment | Local state; MC menu, extension definitions and skins remain managed |
-| `.config/autostart/xfce4-clipman-plugin-autostart.desktop` | Deployed `Hidden=true` override | Intentional disabling policy, not unused autostart debris; retain |
+| `.config/autostart/xfce4-clipman-plugin-autostart.desktop` | Deployed `Hidden=true` override | Disables Clipman autostart for this profile; manual launching remains available |
 | `.config/mpd/` | Autostart explicitly invokes MPD when installed; config deployed | Active integration; retain. Syncthing and conditional notes HTTP service are also intentionally preserved |
 | `.config/zsh/`, `readline/`, `.bashrc`, `.config/tmux/`, `nvim/` | Shell configuration; vim aliases and EDITOR target nvim; configuration deployed | Active integrations; retain |
 | `.config/vim/`, remaining `mc/` preferences, `tig/`, `fastfetch/`, `Code - OSS/`, `.lynxrc` | Stowed application configuration; not necessarily invoked by the WM | External/usage uncertain; do not delete based on absent WM references. Vim config can still serve explicit Vim invocations despite nvim aliases |
@@ -43,8 +43,9 @@ files below were backed up and preserved locally before their source copies were
   override. External NetworkManager and systemd services remain outside this audit.
 - **Health report:** the two missing-default-asset failures are resolved by the
   bundled cabin image and corrected checker requirements. Clipboard history is
-  intentionally not provided; ordinary copy/paste and screenshot-to-clipboard remain.
-  Liberation Sans is the supported font fallback.
+  off by default; users can opt into clipmenu autostart with
+  `DESKTOP_CLIPMENU_AUTOSTART=1`. Ordinary copy/paste and screenshot-to-clipboard
+  remain available. Liberation Sans is the supported font fallback.
 
 No additional deletion is justified solely by this inventory. Further application
 cleanup requires actual usage evidence; machine-specific display configuration is unchanged.

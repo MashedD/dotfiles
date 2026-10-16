@@ -35,7 +35,12 @@ fi
 once '(^|/)picom( |$)' picom --config "$HOME/.config/picom/picom.conf"
 once '(^|/)dunst( |$)' dunst -conf "$HOME/.config/dunst/dunstrc"
 once '(^|/)lxqt-policykit-agent( |$)' lxqt-policykit-agent
-# Clipboard managers are not started; Clipman is deliberately disabled.
+# Clipboard history is off by default; users may opt in before starting Awesome.
+if [ "${DESKTOP_CLIPMENU_AUTOSTART:-}" = 1 ] &&
+    command -v clipmenu >/dev/null 2>&1 && command -v clipmenud >/dev/null 2>&1; then
+    once '(^|/)clipmenud( |$)' clipmenud
+fi
+# Clipman is disabled for automatic startup by its XDG Hidden=true override.
 if command -v i3lock >/dev/null 2>&1; then
     once '(^|/)xss-lock( |$)' xss-lock --transfer-sleep-lock -- "$HOME/.local/bin/desktop-lock"
 fi

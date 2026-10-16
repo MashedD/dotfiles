@@ -9,9 +9,10 @@
 - File manager and desktop: pcmanfm
 - Wallpaper: Awesome and the lock screen use the current selected wallpaper (default `aurora-cabin.png`, bundled cabin image).
 - Notifications: dunst
-- No clipboard history manager or daemon. Preserve ordinary clipboard copy/paste and
-  `xclip` screenshot copying; Clipman is explicitly disabled and must not be added
-  as a fallback.
+- Do not start clipboard history by default. Users may opt into clipmenu autostart
+  with `DESKTOP_CLIPMENU_AUTOSTART=1` when both binaries are installed; manual use
+  remains available. Preserve ordinary copy/paste and `xclip` screenshot copying.
+  Clipman’s XDG autostart is disabled for this profile, not manual launching.
 - Authentication agent: lxqt-policykit
 - Screen lock: xss-lock + i3lock (Win+L; locks after 10 minutes idle and before suspend)
 
@@ -31,7 +32,7 @@ map kp_divide   send_text all /s use the `desktop-*` prefix.
   - Win+Shift+1–4 sends the focused window to a desktop and follows it.
   - Win+P opens display outputs; Win+Shift+Q requires quit confirmation.
 - Start only X11-compatible services from Awesome autostart. Do not add Wayland daemons there.
-- Autostart must tolerate Awesome reloads without duplicate services. Do not autostart Solaar; the sidebar reads Logitech mouse battery status directly from sysfs.
+- Autostart must tolerate Awesome reloads without duplicate services. Solaar is not started by default; users may still launch it manually. The sidebar reads Logitech mouse battery status directly from sysfs.
 - Awesome's built-in systray is the sole XEmbed tray owner, displayed on the primary monitor. Start `snixembed --fork` after Awesome initializes it to bridge modern StatusNotifierItem applications (such as Gajim).
 - Win+Shift+Q and Start-menu Logout quit Awesome; in a `startx` session this cleanly returns to the console.
 - The `startx` session must use the existing systemd user D-Bus bus; do not wrap Awesome in `dbus-run-session`, which splits Gajim from GNOME Keyring.
