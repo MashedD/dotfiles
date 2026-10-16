@@ -477,6 +477,7 @@ def main():
                 wait('return screen[1].workarea.y', '30')
                 assert 'true' in lua('local p=screen[1].panel; return p.visible and p.height == 30 and p.position == "top"')
                 assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and b.visible and not s.panel_clock_container.visible and s.sidebar_header and s.sidebar_header.forced_height == 26 and s.sidebar_mode == 3 and b.ontop and b:struts().right == 300 and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_trash_status and s.sidebar_trash_icon and s.sidebar_trash_state and s.sidebar_trash_timer.timeout == 30 and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_weather_text and s.sidebar_crypto_timer.timeout == 60 and s.sidebar_codex_card.forced_height == nil and s.sidebar_codex_timer.timeout == 60 and s.sidebar_audio_header == nil and s.sidebar_wallpaper_preview and s.sidebar_todo_card and #s.sidebar_todo_entries == 5 and s.sidebar_todo_entries[5] == "Fifth item" and s.sidebar_calendar_card and not s.sidebar_date_calendar and s.sidebar_calendar_grid and s.sidebar_calendar_weekday_order == "MoTuWeThFrSaSu" and #s.sidebar_calendar_entries == 7 and s.sidebar_calendar_entries[1].day == "past" and s.sidebar_calendar_entries[2].time == "08:15-09:00" and s.sidebar_calendar_entries[3].text == "visit: Today appointment" and s.sidebar_calendar_entries[6].text == "Third future event" and s.sidebar_todo_timer.timeout == 60 and s.sidebar_calendar_timer.timeout == 60 and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width-300 and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
+                assert 'true' in lua('local s=screen[1]; return s.sidebar_clock_mode == "text" and s.sidebar_digital_time.visible and not s.sidebar_clock.visible and s.sidebar_clock_card.forced_height == 66')
                 assert 'true' in lua('local s=screen[1]; return table.concat(s.sidebar_content_order, ",") == "calendar,todo,quick-launch,system-status,codex,crypto,weather,now-playing,wallpaper"')
                 assert 'true' in lua('local s=screen[1]; return s.sidebar_sections.crypto.collapsed')
                 click_sidebar_title("crypto")
@@ -633,11 +634,9 @@ def main():
                 assert 'true:true' in slider_state, slider_state
                 lua('screen[1].sidebar_scroll_by(-10000)')
                 wait('return tostring(screen[1].sidebar_scroll_offset() == 0)', '"true"')
-                subprocess.run(["xdotool", "mousemove", "1130", "140", "click", "1"], env=env, check=True)
-                wait('return screen[1].sidebar_clock_mode', 'text')
-                lua('screen[1].sidebar_clock_toggle()')
+                digital_time_point = widget_point('screen[1].sidebar_digital_time', x=150)
+                pointer("mousemove", *digital_time_point, "click", 1)
                 wait('return screen[1].sidebar_clock_mode', 'analog')
-                subprocess.run(["xdotool", "mousemove", "1130", "70", "click", "1"], env=env, check=True)
                 assert 'true:true:true' in lua('local s=screen[1]; return tostring(s.sidebar_clock_mode == "analog")..":"..tostring(s.sidebar_date_calendar == nil)..":"..tostring(s.sidebar_calendar_selected_date() == os.date("%Y-%m-%d"))')
                 current_month = lua('return screen[1].sidebar_calendar_month()').strip().split('"')[1]
                 lua('screen[1].sidebar_calendar_next_action()')

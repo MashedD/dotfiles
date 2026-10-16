@@ -164,7 +164,7 @@ function M.create(options)
         ui.destroy()
         clock:buttons({}); digital:buttons({})
     end
-    component.set_mode("analog")
+    component.set_mode("text")
     return component
 end
 return M

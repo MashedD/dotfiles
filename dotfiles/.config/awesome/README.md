@@ -55,6 +55,10 @@ document formats and persisted state are unchanged.
 | `sidebar-calendar.lua` | appearance, label/section factories, document path, interaction, open/blocked/entry callbacks, button surfaces | widget, grid, navigation widgets, refresh, select_date, shift_month, selected_date, month, day_cells, destroy |
 | `sidebar-scroll.lua` | appearance, screen, content/header/clock widgets, width, panel accessor, interaction, offset/click-suppression callbacks | column/view/bar/bar-panel widgets, set_offset, scroll_by, offset/max, thumb_geometry, attach, cancel_drag, destroy |
 
+The sidebar clock starts in compact digital mode; click it to switch to analog and
+back. The weekday/date label remains visible in either mode, including when the
+calendar section is folded.
+
 Components have idempotent `destroy()` methods and no persistent state. The parent
 registers those methods in its lifetime group. Collector timers remain owned by
 `sidebar-data.lua`; document refresh timers remain in the parent. Components do not
