@@ -407,6 +407,17 @@ function panel.create(s, menu, activate, window_menu, interaction)
         },
         widget = wibox.container.margin,
     }
+    -- Root clicks do not reach the X root window while the wibar covers it.
+    -- Treat otherwise-unhandled panel clicks like outside-menu clicks, but leave
+    -- the Start button's own toggle semantics to its release binding.
+    s.panel:connect_signal("button::press", function(_, x, y)
+        if not menu or not menu.wibox or not menu.wibox.visible then return end
+        for _, entry in ipairs(s.panel:find_widgets(x, y)) do
+            if entry.widget == start then return end
+        end
+        dismiss_menu()
+    end)
+
     -- Useful handles for runtime checks; there is no external panel process.
     s.panel_clock, s.panel_clock_container, s.panel_calendar = clock, clock_container, calendar
 end

@@ -39,7 +39,8 @@ immediate failures without disabling entries or waiting for application exit.
 and activates only on a valid left-button release inside the same item; keyboard
 navigation and right-click dismissal remain native. Start-menu entries use unique,
 underlined native access mnemonics that execute immediately. Start uses a generated
-darkened image while held and toggles its menu only on release inside. Workspace
+darkened image while held and toggles its menu only on release inside; elsewhere
+on the top panel dismisses the open menu. Workspace
 actions use the shared grab/release handler and an immediate, fading dark-teal
 overlay that preserves native taglist backgrounds. The
 coordinator adapts component handles back to existing `s.sidebar_*` diagnostics;

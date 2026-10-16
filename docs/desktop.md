@@ -114,8 +114,9 @@ a Frutiger Aero sky-blue glass gradient, a green Tux Start button, a left-aligne
 Longhorn-style glass Start menu (Start button or bare Win tap), and consistently
 styled display/window menus. Each actionable Start-menu entry has a unique
 underlined letter mnemonic; press it while the menu is open to launch that entry
-immediately (for example, **Q** for Quake 1 and **U** for Quake 2). Arrow/Enter
-navigation remains available.
+immediately (for example, **Q** for Quake 1 and **U** for Quake 2). Clicking outside
+the menu or elsewhere on the top bar dismisses it; the Start button still toggles it.
+Arrow/Enter navigation remains available.
 It also has four-workspace buttons (scroll up = previous workspace; scroll down = next),
 current-workspace taskbar (including minimized windows),
 CPU graph, battery status, volume, tray and `Fri  DD.MM.YY  HH:MM:SS` clock
