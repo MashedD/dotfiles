@@ -20,10 +20,10 @@ local function analog_clock()
         cr:set_source_rgba(0, 0, 0, 0.5)
         cr:fill()
         cr:arc(cx, cy, radius, 0, tau)
-        cr:set_source_rgba(0.44, 0.77, 0.74, 0.96)
+        cr:set_source_rgba(0.26, 0.61, 0.91, 0.96)
         cr:set_line_width(2.5)
         cr:fill_preserve()
-        cr:set_source_rgba(0.78, 1, 0.91, 0.9)
+        cr:set_source_rgba(0.78, 0.91, 1, 0.9)
         cr:set_line_width(1)
         cr:stroke()
         local face_radius = radius - 4
@@ -32,9 +32,9 @@ local function analog_clock()
         cr:clip()
         local face = cairo.RadialPattern.create(cx - face_radius * 0.28, cy - face_radius * 0.34,
             face_radius * 0.04, cx, cy, face_radius * 1.1)
-        face:add_color_stop_rgba(0, 0.20, 0.65, 0.36, 1)
-        face:add_color_stop_rgba(0.65, 0.06, 0.36, 0.19, 1)
-        face:add_color_stop_rgba(1, 0.01, 0.12, 0.07, 1)
+        face:add_color_stop_rgba(0, 0.24, 0.62, 0.92, 1)
+        face:add_color_stop_rgba(0.65, 0.09, 0.35, 0.64, 1)
+        face:add_color_stop_rgba(1, 0.025, 0.12, 0.28, 1)
         cr:set_source(face)
         cr:paint()
         cr:move_to(cx - face_radius * 0.78, cy - face_radius * 0.19)
@@ -45,11 +45,11 @@ local function analog_clock()
             cx - face_radius * 0.30, cy - face_radius * 0.43,
             cx - face_radius * 0.78, cy - face_radius * 0.19)
         cr:close_path()
-        cr:set_source_rgba(0.83, 1, 0.91, 0.13)
+        cr:set_source_rgba(0.82, 0.94, 1, 0.13)
         cr:fill()
         cr:restore()
         cr:arc(cx, cy, face_radius, 0, tau)
-        cr:set_source_rgba(0.44, 0.77, 0.74, 0.8)
+        cr:set_source_rgba(0.36, 0.67, 0.93, 0.8)
         cr:set_line_width(1)
         cr:stroke()
         for index = 0, 59 do
@@ -57,8 +57,8 @@ local function analog_clock()
             local major = index % 5 == 0
             local inner = face_radius * (major and 0.82 or 0.91)
             local outer = face_radius * 0.94
-            cr:set_source_rgba(major and 0.74 or 0.58, major and 0.93 or 0.82,
-                major and 0.82 or 0.76, major and 0.98 or 0.78)
+            cr:set_source_rgba(major and 0.80 or 0.55, major and 0.93 or 0.72,
+                1, major and 0.98 or 0.78)
             cr:set_line_width(major and 1.8 or 0.8)
             cr:move_to(cx + math.cos(angle) * inner, cy + math.sin(angle) * inner)
             cr:line_to(cx + math.cos(angle) * outer, cy + math.sin(angle) * outer)
@@ -66,7 +66,7 @@ local function analog_clock()
         end
         cr:select_font_face("Microsoft Sans Serif", cairo.FontSlant.NORMAL, cairo.FontWeight.BOLD)
         cr:set_font_size(face_radius * 0.19)
-        cr:set_source_rgba(0.88, 1, 0.93, 0.96)
+        cr:set_source_rgba(0.88, 0.96, 1, 0.96)
         for hour = 1, 12 do
             local angle = hour * tau / 12 - pi / 2
             local text = tostring(hour)
@@ -96,11 +96,11 @@ local function analog_clock()
         local minute = now.min + now.sec / 60
         local hour = (now.hour % 12) + minute / 60
         hand(hour * tau / 12 - pi / 2, face_radius * 0.47, face_radius * 0.045,
-            face_radius * 0.14, 0.88, 1, 0.93, 0.98)
+            face_radius * 0.14, 0.90, 0.96, 1, 0.98)
         hand(minute * tau / 60 - pi / 2, face_radius * 0.68, face_radius * 0.027,
-            face_radius * 0.12, 0.44, 0.77, 0.74, 1)
+            face_radius * 0.12, 0.40, 0.72, 0.98, 1)
         local seconds = now.sec * tau / 60 - pi / 2
-        cr:set_source_rgba(0, 1, 0.25, 1)
+        cr:set_source_rgba(0.25, 0.80, 1, 1)
         cr:set_line_width(math.max(1, face_radius * 0.018))
         cr:move_to(cx - math.cos(seconds) * face_radius * 0.16,
             cy - math.sin(seconds) * face_radius * 0.16)
@@ -108,9 +108,9 @@ local function analog_clock()
             cy + math.sin(seconds) * face_radius * 0.76)
         cr:stroke()
         cr:arc(cx, cy, face_radius * 0.075, 0, tau)
-        cr:set_source_rgba(0.87, 1, 0.93, 1)
+        cr:set_source_rgba(0.90, 0.97, 1, 1)
         cr:fill_preserve()
-        cr:set_source_rgba(0.16, 0.45, 0.30, 1)
+        cr:set_source_rgba(0.12, 0.42, 0.73, 1)
         cr:set_line_width(1)
         cr:stroke()
     end
@@ -120,8 +120,8 @@ function M.create(options)
     local ui = options.interaction.lifetime()
     local palette, label = options.appearance.palette, options.label
     local clock = analog_clock()
-    local digital = label("00:00:00", palette.neon, 24, true, "center")
-    local date = label("", palette.teal, 13, true, "center")
+    local digital = label("00:00:00", palette.scrollbar_highlight, 24, true, "center")
+    local date = label("", palette.scrollbar_highlight, 13, true, "center")
     local centered = wibox.widget {clock, halign = "center", valign = "center", widget = wibox.container.place}
     local content = wibox.layout.fixed.vertical()
     content.spacing = 3
@@ -151,12 +151,12 @@ function M.create(options)
             component.last_second = second
             clock.current_time = now
             clock:emit_signal("widget::redraw_needed")
-            digital.markup = string.format("<span foreground='%s' size='24pt' weight='bold'>%s</span>", palette.neon, second)
+            digital.markup = string.format("<span foreground='%s' size='24pt' weight='bold'>%s</span>", palette.scrollbar_highlight, second)
         end
         if component.last_day ~= day then
             component.last_day = day
             date.markup = string.format("<span foreground='%s' size='12pt' weight='bold'>%s</span>",
-                palette.teal, os.date("%A  •  %d %B %Y", timestamp))
+                palette.scrollbar_highlight, os.date("%A  •  %d %B %Y", timestamp))
         end
     end
     function component.destroy()

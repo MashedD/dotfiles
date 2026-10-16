@@ -1054,7 +1054,7 @@ function sidebar.create(s, dismiss_menu)
     scroll_ui.attach(panel)
     panel:setup {
         {
-            {forced_width = 2, bg = "#9afff0dd", widget = wibox.container.background},
+            {forced_width = 2, bg = "#5ba7e8dd", widget = wibox.container.background},
             sidebar_column,
             layout = wibox.layout.fixed.horizontal,
         },
