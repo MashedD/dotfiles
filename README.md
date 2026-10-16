@@ -26,7 +26,8 @@ From the repository root:
 ./stow.sh check                 # read-only preflight; also the default
 ./stow.sh apply                 # preflight, deploy links, refresh fonts
 ./setup-vax-theme               # generate VAX from installed Chicago95
-~/.local/bin/desktop-check      # read-only desktop health check
+~/.local/bin/desktop-check      # read-only config/package health check
+~/.local/bin/desktop-check --runtime  # also query the active X11 session
 ```
 
 Existing files are never overwritten or adopted. Mutable MC/PCManFM state stays

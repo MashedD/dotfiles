@@ -2,13 +2,20 @@
 # Read-only health report for the active Awesome desktop.
 set -u
 verbose=false
-if [ "$#" -gt 1 ]; then printf '%s\n' 'Expected at most one option.' >&2; exit 64; fi
-case "${1:-}" in
-  '') ;;
-  --verbose) verbose=true ;;
-  --help|-h) printf '%s\n' 'Usage: desktop-check [--verbose|--help]' 'Read-only checks; --verbose also shows successful checks and validator output.'; exit 0 ;;
-  *) printf '%s\n' 'Usage: desktop-check [--verbose|--help]' >&2; exit 64 ;;
-esac
+runtime=false
+usage() {
+  printf '%s\n' 'Usage: desktop-check [--verbose] [--runtime]' \
+    'Read-only checks; --verbose shows successful checks, --runtime also checks the active X11 session.'
+}
+if [ "$#" -gt 2 ]; then usage >&2; exit 64; fi
+for option do
+  case "$option" in
+    --verbose) if "$verbose"; then usage >&2; exit 64; fi; verbose=true ;;
+    --runtime) if "$runtime"; then usage >&2; exit 64; fi; runtime=true ;;
+    --help|-h) if [ "$#" -eq 1 ]; then usage; exit 0; else usage >&2; exit 64; fi ;;
+    *) usage >&2; exit 64 ;;
+  esac
+done
 required_commands='awesome awesome-client picom pgrep xrandr xset xss-lock i3lock maim xclip xdotool snixembed dunst dunstify dmenu pcmanfm xsettingsd lxqt-policykit-agent kitty xdg-terminal-exec xfce4-appfinder pavucontrol playerctl fc-match flock setsid logger dbus-update-activation-environment wpctl brightnessctl jq curl timeout'
 optional_commands='firefox audacious gajim keepassxc xdpyinfo magick'
 failures=0
@@ -30,6 +37,47 @@ check_commands() {
 }
 check_file() {
   if [ -f "$2" ]; then ok "$1 $2"; else fail "$1 $2"; fi
+}
+runtime_process() {
+  name=$1
+  pattern=$2
+  optional=$3
+  if pgrep -u "$runtime_uid" -f "$pattern" >/dev/null 2>&1; then
+    ok "runtime service $name"
+  elif [ "$optional" = true ]; then
+    warn "optional runtime service not running: $name"
+  else
+    fail "required runtime service not running: $name"
+  fi
+}
+check_runtime() {
+  if [ -z "${DISPLAY:-}" ]; then
+    warn 'runtime checks skipped: DISPLAY is not set'
+    return
+  fi
+  if output=$(timeout 3s xset -q 2>&1); then
+    ok "X11 display reachable: $DISPLAY"
+  else
+    status=$?; fail "X11 display unavailable: $DISPLAY (exit $status)"
+    printf '%s\n' "${output:-No diagnostic output was produced.}"
+  fi
+  if output=$(timeout 3s awesome-client 'return awesome.version' 2>&1); then
+    ok 'Awesome runtime query succeeded'
+  else
+    status=$?; fail "Awesome runtime query failed (exit $status)"
+    printf '%s\n' "${output:-No diagnostic output was produced.}"
+  fi
+  runtime_uid=$(id -u 2>/dev/null) || { fail 'cannot determine current user id for service checks'; return; }
+  runtime_process picom '(^|/)picom([[:space:]]|$)' false
+  runtime_process dunst '(^|/)dunst([[:space:]]|$)' false
+  runtime_process lxqt-policykit-agent '(^|/)lxqt-policykit-agent([[:space:]]|$)' false
+  runtime_process xss-lock '(^|/)xss-lock([[:space:]]|$)' false
+  if command -v snixembed >/dev/null 2>&1; then
+    runtime_process snixembed '(^|/)snixembed([[:space:]]|$)' true
+  fi
+  if command -v clipmenu >/dev/null 2>&1 && command -v clipmenud >/dev/null 2>&1; then
+    runtime_process clipmenud '(^|/)clipmenud([[:space:]]|$)' true
+  fi
 }
 validate() {
   command -v "$1" >/dev/null 2>&1 || return 0
@@ -129,5 +177,6 @@ bin_root=${DESKTOP_HELPER_ROOT:-$HOME/.local/bin}
 for helper in desktop-lock desktop-display desktop-screenshot desktop-battery-watch desktop-brightness desktop-clipboard desktop-volume; do
   if [ -x "$bin_root/$helper" ]; then ok "helper $bin_root/$helper"; else fail "helper $bin_root/$helper"; fi
 done
+if "$runtime"; then check_runtime; fi
 printf 'Summary: %s required failure(s), %s warning(s).\n' "$failures" "$warnings"
 [ "$failures" -eq 0 ]

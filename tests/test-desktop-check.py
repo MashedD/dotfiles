@@ -27,6 +27,7 @@ class HealthCheckTests(unittest.TestCase):
             commands = re.search(rf"^{group}='([^']+)'", source, re.M).group(1).split()
             for name in commands:
                 self.command(name)
+        self.command('id')
         self.command('clipmenu')
         self.command('clipmenud')
         for name in ['awesome/rc.lua', 'awesome/panel.lua', 'awesome/autostart',
@@ -70,6 +71,34 @@ case "$name" in
       exit 7
     fi
     echo "$name successful diagnostic"
+    ;;
+  id)
+    if [ "$1" = -u ]; then echo 1000; else exit 2; fi
+    ;;
+  timeout)
+    [ "$1" = 3s ] || exit 2
+    shift
+    exec "$@"
+    ;;
+  xset)
+    if [ "${DISPLAY_CHECK_FAIL:-}" = yes ]; then echo 'display unavailable' >&2; exit 9; fi
+    ;;
+  awesome-client)
+    if [ "${AWESOME_CLIENT_FAIL:-}" = yes ]; then echo 'Awesome not responding' >&2; exit 10; fi
+    echo '4.3'
+    ;;
+  pgrep)
+    for arg; do pattern=$arg; done
+    case "$pattern" in
+      *picom*) service=picom ;;
+      *dunst*) service=dunst ;;
+      *lxqt-policykit-agent*) service=lxqt-policykit-agent ;;
+      *xss-lock*) service=xss-lock ;;
+      *snixembed*) service=snixembed ;;
+      *clipmenud*) service=clipmenud ;;
+      *) exit 1 ;;
+    esac
+    case " ${ACTIVE_PROCESSES:-} " in *" $service "*) exit 0 ;; *) exit 1 ;; esac
     ;;
   fc-match)
     if [ "${FONT_ERROR:-}" = yes ]; then echo 'font error detail' >&2; exit 8; fi
@@ -196,9 +225,55 @@ esac
         self.assertNotIn('validator: picom', result.stdout)
         self.assertIn('required command: picom', result.stdout)
 
+    def test_runtime_without_display_is_skipped(self):
+        result = self.invoke('--runtime')
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn('runtime checks skipped: DISPLAY is not set', result.stdout)
+        self.assertIn('0 required failure(s), 1 warning(s)', result.stdout)
+
+    def test_runtime_checks_live_services_and_optional_services(self):
+        self.env['DISPLAY'] = ':93'
+        self.env['ACTIVE_PROCESSES'] = 'picom dunst lxqt-policykit-agent xss-lock snixembed clipmenud'
+        result = self.invoke('--runtime', '--verbose')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        for detail in ['X11 display reachable', 'Awesome runtime query succeeded',
+                       'runtime service picom', 'runtime service dunst',
+                       'runtime service lxqt-policykit-agent', 'runtime service xss-lock']:
+            self.assertIn(detail, result.stdout)
+        self.assertIn('0 required failure(s), 0 warning(s)', result.stdout)
+
+        self.env['ACTIVE_PROCESSES'] = 'picom dunst lxqt-policykit-agent snixembed clipmenud'
+        result = self.invoke('--runtime')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('required runtime service not running: xss-lock', result.stdout)
+        self.assertIn('1 required failure(s)', result.stdout)
+
+    def test_runtime_query_failures_and_optional_service_warnings(self):
+        self.env['DISPLAY'] = ':93'
+        self.env['ACTIVE_PROCESSES'] = 'picom dunst lxqt-policykit-agent xss-lock'
+        self.env['DISPLAY_CHECK_FAIL'] = 'yes'
+        self.env['AWESOME_CLIENT_FAIL'] = 'yes'
+        result = self.invoke('--runtime')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('X11 display unavailable', result.stdout)
+        self.assertIn('Awesome runtime query failed', result.stdout)
+        self.assertIn('display unavailable', result.stdout)
+        self.assertIn('Awesome not responding', result.stdout)
+        self.assertIn('2 required failure(s)', result.stdout)
+
+        del self.env['DISPLAY_CHECK_FAIL']
+        del self.env['AWESOME_CLIENT_FAIL']
+        result = self.invoke('--runtime')
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn('optional runtime service not running: snixembed', result.stdout)
+        self.assertIn('optional runtime service not running: clipmenud', result.stdout)
+        self.assertIn('0 required failure(s), 2 warning(s)', result.stdout)
+
     def test_help_and_bad_options(self):
         self.assertEqual(self.invoke('--help').returncode, 0)
-        for args in [('--unknown',), ('--verbose', 'extra'), ('--help', 'extra')]:
+        self.assertIn('--runtime', self.invoke('--help').stdout)
+        for args in [('--unknown',), ('--verbose', 'extra'), ('--help', 'extra'),
+                     ('--runtime', '--runtime'), ('--verbose', '--verbose')]:
             with self.subTest(args=args):
                 self.assertEqual(self.invoke(*args).returncode, 64)
 

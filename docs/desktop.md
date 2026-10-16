@@ -76,7 +76,10 @@ unrelated symlinks are refused. Re-run it after updating Chicago95.
 generated theme files and helper executability. Default output shows failures,
 warnings and a summary; `desktop-check --verbose` also shows successful checks
 and validator output. Required failures exit 1; optional warnings alone exit 0.
-It never installs packages, starts services, or changes settings.
+`desktop-check --runtime` additionally queries the current X display and Awesome,
+then checks required session services for the current user. It skips runtime checks
+when `DISPLAY` is unset; missing optional SNI/clipboard services are warnings. It
+never installs packages, starts services, sends notifications, or changes settings.
 
 The checker expects Microsoft Sans Serif or its Liberation Sans fallback
 (for the Win98 UI) and the bundled FiraCode Nerd Font after Stow deployment.

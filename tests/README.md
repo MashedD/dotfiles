@@ -138,8 +138,9 @@ Native quota tests assert that errors/stale data hide every percentage/bar, tool
 retain source-confirmation time and failure reasons, and alternating plain-text/markup
 updates cannot leave cached old label content.
 
-`test-desktop-check.py` uses isolated command/theme/font fixtures to verify quiet and
-verbose output, warning/failure exits, validator diagnostics and read-only behavior.
+`test-desktop-check.py` uses isolated command/theme/font/process fixtures to verify quiet
+and verbose output, static and runtime checks, no-display skipping, required/optional
+service failures, validator diagnostics and read-only behavior.
 `test-awesome-fullscreen.lua` checks geometry delegation, independent restore state,
 missing state, reentrancy/error cleanup, refit coalescing and installation with fake
 clients. The private restore tests assert native results before fixture cleanup;
