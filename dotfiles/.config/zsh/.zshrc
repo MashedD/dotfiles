@@ -180,7 +180,10 @@ alias vim="nvim"
 alias mc="mc -u"
 alias q="cd $HOME/Games/quake2"
 alias fd="fd --no-ignore"
-alias rg="rg --no-ignore"
+# Search dotfiles and ignored files by default; never descend into Git metadata.
+rg() {
+  command rg --hidden --no-ignore "$@" -g '!**/.git/**'
+}
 
 export EDITOR="nvim"
 export VIEWER="nvim -R"

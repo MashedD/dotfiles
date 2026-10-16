@@ -64,7 +64,10 @@ alias mpv="mpv --volume=65 --audio-display=no"
 alias tmux="tmux -2"
 alias vim="nvim"
 alias mc="mc -u"
-alias rg="rg --no-ignore"
+# Search dotfiles and ignored files by default; never descend into Git metadata.
+rg() {
+  command rg --hidden --no-ignore "$@" -g '!**/.git/**'
+}
 alias fd="fd --no-ignore"
 alias q="cd $HOME/Games/quake2"
 
