@@ -6,13 +6,13 @@ Legacy configurations remain for reference; they are not the active session.
 
 ## Install
 
-Required desktop packages (Chicago95 icons/cursors are installed separately):
+Required desktop packages (Breeze icons are provided by `breeze-icons`; Chicago95 theme assets remain external for cursors and VAX generation):
 
 ```sh
 sudo pacman -S --needed stow awesome xsettingsd snixembed \
   xorg-xrandr xorg-xset xclip xdotool maim \
   xss-lock i3lock dunst dmenu pcmanfm \
-  gtk2 gtk3 fontconfig dbus util-linux xdg-terminal-exec \
+  gtk2 gtk3 breeze-icons fontconfig dbus util-linux xdg-terminal-exec \
   kitty xfce4-appfinder lxqt-policykit wireplumber brightnessctl \
   playerctl pavucontrol picom
 ```

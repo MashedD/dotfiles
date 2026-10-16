@@ -8,7 +8,7 @@ This is the active desktop configuration for a CachyOS X11 session:
 - AwesomeWM with four workspaces, floating-by-default windows (Win+Space toggles the current tag to tile) and Win98/Matrix titlebars
 - Native Awesome 30px Win98/Matrix top panel and XEmbed tray, with snixembed bridge
 - kitty, xfce4-appfinder, pcmanfm, dunst, lxqt-policykit, and xss-lock/i3lock
-- Adwaita GTK controls with blue selection; VAX colors remain in terminals. Chicago95 icons and cursors are retained during the theme trial.
+- Adwaita GTK controls with blue selection and Breeze icons; VAX colors remain in terminals. Chicago95 cursors are retained during the theme trial.
 - HDMI-A-1-0 preferred at 2560×1440/144 Hz, with internal-display recovery
 
 See the [configuration audit](config-audit.md) for references and deployment.
@@ -33,7 +33,7 @@ not modified by this repository. Its desktop package section, plus local
 stow awesome xsettingsd snixembed
 xorg-xrandr xorg-xset xclip xdotool maim
 xss-lock i3lock dunst dmenu pcmanfm
-gtk2 gtk3 fontconfig dbus util-linux
+gtk2 gtk3 breeze-icons fontconfig dbus util-linux
 kitty xfce4-appfinder lxqt-policykit wireplumber brightnessctl
 playerctl pavucontrol picom curl jq coreutils
 ```
@@ -59,8 +59,8 @@ existing file or symlink:
 ```
 
 The active GTK widget theme is system Adwaita with a blue selection accent.
-Chicago95 remains external for its icon/cursor themes and for generating the
-legacy VAX overlay and named panel icon:
+Chicago95 remains external for its cursor theme and for generating the legacy
+VAX overlay and named panel icon; Breeze supplies the active icon theme:
 
 ```sh
 ./setup-vax-theme
@@ -77,7 +77,7 @@ old repository-owned VAX symlink. Unmarked themes, files, icon paths, and
 unrelated symlinks are refused. Re-run it after updating Chicago95.
 
 `desktop-check` is read-only: it checks Awesome syntax, commands, the configured
-Adwaita/blue GTK settings, assets, fonts, generated theme files and helper executability. Default output shows failures,
+Adwaita/Breeze/blue GTK settings, assets, fonts, generated theme files and helper executability. Default output shows failures,
 warnings and a summary; `desktop-check --verbose` also shows successful checks
 and validator output. Required failures exit 1; optional warnings alone exit 0.
 `desktop-check --runtime` additionally queries the current X display and Awesome,
