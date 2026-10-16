@@ -50,7 +50,9 @@ event, fixed successful weather/crypto/quota/audio/media shell responses, and a 
 Trash directory containing 32 files (the collector reads only the first entry).
 The private copy redirects Trash enumeration to that directory, avoiding real Trash
 or GVfs services. Statistics still read the host's proc/sysfs/filesystem information.
-Sections remain unfolded; the default analog clock and all refresh intervals remain.
+Sections remain unfolded. The measured configuration used the analog clock; the current
+sidebar defaults to compact digital mode. This audit did not compare clock modes, and
+all collector refresh intervals remain unchanged.
 
 | Collector | Interval s | Expected in 180 s (±1 boundary) | One screen | Two screens |
 | --- | ---: | ---: | ---: | ---: |

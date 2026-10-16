@@ -32,6 +32,7 @@ class HealthCheckTests(unittest.TestCase):
         for name in ['awesome/rc.lua', 'awesome/panel.lua', 'awesome/autostart',
                      'picom/picom.conf', 'X11/xinitrc']:
             self.file(self.config / name)
+        self.file(self.config / 'xdg-terminals.list', 'kitty.desktop\n')
         for name in ['aurora-cabin.png']:
             self.file(self.home / '.local/share/wallpapers' / name)
         for name in ['icons/hicolor/32x32/apps/vax-tux-start.png',
@@ -115,6 +116,32 @@ esac
         self.assertIn('awesome/panel.lua', result.stdout)
         self.assertIn('2 required failure(s)', result.stdout)
         self.assertNotIn('not found', result.stderr)
+
+    def test_terminal_executor_is_required(self):
+        (self.bin / 'xdg-terminal-exec').unlink()
+        result = self.invoke()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('required command: xdg-terminal-exec', result.stdout)
+        self.assertIn('1 required failure(s)', result.stdout)
+
+    def test_terminal_selection_must_prioritize_kitty(self):
+        terminals = self.config / 'xdg-terminals.list'
+        terminals.write_text('xfce4-terminal.desktop\nkitty.desktop\n')
+        result = self.invoke()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('expected kitty.desktop as the first entry', result.stdout)
+        self.assertIn('found xfce4-terminal.desktop', result.stdout)
+        self.assertIn('1 required failure(s)', result.stdout)
+        terminals.write_text('')
+        result = self.invoke()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('found <empty>', result.stdout)
+        terminals.unlink()
+        result = self.invoke()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('config', result.stdout)
+        self.assertIn('xdg-terminals.list', result.stdout)
+        self.assertIn('1 required failure(s)', result.stdout)
 
     def test_missing_default_wallpaper_is_required(self):
         (self.home / '.local/share/wallpapers/aurora-cabin.png').unlink()
