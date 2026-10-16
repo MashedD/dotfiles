@@ -1342,11 +1342,10 @@ function sidebar.create(s, dismiss_menu)
     end)
 
     local previous_total, previous_idle, previous_rx, previous_tx, previous_net_time
-    local latest_stats
-    local function update_network(snapshot, at_time)
+    local function update_network(snapshot)
         local rx, tx = snapshot and snapshot.rx, snapshot and snapshot.tx
         if not rx or not tx then return end
-        local now = at_time or snapshot.now
+        local now = interaction.monotonic_time()
         if previous_rx and previous_tx and previous_net_time and now > previous_net_time then
             set_text(network_text, string.format("↓ %s   ↑ %s",
                 rate(math.max(0, rx - previous_rx) / (now - previous_net_time)),
@@ -1359,7 +1358,6 @@ function sidebar.create(s, dismiss_menu)
     local function update_stats(state)
         local snapshot = state.value
         if not snapshot then return end
-        latest_stats = snapshot
         local stat = snapshot.stat
         local first_line = stat and stat:match("^([^\n]+)")
         if first_line then
@@ -1424,7 +1422,7 @@ function sidebar.create(s, dismiss_menu)
         s["sidebar_" .. name .. "_timer"] = handle
     end
     bind("clock", function(state)
-        if state.value then clock_ui.tick(state.value); update_network(latest_stats, os.time()) end
+        if state.value then clock_ui.tick(state.value) end
     end)
     bind("stats", update_stats)
     bind("volume", render_volume)
