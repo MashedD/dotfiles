@@ -70,8 +70,9 @@ function M.create(options)
     local ui = options.interaction.lifetime()
     local palette, label = options.appearance.palette, options.label
     local entries, cells = {}, {}
-    local view_month = os.time {year = tonumber(os.date("%Y")), month = tonumber(os.date("%m")), day = 1, hour = 12}
     local selected = os.date("%Y-%m-%d")
+    local observed_day = selected
+    local view_month = os.time {year = tonumber(selected:sub(1,4)), month = tonumber(selected:sub(6,7)), day = 1, hour = 12}
     local title = label("", "#edfaff", 10, true, "center")
     local selected_title = label("", palette.teal, 9, true)
     local grid, events = wibox.layout.fixed.vertical(), wibox.layout.fixed.vertical()
@@ -200,6 +201,12 @@ function M.create(options)
     end
     function component.refresh()
         if ui.disposed then return end
+        -- Follow a new local day once; same-day refreshes preserve browsing.
+        local today = os.date("%Y-%m-%d")
+        if today ~= observed_day then
+            observed_day, selected = today, today
+            view_month = os.time {year = tonumber(today:sub(1,4)), month = tonumber(today:sub(6,7)), day = 1, hour = 12}
+        end
         entries = M.read(options.path, true)
         options.on_entries(entries)
         render()

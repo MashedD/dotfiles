@@ -6,6 +6,7 @@ import time
 import re
 import tempfile
 from awesome_windows import FixtureWindow
+from awesome_calendar import verify_rollover
 
 
 def verify(*, lua, press, pointer, wait, env, visual, compare_visual):
@@ -87,6 +88,8 @@ def verify(*, lua, press, pointer, wait, env, visual, compare_visual):
             lua(f'__keyboard_expected=dofile(awesome.conffile:match("^(.*)/").."/sidebar-calendar.lua").move_date(screen[1].sidebar_calendar_selected_date(),"{key}")')
             press(key)
             assert 'true' in lua('return screen[1].sidebar_calendar_selected_date()==__keyboard_expected and screen[1].sidebar_calendar_month()==__keyboard_expected:sub(1,7)'), (key,lua('return screen[1].sidebar_calendar_selected_date()..":"..screen[1].sidebar_calendar_month()..":"..__keyboard_expected..":"..(screen[1].sidebar_keyboard.target() or {id="stopped"}).id'))
+        verify_rollover(lua=lua,env=env,wait=wait)
+        active(False);press('super+s');active();select('calendar:grid')
         lua('screen[1].sidebar_calendar_refresh()')
         active();select('calendar:grid')
         lua('screen[1].sidebar_sections.calendar.toggle_action()')

@@ -166,7 +166,14 @@ suspend and lock commands are stubbed for this audit, then restored before the
 existing private real-lock checks. Visual runs compare an active focus outline and
 exactly restored inactive header pixels. `test-awesome-keyboard.lua` covers the
 controller, callback registry and local-noon calendar arithmetic without X11;
-run it with `TZ=Europe/Warsaw` too to exercise DST boundaries. The simple reorder
+run it with `TZ=Europe/Warsaw` too to exercise DST boundaries.
+`helpers/awesome_calendar.py` checks rollover on the real private calendar with
+scoped fake dates: same-day browsing, midnight/month/year/leap-day transitions,
+multi-day resume and backward dates, displayed today's events, active-grid
+reattachment/visibility, and unchanged hidden/folded state. Its private refresh timer
+is paused only for the fake-clock fixture and restored afterward, as are documents,
+calendar state and `os.date` (including an injected error path). No system time is
+changed. The simple reorder
 drag now waits for acquisition and threshold feedback, with unit failure-path
 checks; final ordering assertions and existing timeouts are unchanged.
 

@@ -251,6 +251,10 @@ Start. No synthetic keystrokes or modifier changes are used.
   week. Page Up/Down change month, clamping the day if needed; Home selects today,
   End selects the month's last day. Enter/Space opens `calendar.md`. Date changes
   update the displayed events immediately. Month-arrow buttons remain separate.
+  When the local day changes, the next existing one-minute refresh selects today,
+  shows its month and events, even during browsing or keyboard navigation. This
+  also catches up after suspend. Later same-day refreshes preserve your selection;
+  hidden sidebars and folded calendars stay hidden/folded.
 - Offscreen controls scroll into view. Folded sections expose their headers (and
   the Quick Launch header's Trash link); navigation follows the current section
   order. Calendar refreshes keep a valid focus target.
