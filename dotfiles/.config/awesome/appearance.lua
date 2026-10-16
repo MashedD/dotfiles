@@ -2,12 +2,12 @@
 local gears = require("gears")
 local appearance = {sidebar_opacity = 0.94}
 appearance.palette = {
-    bg = "#07110df5", card = "#101a15f5", line = "#446a62",
-    bevel_light = "#73a79f", bevel_shadow = "#020805",
-    text = "#e0eee7", muted = "#b7c8bd", teal = "#9cddd4",
+    bg = "#0b1421f5", card = "#111e2df5", line = "#536a82",
+    bevel_light = "#a4b6c8", bevel_shadow = "#03070d",
+    text = "#e0e8f2", muted = "#b8c5d6", teal = "#9cddd4",
     green = "#a8f0bd", neon = "#00ff41", amber = "#ffd36e", red = "#ff8e89",
     title = "#f2fffb", inactive = "#d6e7e3", minimized = "#c1d1dd",
-    active_border = "#b4e8ff", inactive_border = "#527797",
+    active_border = "#5ba7e8", inactive_border = "#6b7480",
     menu_border = "#73a7c5", menu_separator = "#527b96", menu_base = "#183d5b",
     control_border = "#93d6c2", close_border = "#eaa39a",
     scrollbar_track = "#0b2338", scrollbar_rail = "#122d43",
@@ -38,8 +38,8 @@ appearance.stops = {
         {0.50, "#205b89"}, {1, "#123d68"}},
     inactive = {{0, "#ccdde9"}, {0.035, "#91abc1"}, {0.10, "#3a516a"},
         {0.50, "#2e465f"}, {1, "#20344c"}},
-    card = {{0, "#527d75"}, {0.01, "#28443c"}, {0.10, "#172d24f5"}, {1, "#09170ff5"}},
-    forest = {{0, "#06110df5"}, {0.32, "#123326f5"}, {0.72, "#183e2bf5"}, {1, "#07160ff5"}},
+    card = {{0, "#71859a"}, {0.01, "#3b5067"}, {0.10, "#1b2c40f5"}, {1, "#101b2af5"}},
+    forest = {{0, "#08111ff5"}, {0.32, "#111f31f5"}, {0.72, "#17283bf5"}, {1, "#0b1523f5"}},
 }
 function appearance.gradient(name, height)
     return gears.color {type = "linear", from = {0, 0}, to = {0, height}, stops = appearance.stops[name]}

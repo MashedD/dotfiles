@@ -24,15 +24,15 @@ local sidebar_title_gradient = appearance.gradient("selected", 26)
 local section_header_gradient = appearance.gradient("blue", 24)
 local button_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
-    stops = {{0, "#263a2c"}, {0.5, "#1a2a1f"}, {1, "#0d1811"}},
+    stops = {{0, "#354b64"}, {0.5, "#293c53"}, {1, "#1b2a3c"}},
 }
 local button_hover_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
-    stops = {{0, "#3b6246"}, {0.5, "#294432"}, {1, "#17291d"}},
+    stops = {{0, "#52789e"}, {0.5, "#3d5d7d"}, {1, "#2a4059"}},
 }
 local button_pressed_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
-    stops = {{0, "#0a140d"}, {0.5, "#17271c"}, {1, "#233a2a"}},
+    stops = {{0, "#17263a"}, {0.5, "#223650"}, {1, "#304967"}},
 }
 
 local function read(path)
