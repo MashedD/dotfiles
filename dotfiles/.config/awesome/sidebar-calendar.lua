@@ -77,7 +77,7 @@ function M.create(options)
     local selected_title = label("", palette.teal, 9, true)
     local grid, events = wibox.layout.fixed.vertical(), wibox.layout.fixed.vertical()
     grid.spacing, events.spacing = 2, 3
-    local weekdays = {"M", "T", "W", "T", "F", "S", "S"}
+    local weekdays = {"Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"}
     local component = {grid = grid, events = events, weekday_order = table.concat(weekdays), ui = ui}
     local render
     local function open()
@@ -156,9 +156,13 @@ function M.create(options)
         grid:reset(); cells = {}
         local weekday_row = wibox.layout.fixed.horizontal()
         weekday_row.spacing = 2
-        for _, name in ipairs(weekdays) do weekday_row:add(wibox.widget {
-            label(name, palette.muted, 9, true, "center"), forced_width = 36, forced_height = 16, widget = wibox.container.background,
-        }) end
+        for index, name in ipairs(weekdays) do
+            local weekend = index >= 6
+            weekday_row:add(wibox.widget {
+                label(name, weekend and palette.amber or palette.muted, 9, true, "center"),
+                forced_width = 36, forced_height = 16, widget = wibox.container.background,
+            })
+        end
         grid:add(weekday_row)
         local first = (os.date("*t", view_month).wday + 5) % 7
         local days = tonumber(os.date("%d", os.time {year = view.year, month = view.month + 1, day = 0, hour = 12}))
@@ -173,11 +177,15 @@ function M.create(options)
                 else
                     local date = string.format("%04d-%02d-%02d", view.year, view.month, day)
                     local is_selected, has_events = date == selected, by_date[date] ~= nil
-                    local color = date == os.date("%Y-%m-%d") and palette.neon or (has_events and palette.teal or palette.text)
+                    local weekend = column >= 6
+                    local color = date == os.date("%Y-%m-%d") and palette.neon
+                        or (has_events and palette.teal or (weekend and palette.amber or palette.text))
+                    local background = is_selected and "#1d5944"
+                        or (has_events and "#10291f" or (weekend and "#211c12" or "#0e1d17"))
                     local cell = wibox.widget {
-                        label(tostring(day), color, 9, is_selected or has_events, "center"),
+                        label(tostring(day), color, 9, is_selected or has_events or weekend, "center"),
                         forced_width = 36, forced_height = 24,
-                        bg = is_selected and "#1d5944" or (has_events and "#10291f" or "#0e1d17"),
+                        bg = background,
                         border_width = is_selected and 1 or 0, border_color = palette.neon, widget = wibox.container.background,
                     }
                     cell:buttons(gears.table.join(awful.button({}, 1, function() component.select_date(date) end)))
