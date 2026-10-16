@@ -5,18 +5,19 @@ function M.new(runtime)
     local collectors = {}
     local service = {collectors = collectors}
     local function stale(c)
-        return c.state.updated ~= nil and (c.state.error ~= nil
-            or runtime.now() - c.state.updated >= 2 * c.interval)
+        if c.state.updated == nil then return false end
+        local age = runtime.now() - c.state.updated
+        return c.state.error ~= nil or age < 0 or age >= 2 * c.interval
     end
     local function equal(a, b)
         if a == b then return true end
         if type(a) ~= "table" or type(b) ~= "table" then return false end
         -- Sample timestamps are metadata; they alone do not represent new data.
         for key, value in pairs(a) do
-            if key ~= "now" and not equal(value, b[key]) then return false end
+            if key ~= "now" and key ~= "source_updated" and not equal(value, b[key]) then return false end
         end
         for key in pairs(b) do
-            if key ~= "now" and a[key] == nil then return false end
+            if key ~= "now" and key ~= "source_updated" and a[key] == nil then return false end
         end
         return true
     end
@@ -50,7 +51,8 @@ function M.new(runtime)
             completed, c.pending, c.cancel = true, false, nil
             old_stale, old_error, old_value = c.state.stale, c.state.error, c.state.value
             if value ~= nil then
-                c.state.value, c.state.updated, c.state.error = value, runtime.now(), nil
+                local source_updated = type(value) == 'table' and value.source_updated or nil
+                c.state.value, c.state.updated, c.state.error = value, source_updated or runtime.now(), nil
             else
                 c.state.error = err or "Unavailable"
             end
@@ -112,8 +114,9 @@ function M.parse_weather(stdout)
     return {temperature = t, apparent = apparent, condition = condition, wind = wind}
 end
 function M.parse_crypto(stdout)
-    local display = stdout:gsub("#%b[]", ""):gsub("%s+$", "")
-    local btc, eth, ltc = display:match("BTC%s+(%S+)%s+ETH%s+(%S+)%s+LTC%s+(%S+)")
+    if stdout:match('^%s*STALE') then return nil end
+    local display = stdout:gsub("#%b[]", ""):gsub("^%s+", ""):gsub("%s+$", "")
+    local btc, eth, ltc = display:match("^BTC%s+(%S+)%s+ETH%s+(%S+)%s+LTC%s+(%S+)$")
     local result = {}
     for key, value in pairs({BTC = btc, ETH = eth, LTC = ltc}) do
         value = value:gsub("^%$", "")
@@ -124,15 +127,33 @@ function M.parse_crypto(stdout)
     return result
 end
 function M.parse_codex(stdout)
+    if stdout:match('^%s*C%*') then return nil end
     local display, dates = stdout:match("^(.-)\t([^\r\n]+)")
-    display = (display or stdout):gsub("#%b[]", ""):gsub("^C%*?%s*", ""):gsub("%s+$", "")
+    display = (display or stdout):gsub("#%b[]", ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if not display:match('^C%s+') then return nil end
+    display = display:gsub('^C%s+', '')
     local five, five_reset, week, week_reset = display:match(
-        "5h%s+(%d+)%%@([%a]+%s+%d%d:%d%d)%s+7d%s+(%d+)%%@([%a]+%s+%d%d:%d%d)")
+        "^5h%s+(%d+)%%@([%a]+%s+%d%d:%d%d)%s+7d%s+(%d+)%%@([%a]+%s+%d%d:%d%d)$")
     five, week = tonumber(five), tonumber(week)
     if not five or not week or five > 100 or week > 100 then return nil end
     return {five = five, five_reset = five_reset, week = week, week_reset = week_reset,
         resets = dates and dates ~= "--" and dates:gsub(" · ", "\n") or "--"}
 end
+
+-- Machine channels retain the source's confirmation time, not helper invocation time.
+local function source_sample(stdout,kind,parse,now)
+    local status,stamp,body=stdout:gsub('[\r\n]+$',''):match('^'..kind..'%-v1\t([a-z]+)\t(%d+)\t([^\r\n]+)$')
+    if not status then return nil,'Missing source freshness metadata' end
+    if status~='fresh' then return nil,'Source '..status..'; current value unavailable' end
+    stamp=tonumber(stamp); now=now or os.time()
+    if not stamp or stamp<=0 or stamp>now or now-stamp>=120 then return nil,'Source sample expired or clock invalid' end
+    local value=parse(body)
+    if not value then return nil,'Invalid source response' end
+    value.source_updated=stamp
+    return value
+end
+function M.parse_codex_sample(stdout,now) return source_sample(stdout,'codex',M.parse_codex,now) end
+function M.parse_crypto_sample(stdout,now) return source_sample(stdout,'crypto',M.parse_crypto,now) end
 
 -- Injectable runtime above permits deterministic lifecycle/failure tests without X11.
 if not awesome then return M end
@@ -150,8 +171,8 @@ function service.command(argv, parse, done)
             done(nil, code == 124 and "Request timed out" or "Command failed (" .. tostring(code) .. ")")
             return
         end
-        local parsed, value = pcall(parse, stdout)
-        if not parsed or value == nil then done(nil, "Invalid response") else done(value) end
+        local parsed, value, reason = pcall(parse, stdout)
+        if not parsed or value == nil then done(nil, parsed and reason or "Invalid response") else done(value) end
     end)
     if not ok or type(pid) ~= "number" then done(nil, tostring(pid or "Could not start command")) end
 end
@@ -163,10 +184,10 @@ service.define("weather", 1800, function(done)
         M.parse_weather, done)
 end)
 service.define("crypto", 60, function(done)
-    service.command({home .. "/.local/bin/crypto-prices"}, M.parse_crypto, done)
+    service.command({home .. "/.local/bin/crypto-prices", "--sidebar-data"}, M.parse_crypto_sample, done)
 end)
 service.define("codex", 60, function(done)
-    service.command({home .. "/.local/bin/codex-usage", "--sidebar"}, M.parse_codex, done)
+    service.command({home .. "/.local/bin/codex-usage", "--sidebar-data"}, M.parse_codex_sample, done)
 end)
 service.define("volume", 3, function(done)
     service.command({"wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"}, function(stdout)

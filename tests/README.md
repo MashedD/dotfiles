@@ -103,13 +103,22 @@ with `--nofork`; raw process counts therefore do not measure locker instances.
 Failure output includes process ancestry/commands/executables and optional window PID
 properties. Cleanup rechecks PID/start-time/display identities and waits for removal.
 This checks window readiness, not authentication or input-grab security.
-It also checks weather/crypto/quota stale-data retention and recovery, genuine zero
+It also checks weather/crypto stale-data retention, fail-closed quota display and
+recovery (including cached source age and legacy stale markers), genuine zero
 quota values, escaped reset text, and shared collectors when a second screen is
 added and removed. All weather requests use a mocked curl; no network is needed.
 The default cabin PNG is bundled and copied directly into the private home; a
 missing default is a test failure, not silently substituted with another image.
 Edge scrolling uses elapsed time at 180 px/s with a 250 ms catch-up cap; Lua tests
 cover irregular timing, direction changes, inactive edges and lifecycle resets.
+
+`test-status-helpers.py` runs the actual Codex/crypto shell helpers with isolated
+caches and fake backends, never a real account or network. It covers legacy orphan
+lock directories, advisory-lock contention and SIGKILL recovery, original cache
+age, malformed/partial quota responses, true zero and conservative fractional
+percentages, future timestamps, and the actual helper-to-Lua-parser wire format.
+Native quota tests assert that errors/stale data hide every percentage/bar, and
+that alternating plain-text/markup updates cannot leave cached old label content.
 
 `test-desktop-check.py` uses isolated command/theme/font fixtures to verify quiet and
 verbose output, warning/failure exits, validator diagnostics and read-only behavior.

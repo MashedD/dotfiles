@@ -35,7 +35,7 @@ xorg-xrandr xorg-xset xclip xdotool maim
 xss-lock i3lock dunst clipmenu dmenu pcmanfm
 gtk2 gtk3 fontconfig dbus util-linux
 kitty xfce4-appfinder lxqt-policykit wireplumber brightnessctl
-playerctl pavucontrol picom
+playerctl pavucontrol picom curl jq
 ```
 
 Clipboard history uses `clipmenu` + `clipmenud` only. Clipman is disabled in
@@ -225,6 +225,25 @@ Screenshots are captured into `~/Pictures/Screenshots` only after a successful
 capture, then copied to the clipboard. A cancelled region selection leaves
 existing clipboard contents and saved screenshots unchanged; a clipboard
 failure keeps the saved PNG and prints its path.
+
+## Sidebar data freshness
+
+Codex quotas are snapshots refreshed every minute, not a live guarantee of remaining
+capacity. The card hides percentages, bars and reset credits if a request fails,
+source metadata is missing, or the confirmed source sample expires (120 seconds).
+The hover tooltip's last-success time is the source confirmation time—not the time
+an old cache was read. A real 0% remaining is shown as 0%, never treated as missing.
+Reload Awesome with Win+Ctrl+R after updating to enable this display safety logic.
+
+`codex-usage` and `crypto-prices` now use kernel-managed `flock` locks in `.flock`
+files, so termination cannot leave a permanent directory-lock blockade. Old `.lock`
+directories are ignored, not recursively deleted. Fresh human/tmux output formats
+are unchanged; failed/expired fallbacks are explicitly marked `C*` / `STALE`.
+Awesome uses the versioned `--sidebar-data` TSV channel, carrying freshness status
+and the original confirmation timestamp. Reading fallback data cannot renew its age.
+Crypto and weather may retain last-known values with a visible STALE badge; quota
+history is never presented as current headroom. Other status collectors read their
+existing direct sources and do not use these on-disk helper caches.
 
 ## Sidebar keyboard navigation
 

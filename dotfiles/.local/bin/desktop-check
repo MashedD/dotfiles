@@ -9,7 +9,7 @@ case "${1:-}" in
   --help|-h) printf '%s\n' 'Usage: desktop-check [--verbose|--help]' 'Read-only checks; --verbose also shows successful checks and validator output.'; exit 0 ;;
   *) printf '%s\n' 'Usage: desktop-check [--verbose|--help]' >&2; exit 64 ;;
 esac
-required_commands='awesome awesome-client picom pgrep xrandr xset xss-lock i3lock maim xclip xdotool snixembed dunst dunstify dmenu pcmanfm xsettingsd lxqt-policykit-agent kitty xfce4-appfinder pavucontrol playerctl fc-match flock logger dbus-update-activation-environment wpctl brightnessctl'
+required_commands='awesome awesome-client picom pgrep xrandr xset xss-lock i3lock maim xclip xdotool snixembed dunst dunstify dmenu pcmanfm xsettingsd lxqt-policykit-agent kitty xfce4-appfinder pavucontrol playerctl fc-match flock logger dbus-update-activation-environment wpctl brightnessctl jq curl timeout'
 optional_commands='firefox audacious gajim keepassxc xdpyinfo magick'
 failures=0
 warnings=0

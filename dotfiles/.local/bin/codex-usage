@@ -3,14 +3,19 @@
 set -u
 
 readonly refresh_interval="${CODEX_USAGE_REFRESH_INTERVAL:-60}"
-readonly stale_after="${CODEX_USAGE_STALE_AFTER:-300}"
-readonly request_timeout="${CODEX_USAGE_TIMEOUT:-2}"
+readonly request_timeout="${CODEX_USAGE_TIMEOUT:-5}"
 readonly cache_root="${XDG_CACHE_HOME:-${HOME:?HOME must be set}/.cache}/codex"
 readonly cache_file="${CODEX_USAGE_CACHE:-$cache_root/tmux-usage.json}"
-readonly lock_dir="${cache_file}.lock"
+# Kernel-owned locks survive neither exit nor SIGKILL; legacy .lock directories
+# are deliberately ignored rather than trusted or recursively removed.
+readonly lock_file="${cache_file}.flock"
 
 print_unavailable() {
-  printf 'C --\n'
+  if [[ "${1:-}" == --sidebar-data ]]; then
+    printf 'codex-v1\tunavailable\t0\tC --\t--\n'
+  else
+    printf 'C --\n'
+  fi
 }
 
 cache_value() {
@@ -69,8 +74,11 @@ format_result() {
       [bucket.primary, bucket.secondary]
       | map(select(. != null and .windowDurationMins == $minutes))
       | .[0] // {};
-    (window(300) | [(.usedPercent // ""), (.resetsAt // "")]) ,
-    (window(10080) | [(.usedPercent // ""), (.resetsAt // "")])
+    def checked:
+      if (.usedPercent | type) == "number" and .usedPercent >= 0 and .usedPercent <= 100
+        and (.resetsAt | type) == "number" and .resetsAt > 0 and .resetsAt == (.resetsAt | floor)
+      then [(.usedPercent | ceil), .resetsAt] else error("Invalid quota window") end;
+    (window(300) | checked), (window(10080) | checked)
     | @tsv
   ' <<<"$result" 2>/dev/null)" || return 1
 
@@ -95,7 +103,7 @@ fetch_from_command() {
   local app_in app_out app_pid line result_line initialized
 
   coproc CODEX_USAGE_APP_SERVER {
-    timeout --signal=TERM "$request_timeout" sh -c "$command" 2>/dev/null
+    timeout --signal=TERM --kill-after=1s "$request_timeout" sh -c "$command" 9>&- 2>/dev/null
   }
   app_in="${CODEX_USAGE_APP_SERVER[1]}"
   app_out="${CODEX_USAGE_APP_SERVER[0]}"
@@ -194,8 +202,11 @@ main() {
   age=$((now - cached_at))
 
   emit() {
-    local value="$1" resets="${2:-unavailable}"
-    if [[ "$mode" == "--sidebar" ]]; then
+    local value="$1" resets="${2:-unavailable}" at="${3:-0}" status="${4:-unavailable}"
+    if [[ "$mode" == "--sidebar-data" ]]; then
+      [[ -n "$resets" && "$resets" != unavailable ]] || resets=--
+      printf 'codex-v1\t%s\t%s\t%s\t%s\n' "$status" "$at" "$value" "$resets"
+    elif [[ "$mode" == "--sidebar" ]]; then
       [[ -n "$resets" && "$resets" != "unavailable" ]] || resets=--
       printf '%s\t%s\n' "$value" "$resets"
     else
@@ -203,44 +214,37 @@ main() {
     fi
   }
 
-  if (( cached_at > 0 && age < refresh_interval )) && { [[ "$mode" != "--sidebar" ]] || [[ -n "$cached_dates" ]]; }; then
-    emit "$cached_display" "$cached_dates"
+  if (( cached_at > 0 && age >= 0 && age < refresh_interval )) && [[ "$cached_display" != C\** ]] && { [[ "$mode" != --sidebar* ]] || [[ -n "$cached_dates" ]]; }; then
+    emit "$cached_display" "$cached_dates" "$cached_at" fresh
     return 0
   fi
 
   mkdir -p "$(dirname -- "$cache_file")" 2>/dev/null || true
-  if ! mkdir "$lock_dir" 2>/dev/null; then
+  umask 077
+  if ! { exec 9>"$lock_file"; } 2>/dev/null || ! flock -n 9; then
     if (( cached_at > 0 )); then
-      if (( age >= stale_after )); then
-        emit "C* ${cached_display#C }" "$cached_dates"
-      else
-        emit "$cached_display" "$cached_dates"
-      fi
+      emit "C* ${cached_display#C }" "$cached_dates" "$cached_at" stale
     else
       emit "C --" unavailable
     fi
     return 0
   fi
-  trap 'rmdir "$lock_dir" 2>/dev/null || true' EXIT
 
   result="$(fetch_result 2>/dev/null || true)"
   if [[ -n "$result" ]] && display="$(format_result "$result" 2>/dev/null)" && [[ -n "$display" ]]; then
     reset_dates="$(format_reset_credits "$result")"
+    now="$(date +%s)"
     write_cache "$display" "$now" "$reset_dates" 2>/dev/null || true
-    emit "$display" "$reset_dates"
+    emit "$display" "$reset_dates" "$now" fresh
   elif (( cached_at > 0 )); then
-    if (( age >= stale_after )); then
-      emit "C* ${cached_display#C }" "$cached_dates"
-    else
-      emit "$cached_display" "$cached_dates"
-    fi
+    emit "C* ${cached_display#C }" "$cached_dates" "$cached_at" stale
   else
     emit "C --" unavailable
   fi
 }
 
-if ! command -v jq >/dev/null 2>&1 || ! command -v timeout >/dev/null 2>&1; then
-  print_unavailable
+if ! command -v jq >/dev/null 2>&1 || ! command -v timeout >/dev/null 2>&1 || ! command -v flock >/dev/null 2>&1; then
+  print_unavailable "${1:-}"
   exit 0
 fi
 

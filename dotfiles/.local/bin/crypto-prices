@@ -9,11 +9,15 @@ readonly refresh_interval="${CRYPTO_REFRESH_INTERVAL:-60}"
 readonly request_timeout="${CRYPTO_TIMEOUT:-5}"
 readonly cache_root="${XDG_CACHE_HOME:-${HOME:?HOME must be set}/.cache}/crypto"
 readonly cache_file="${CRYPTO_CACHE:-$cache_root/prices.json}"
-readonly lock_dir="${cache_file}.lock"
+readonly lock_file="${cache_file}.flock"
 readonly api_url='https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,litecoin&vs_currencies=usd'
 
 print_unavailable() {
-  printf 'BTC -- ETH -- LTC --\n'
+  if [[ "${1:-}" == --sidebar-data ]]; then
+    printf 'crypto-v1\tunavailable\t0\tBTC -- ETH -- LTC --\n'
+  else
+    printf 'BTC -- ETH -- LTC --\n'
+  fi
 }
 
 # Insert '.' thousands separators into an integer string (locale-independent).
@@ -76,7 +80,7 @@ write_cache() {
 }
 
 fetch_result() {
-  curl -fsS --max-time "$request_timeout" "$api_url" 2>/dev/null || return 1
+  curl -fsS --max-time "$request_timeout" "$api_url" 9>&- 2>/dev/null || return 1
 }
 
 format_result() {
@@ -88,15 +92,27 @@ format_result() {
   ltc="$(jq -r '.litecoin.usd // empty' <<<"$result" 2>/dev/null)" || return 1
   [[ -n "$btc" && -n "$eth" && -n "$ltc" ]] || return 1
 
+  local btc_display eth_display ltc_display
+  btc_display="$(format_usd "$btc" 0)" || return 1
+  eth_display="$(format_usd "$eth" 0)" || return 1
+  ltc_display="$(format_usd "$ltc" 2)" || return 1
   printf '#[fg=#006400]BTC #[fg=#55ff99,bold]%s #[fg=#006400]ETH #[fg=#55ff99,bold]%s #[fg=#006400]LTC #[fg=#55ff99,bold]%s' \
-    "$(format_usd "$btc" 0)" \
-    "$(format_usd "$eth" 0)" \
-    "$(format_usd "$ltc" 2)"
+    "$btc_display" "$eth_display" "$ltc_display"
 }
 
 main() {
-  local now cached cached_display cached_at age result display
+  local mode="${1:-tmux}" now cached cached_display cached_at age result display
   now="$(date +%s)"
+  emit() {
+    local value="$1" at="${2:-0}" status="${3:-unavailable}"
+    if [[ "$mode" == --sidebar-data ]]; then
+      printf 'crypto-v1\t%s\t%s\t%s\n' "$status" "$at" "$value"
+    elif [[ "$status" == stale ]]; then
+      printf 'STALE %s\n' "$value"
+    else
+      printf '%s\n' "$value"
+    fi
+  }
 
   cached="$(cache_value 2>/dev/null || true)"
   cached_display="${cached%%$'\t'*}"
@@ -105,36 +121,37 @@ main() {
   [[ "$cached_at" =~ ^[0-9]+$ ]] || cached_at=0
   age=$((now - cached_at))
 
-  if (( cached_at > 0 && age < refresh_interval )); then
-    printf '%s\n' "$cached_display"
+  if (( cached_at > 0 && age >= 0 && age < refresh_interval )); then
+    emit "$cached_display" "$cached_at" fresh
     return 0
   fi
 
   mkdir -p "$(dirname -- "$cache_file")" 2>/dev/null || true
-  if ! mkdir "$lock_dir" 2>/dev/null; then
+  umask 077
+  if ! { exec 9>"$lock_file"; } 2>/dev/null || ! flock -n 9; then
     if (( cached_at > 0 )); then
-      printf '%s\n' "$cached_display"
+      emit "$cached_display" "$cached_at" stale
     else
-      print_unavailable
+      print_unavailable "$mode"
     fi
     return 0
   fi
-  trap 'rmdir "$lock_dir" 2>/dev/null || true' EXIT
 
   result="$(fetch_result 2>/dev/null || true)"
   if [[ -n "$result" ]] && display="$(format_result "$result" 2>/dev/null)" && [[ -n "$display" ]]; then
+    now="$(date +%s)"
     write_cache "$display" "$now" 2>/dev/null || true
-    printf '%s\n' "$display"
+    emit "$display" "$now" fresh
   elif (( cached_at > 0 )); then
-    printf '%s\n' "$cached_display"
+    emit "$cached_display" "$cached_at" stale
   else
-    print_unavailable
+    print_unavailable "$mode"
   fi
 }
 
-if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
-  print_unavailable
+if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1 || ! command -v flock >/dev/null 2>&1; then
+  print_unavailable "${1:-}"
   exit 0
 fi
 
-main
+main "$@"

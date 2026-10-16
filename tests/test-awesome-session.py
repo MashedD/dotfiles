@@ -9,6 +9,7 @@ import ctypes
 import re
 from pathlib import Path
 import shutil
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -137,10 +138,10 @@ def main():
             f"{today + timedelta(days=3)} 09:00 Omit fourth future event\n")
         shutil.copy2(ROOT / "dotfiles/.local/bin/desktop-lock", helpers / "desktop-lock")
         crypto_helper = helpers / "crypto-prices"
-        crypto_helper.write_text("#!/bin/sh\nprintf '%s\\n' '#[fg=#006400]BTC #[fg=#55ff99,bold]$97.123 #[fg=#006400]ETH #[fg=#55ff99,bold]$3.456 #[fg=#006400]LTC #[fg=#55ff99,bold]$123,45'\n")
+        crypto_helper.write_text("#!/bin/sh\nprintf 'crypto-v1\\tfresh\\t%s\\t%s\\n' \"$(date +%s)\" '#[fg=#006400]BTC #[fg=#55ff99,bold]$97.123 #[fg=#006400]ETH #[fg=#55ff99,bold]$3.456 #[fg=#006400]LTC #[fg=#55ff99,bold]$123,45'\n")
         crypto_helper.chmod(0o755)
         codex_helper = helpers / "codex-usage"
-        codex_helper.write_text("#!/bin/sh\nprintf '%s\\t%s\\n' 'C 5h #[fg=#55ff99]84%#[fg=#006400]@#[fg=#55ff99]Sat 13:46 7d #[fg=#55ff99]33%#[fg=#006400]@#[fg=#55ff99]Wed 06:41' 'Sat 24.10 13:46 · Tue 27.10 13:46 · Fri 30.10 13:46'\n")
+        codex_helper.write_text("#!/bin/sh\nprintf 'codex-v1\\tfresh\\t%s\\t%s\\t%s\\n' \"$(date +%s)\" 'C 5h #[fg=#55ff99]84%#[fg=#006400]@#[fg=#55ff99]Sat 13:46 7d #[fg=#55ff99]33%#[fg=#006400]@#[fg=#55ff99]Wed 06:41' 'Sat 24.10 13:46 · Tue 27.10 13:46 · Fri 30.10 13:46'\n")
         codex_helper.chmod(0o755)
         shutil.copy2(ROOT / "dotfiles/.local/share/wallpapers/lock-win98-tux.png",
                      testhome / ".local/share/wallpapers/lock-win98-tux.png")
@@ -525,14 +526,27 @@ def main():
                 wait('return tostring(screen[1].sidebar_data.state("crypto").stale)', 'false')
 
                 codex_source = codex_helper.read_text()
-                codex_helper.write_text('#!/bin/sh\nprintf "C 5h 0%%@Sat 13:46 7d 33%%@Wed 06:41\\tA & B < C\\n"\n')
+                codex_helper.write_text('#!/bin/sh\nprintf "codex-v1\\tfresh\\t%s\\tC 5h 0%%@Sat 13:46 7d 33%%@Wed 06:41\\tA & B < C\\n" "$(date +%s)"\n')
                 lua('screen[1].sidebar_codex_refresh()')
                 wait('return tostring(screen[1].sidebar_codex_5h.remaining)', '0')
                 assert 'A &amp; B &lt; C' in lua('return screen[1].sidebar_codex_resets.markup')
                 codex_helper.write_text('#!/bin/sh\nexit 1\n')
                 lua('screen[1].sidebar_codex_refresh()')
                 wait('return tostring(screen[1].sidebar_data.state("codex").stale)', 'true')
-                assert 'true' in lua('return screen[1].sidebar_codex_5h.remaining == 0')
+                assert 'true' in lua('local s=screen[1]; return s.sidebar_data.state("codex").value.five==0 and s.sidebar_codex_5h.remaining==nil and not s.sidebar_codex_5h.bar.visible and s.sidebar_codex_5h.summary.text:find("unavailable",1,true)~=nil')
+                # A successful helper invocation is not proof of fresh source data.
+                for output,reason in (('codex-v1\\tstale\\t1\\tC 5h 99%@Sat 13:46 7d 99%@Wed 06:41\\t--','Source stale'),
+                                      ('codex-v1\\tfresh\\t1\\tC 5h 99%@Sat 13:46 7d 99%@Wed 06:41\\t--','expired'),
+                                      ('C* 5h 99%@Sat 13:46 7d 99%@Wed 06:41\\t--','metadata')):
+                    codex_helper.write_text('#!/bin/sh\nprintf \'%b\\n\' '+shlex.quote(output)+'\n')
+                    lua('screen[1].sidebar_codex_refresh()')
+                    wait('local d=screen[1].sidebar_data; return tostring(not d.collectors.codex.pending and d.state("codex").error~=nil)', '"true"')
+                    assert 'true' in lua(f'return screen[1].sidebar_data.state("codex").error:find("{reason}",1,true)~=nil')
+                    assert 'true' in lua('local s=screen[1]; return s.sidebar_codex_5h.remaining==nil and s.sidebar_codex_7d.remaining==nil and not s.sidebar_codex_5h.bar.visible and not s.sidebar_codex_7d.bar.visible and s.sidebar_data.state("codex").value.five==0 and not s.sidebar_codex_5h.summary.text:find("%",1,true) and not s.sidebar_codex_7d.summary.text:find("%",1,true)')
+                codex_helper.write_text('#!/bin/sh\nprintf "codex-v1\\tfresh\\t%s\\tC 5h 0%%@Sat 13:46 7d 33%%@Wed 06:41\\t--\\n" "$(date +%s)"\n')
+                lua('screen[1].sidebar_codex_refresh()')
+                wait('local s=screen[1]; return tostring(not s.sidebar_data.collectors.codex.pending and s.sidebar_codex_5h.remaining==0)', '"true"')
+                assert 'true' in lua('local s=screen[1]; return s.sidebar_codex_5h.bar.visible and s.sidebar_codex_5h.summary.text:find("0% left",1,true)~=nil and not s.sidebar_data.state("codex").stale')
                 codex_helper.write_text(codex_source)
                 lua('screen[1].sidebar_codex_refresh()')
                 wait('return tostring(screen[1].sidebar_codex_5h.remaining)', '84')

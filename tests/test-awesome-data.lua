@@ -122,6 +122,29 @@ assert(quotas.five == 0 and quotas.week == 100 and quotas.resets == 'A & B\nC < 
 assert(not module.parse_codex('C 5h 101%@Sat 13:46 7d 33%@Wed 06:41'))
 assert(not module.parse_codex('C 5h unavailable 7d unavailable'))
 
+assert(not module.parse_codex('C* 5h 84%@Sat 13:46 7d 33%@Wed 06:41'))
+assert(not module.parse_crypto('STALE BTC $1 ETH $2 LTC $3'))
+local codex_sample='codex-v1\tfresh\t100\tC 5h 0%@Sat 13:46 7d 100%@Wed 06:41\tA & B · C < D'
+local sample=assert(module.parse_codex_sample(codex_sample,170))
+assert(sample.five==0 and sample.week==100 and sample.source_updated==100)
+assert(module.parse_codex_sample(codex_sample,219))
+assert(not module.parse_codex_sample(codex_sample,220))
+assert(not module.parse_codex_sample(codex_sample,99))
+assert(not module.parse_codex_sample(codex_sample:gsub('fresh','stale'),170))
+assert(not module.parse_codex_sample(codex_sample:gsub('C 5h','C* 5h'),170))
+assert(not module.parse_codex_sample('C 5h 84%@Sat 13:46 7d 33%@Wed 06:41',170))
+assert(module.parse_crypto_sample('crypto-v1\tfresh\t100\tBTC $1 ETH $2 LTC $3',170).source_updated==100)
+assert(not module.parse_crypto_sample('crypto-v1\tstale\t100\tBTC $1 ETH $2 LTC $3',170))
+local source_now=170
+local sourced=module.new{now=function() return source_now end,timer=function() return {stop=function() end} end}
+sourced.define('quota',60,function(done) done({remaining=0,source_updated=100}) end)
+local source_handle=sourced.subscribe('quota',function() end)
+assert(sourced.state('quota').updated==100 and not sourced.state('quota').stale)
+source_now=99;assert(sourced.state('quota').stale,'Future confirmation is not fresh')
+source_now=220;sourced.refresh('quota')
+assert(sourced.state('quota').updated==100 and sourced.state('quota').stale,'Reading old cache cannot renew source age')
+source_handle.stop()
+
 -- Exercise the real command adapter with a mocked Awesome runtime.
 awesome = {}
 package.preload.gears = function() return {timer = function() end} end

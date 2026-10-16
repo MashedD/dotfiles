@@ -80,6 +80,11 @@ local function set_cached(widget, property, value)
     if widget._sidebar_cache == nil then widget._sidebar_cache = {} end
     if widget._sidebar_cache[property] == value then return false end
     widget._sidebar_cache[property] = value
+    -- Text and markup are aliases of the same textbox content, not independent
+    -- properties. Otherwise an old cached "unavailable" string can be skipped
+    -- after fresh markup has replaced it (and vice versa).
+    if property == 'text' then widget._sidebar_cache.markup = nil
+    elseif property == 'markup' then widget._sidebar_cache.text = nil end
     widget[property] = value
     return true
 end
@@ -835,7 +840,8 @@ function sidebar.create(s, dismiss_menu)
     local codex_card = collapsible_card("codex", "CODEX", codex_body)
     local function refresh_codex() data.refresh("codex") end
     local function render_codex(state)
-        local value = state.value
+        -- Quotas are a safety decision: history must never look like current headroom.
+        local value = not state.error and not state.stale and state.value or nil
         for _, row in ipairs({{codex_5h, "5h", "five"}, {codex_7d, "7d", "week"}}) do
             local widget, period, key = row[1], row[2], row[3]
             widget.remaining = value and value[key] or nil
@@ -847,6 +853,7 @@ function sidebar.create(s, dismiss_menu)
                 set_value(widget.bar, value[key])
                 set_cached(widget.bar, "color", appearance.remaining_color(value[key]))
             else
+                set_value(widget.bar, 0)
                 set_text(widget.summary, period .. " usage unavailable")
             end
         end
