@@ -11,6 +11,7 @@ local appearance = dofile(config_dir .. "/appearance.lua")
 local interaction = dofile(config_dir .. "/interaction.lua")
 local keyboard_shortcuts = dofile(config_dir .. "/keyboard-shortcuts.lua").new()
 local titlebar_layout = dofile(config_dir .. "/titlebar-layout.lua")
+local titlebar_drag_module = dofile(config_dir .. "/titlebar-drag.lua")
 local fullscreen_geometry = dofile(config_dir .. "/fullscreen-geometry.lua").install(client, awful, gears)
 dofile(config_dir .. "/menu-release.lua").install(require("awful.menu"), interaction, awful, gears)
 local panel = dofile(config_dir .. "/panel.lua")
@@ -184,6 +185,11 @@ local function snap(c, right)
     -- Include titlebars and size hints when fitting the window to the workarea.
     awful.placement.no_offscreen(c, {honor_workarea = true})
 end
+local titlebar_drag = titlebar_drag_module.new {
+    mouse = mouse, placement = awful.placement, resize = awful.mouse.resize,
+    native_move = awful.mouse.client.move, snap = snap,
+    snap_distance = awful.mouse.snap.default_distance, threshold = 4,
+}
 local function window_menu(c)
     dismiss_start_menu()
     awful.menu({items = {
@@ -713,7 +719,7 @@ client.connect_signal("request::titlebars", function(c)
         awful.button({}, 1, function()
             activate(c)
             if click_timer.started then click_timer:stop(); maximize(c)
-            else click_timer:start(); awful.mouse.client.move(c) end
+            else click_timer:start(); titlebar_drag.move(c) end
         end),
         awful.button({}, 2, function() lower(c) end),
         awful.button({}, 3, function() window_menu(c) end)

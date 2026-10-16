@@ -13,6 +13,8 @@ appearance.palette = {
     scrollbar_track = "#0b2338", scrollbar_rail = "#122d43",
     scrollbar_highlight = "#c1edff",
 }
+appearance.palette.calendar_weekend = appearance.palette.amber
+appearance.palette.calendar_weekend_bg = "#211c12"
 appearance.fonts = {body = "Microsoft Sans Serif 8", title = "Segoe UI bold 9", menu = "Segoe UI 9"}
 appearance.stops = {
     scrollbar = {{0, "#afdff0"}, {0.14, "#659fc4"}, {0.55, "#3d82b4"}, {1, "#397ca6"}},

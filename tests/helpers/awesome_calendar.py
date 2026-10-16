@@ -47,6 +47,48 @@ def verify_rollover(*, lua, env, wait):
                 end
                 assert(table.concat(text,' '):find('Rollover '..date,1,true),'Missing displayed event text')
                 assert(client.focus==__calendar_rollover_saved.focus,'Calendar stole focus')
+            end
+            local function appearance()
+                local s=screen[1]
+                local palette=dofile(awesome.conffile:match('^(.*)/')..'/appearance.lua').palette
+                local headers=s.sidebar_calendar_grid:get_children()[1]:get_children()
+                local expected={'Mo','Tu','We','Th','Fr','Sa','Su'}
+                assert(#headers==7)
+                for index,header in ipairs(headers) do
+                    local markup=header:get_children()[1].markup
+                    local color=markup:match("foreground='([^']+)'")
+                    assert(markup:find(expected[index],1,true),'Wrong weekday heading: '..index)
+                    assert(color==(index>=6 and palette.calendar_weekend or palette.muted),
+                        'Wrong weekday heading color: '..index)
+                end
+                local cells=s.sidebar_calendar_day_cells()
+                local function foreground(date)
+                    return cells[date]:get_children()[1].markup:match("foreground='([^']+)'")
+                end
+                local function background(date)
+                    local _,r,g,b=cells[date].bg:get_rgba()
+                    return string.format('#%02x%02x%02x',math.floor(r*255+0.5),
+                        math.floor(g*255+0.5),math.floor(b*255+0.5))
+                end
+                assert(foreground('2030-06-08')==palette.calendar_weekend,
+                    'Ordinary Saturday lacks weekend foreground')
+                assert(background('2030-06-08')==palette.calendar_weekend_bg,
+                    'Ordinary Saturday lacks weekend background')
+                assert(foreground('2030-06-02')==palette.teal,
+                    'Weekend event lost event emphasis')
+                assert(foreground('2030-06-01')==palette.neon,
+                    'Weekend today lost today emphasis')
+                assert(background('2030-06-01')=='#1d5944',
+                    'Selected weekend lost selection background')
+                s.sidebar_calendar_select_date('2030-06-08')
+                cells=s.sidebar_calendar_day_cells()
+                assert(foreground('2030-06-08')==palette.calendar_weekend,
+                    'Selected weekend lost weekend foreground')
+                assert(background('2030-06-08')=='#1d5944',
+                    'Selected weekend lost selection background')
+                assert(cells['2030-06-08'].border_width==1 and cells['2030-06-08'].border_color,
+                    'Selected weekend lost its selection border')
+                s.sidebar_calendar_select_date('2030-06-01')
             end'''
         code=functions+'''
             local ok=pcall(function() with_day('2024-01-01',function() error('Clock restore probe') end) end)
@@ -75,7 +117,9 @@ def verify_rollover(*, lua, env, wait):
                         'Rollover reset more than once on the same day')
                 end)
             end
-            with_day('2030-06-01',function() s.sidebar_calendar_refresh();selected('2030-06-01') end)
+            with_day('2030-06-01',function()
+                s.sidebar_calendar_refresh();selected('2030-06-01');appearance()
+            end)
             assert(s.sidebar_keyboard.active and s.sidebar_keyboard.target().id=='calendar:grid')
             assert(os.date==original_date,'Clock wrapper leaked')
             return true'''

@@ -58,14 +58,17 @@ Only `all` (the default) and `titlebars` are supported, with one selector per in
 or display; the shell selector requires `--session` or `--visual`.
 
 Titlebars initialize their own desktop/layout/sidebar baseline and normal fixture
-windows, then run the same control, tooltip, always-on-top, narrow normal/dialog,
-window-menu, Close, and unmanage/cancellation checks used by the full suite.
+windows, then run control/tooltip/always-on-top checks, maximized drag-to-restore,
+click/double-click preservation, top/left/right edge snapping (including top-corner
+priority), narrow normal/dialog titlebars, window-menu, Close, and unmanage/cancellation
+checks used by the full suite.
 They do not run sidebar interactions, workspaces, persistence/reload, broad fullscreen
 restoration, screen removal, or locking. Brief fullscreen interruptions of titlebar
 presses remain included. Shared fixture files, mocked collectors, startup/shutdown
 checks, optional screenshots, and private process cleanup remain unchanged.
 `helpers/awesome_titlebars.py` holds the extracted checks; full runs retain their
-original order, including the late destruction checks. There are no new production
+original order, including the late destruction checks. `test-awesome-titlebar-drag.lua` covers pointer-anchor math, drag threshold, edge
+priority and tiled/fullscreen guards without X11. There are no new production
 settings or runtime dependencies.
 
 Runs print executed titlebar groups and monotonic elapsed times; focused success is

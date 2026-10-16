@@ -135,8 +135,11 @@ python3 tests/test-awesome-session.py  # private Xvfb/D-Bus; no live-session cha
 Win+P opens the display menu: internal only, HDMI only, extended desktop, or
 automatic hotplug layout. Explicit HDMI modes prefer 2560×1440/144 Hz; the
 internal display stays enabled until a requested mode succeeds. Mouse: drag
-titlebar to move, double-click to maximize, Win+left-drag to move,
-Win+right-drag to resize. Titlebars have icon, title, an ↑ always-on-top toggle, minimize, maximize and
+titlebar to move, double-click to maximize, and drag a maximized titlebar to restore
+it beneath the pointer. Releasing a titlebar drag at the top edge maximizes; releasing
+at a left/right edge snaps to that workarea half (top wins at corners). A click alone
+does not unmaximize. Win+left-drag moves, Win+right-drag resizes. Titlebars have
+icon, title, an ↑ always-on-top toggle, minimize, maximize and
 close. The ↑ button stays pressed while enabled and its tooltip reports the state;
 it does not make the window sticky or move it between workspaces. Alt+Space/right-click title opens window actions. Win+Left/Right snaps
 a window to a screen half. Alt+Tab/Shift+Alt+Tab cycles; Alt+F4 closes;

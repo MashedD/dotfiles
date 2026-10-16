@@ -159,7 +159,7 @@ function M.create(options)
         for index, name in ipairs(weekdays) do
             local weekend = index >= 6
             weekday_row:add(wibox.widget {
-                label(name, weekend and palette.amber or palette.muted, 9, true, "center"),
+                label(name, weekend and palette.calendar_weekend or palette.muted, 9, true, "center"),
                 forced_width = 36, forced_height = 16, widget = wibox.container.background,
             })
         end
@@ -179,9 +179,9 @@ function M.create(options)
                     local is_selected, has_events = date == selected, by_date[date] ~= nil
                     local weekend = column >= 6
                     local color = date == os.date("%Y-%m-%d") and palette.neon
-                        or (has_events and palette.teal or (weekend and palette.amber or palette.text))
+                        or (has_events and palette.teal or (weekend and palette.calendar_weekend or palette.text))
                     local background = is_selected and "#1d5944"
-                        or (has_events and "#10291f" or (weekend and "#211c12" or "#0e1d17"))
+                        or (has_events and "#10291f" or (weekend and palette.calendar_weekend_bg or "#0e1d17"))
                     local cell = wibox.widget {
                         label(tostring(day), color, 9, is_selected or has_events or weekend, "center"),
                         forced_width = 36, forced_height = 24,

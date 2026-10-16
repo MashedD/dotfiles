@@ -2,6 +2,9 @@
 
 `rc.lua` composes the session, window rules, titlebar controls, and menus.
 `appearance.lua` owns shared palettes, gradients, opacity, and status thresholds.
+`titlebar-drag.lua` restores maximized floating windows only after a real titlebar
+drag begins, preserves the pointer's relative position, and applies top/side
+workarea snapping on release. Top-edge maximize takes precedence at corners.
 `titlebar-layout.lua` prioritizes Close on narrow windows, omitting always-on-top,
 minimize, then maximize as width runs out; the icon disappears below 62px. Normal
 button sizes/spacing remain intact where they fit. Alt+Space retains every action;

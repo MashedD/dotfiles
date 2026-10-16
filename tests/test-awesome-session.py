@@ -466,29 +466,6 @@ def main():
                 wait('return screen[1].workarea.y', '30')
                 assert 'true' in lua('local p=screen[1].panel; return p.visible and p.height == 30 and p.position == "top"')
                 assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and b.visible and not s.panel_clock_container.visible and s.sidebar_header and s.sidebar_header.forced_height == 26 and s.sidebar_mode == 3 and b.ontop and b:struts().right == 300 and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_trash_status and s.sidebar_trash_icon and s.sidebar_trash_state and s.sidebar_trash_timer.timeout == 30 and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_weather_text and s.sidebar_crypto_timer.timeout == 60 and s.sidebar_codex_card.forced_height == nil and s.sidebar_codex_timer.timeout == 60 and s.sidebar_audio_header == nil and s.sidebar_wallpaper_preview and s.sidebar_todo_card and #s.sidebar_todo_entries == 5 and s.sidebar_todo_entries[5] == "Fifth item" and s.sidebar_calendar_card and not s.sidebar_date_calendar and s.sidebar_calendar_grid and s.sidebar_calendar_weekday_order == "MoTuWeThFrSaSu" and #s.sidebar_calendar_entries == 7 and s.sidebar_calendar_entries[1].day == "past" and s.sidebar_calendar_entries[2].time == "08:15-09:00" and s.sidebar_calendar_entries[3].text == "visit: Today appointment" and s.sidebar_calendar_entries[6].text == "Third future event" and s.sidebar_todo_timer.timeout == 60 and s.sidebar_calendar_timer.timeout == 60 and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width-300 and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
-                assert 'true' in lua('''local s=screen[1]; local headers=s.sidebar_calendar_grid:get_children()[1]:get_children()
-                    assert(#headers==7)
-                    for index,header in ipairs(headers) do
-                        local markup=header:get_children()[1].markup
-                        local color=markup:match("foreground='([^']+)'")
-                        assert(markup:find(({"Mo","Tu","We","Th","Fr","Sa","Su"})[index],1,true))
-                        assert(color==(index>=6 and "#ffd36e" or "#b7c8bd"),"Wrong weekday header color: "..index)
-                    end
-                    local event_dates={}; for _,entry in ipairs(s.sidebar_calendar_entries) do event_dates[entry.date]=true end
-                    local found=false
-                    for date,cell in pairs(s.sidebar_calendar_day_cells()) do
-                        local y,m,d=date:match("(%d+)%-(%d+)%-(%d+)")
-                        local stamp=os.time{year=tonumber(y),month=tonumber(m),day=tonumber(d),hour=12}
-                        if tonumber(os.date("%u",stamp))>=6 and not event_dates[date] and date~=os.date("%Y-%m-%d") then
-                            local markup=cell:get_children()[1].markup
-                            assert(markup:find("foreground='#ffd36e'",1,true),"Weekend date is not amber")
-                            local _,r,g,b=cell.bg:get_rgba(); local color=string.format("#%02x%02x%02x",math.floor(r*255+0.5),math.floor(g*255+0.5),math.floor(b*255+0.5))
-                            assert(color=="#211c12","Weekend background is not warm-tinted: "..color)
-                            found=true; break
-                        end
-                    end
-                    assert(found,"No unselected non-event weekend cell to verify")
-                    return true''')
                 assert 'true' in lua('local s=screen[1]; return table.concat(s.sidebar_content_order, ",") == "calendar,todo,quick-launch,system-status,codex,crypto,weather,now-playing,wallpaper"')
                 assert 'true' in lua('local s=screen[1]; return s.sidebar_sections.crypto.collapsed')
                 click_sidebar_title("crypto")

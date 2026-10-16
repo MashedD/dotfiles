@@ -43,6 +43,78 @@ def verify_controls(*, lua, wait, pointer, capture, helper, press, visual, env,
     wait('return tostring(__gesture_client.maximized)', '"true"')
     lua('__gesture_client.maximized=false')
     wait('return tostring(__gesture_client.maximized)', '"false"')
+
+    # Maximized titlebar clicks preserve maximize; a real drag restores beneath
+    # the pointer, then uses top/side workarea snapping on release.
+    time.sleep(0.55)  # let the intentional double-click interval expire
+    lua('__gesture_client:geometry({x=120,y=190,width=400,height=200}); __restore_geometry=__gesture_client:geometry(); __gesture_client.maximized=true')
+    max_state=lua('local c=__gesture_client; local g=c:geometry(); return g.x..":"..g.y..":"..g.width..":"..g.height')
+    mx,my,mw,mh=map(int,re.search(r'"(-?\d+):(-?\d+):(\d+):(\d+)"',max_state).groups())
+    click_x,clic_y=mx+int(mw*0.72),my+13
+    pointer('mousemove',click_x,clic_y,'click',1)
+    wait('return tostring(__gesture_client.maximized)','"true"')
+    time.sleep(0.55)  # a click remains a click, not the start of a double-click
+    saved=lua('local c=__gesture_client; local g=c:geometry(); return g.x..":"..g.y..":"..g.width..":"..g.height')
+    sx,sy,sw,sh=map(int,re.search(r'"(-?\d+):(-?\d+):(\d+):(\d+)"',saved).groups())
+    ratio=max(0,min(1,(click_x-sx)/sw)); title_offset=clic_y-sy
+    target_x,target_y=500,250
+    pointer('mousemove',click_x,clic_y);pointer('mousedown',1)
+    pointer('mousemove',target_x,target_y);pointer('mouseup',1)
+    wait('return tostring(not mousegrabber.isrunning() and not __gesture_client.maximized)','"true"')
+    moved=lua('local c=__gesture_client; local g=c:geometry(); return g.x..":"..g.y..":"..g.width..":"..g.height')
+    moved_x,moved_y,_,_=map(int,re.search(r'"(-?\d+):(-?\d+):(\d+):(\d+)"',moved).groups())
+    restored_width=float(lua('return __restore_geometry.width').strip().split()[-1].strip('"'))
+    assert abs(moved_x-(target_x-ratio*restored_width))<=3, (moved,ratio,restored_width)
+    assert abs(moved_y-(target_y-title_offset))<=3, (moved,title_offset)
+    time.sleep(0.55)  # reset titlebar's double-click detector before edge drags
+
+    def drag_edge(start_x,start_y,end_x,end_y):
+        pointer('mousemove',start_x,start_y);pointer('mousedown',1)
+        pointer('mousemove',end_x,end_y);pointer('mouseup',1)
+        wait('return tostring(not mousegrabber.isrunning())','"true"')
+        time.sleep(0.55)
+
+    # Top center and top corners maximize; corners do not quarter-snap.
+    lua('__gesture_client.maximized=true')
+    top=lua('local c=__gesture_client; local g=c:geometry(); return math.floor(g.x+g.width/2)..":"..math.floor(g.y+13)')
+    tx,ty=map(int,re.search(r'"(-?\d+):(-?\d+)"',top).groups())
+    drag_edge(tx,ty,tx,2)
+    wait('return tostring(__gesture_client.maximized)','"true"')
+    lua('__gesture_client.maximized=false; __gesture_client:geometry({x=180,y=210,width=400,height=200})')
+    corner=lua('local c=__gesture_client; return (c.x+120)..":"..(c.y+13)')
+    cx,cy=map(int,re.search(r'"(-?\d+):(-?\d+)"',corner).groups())
+    drag_edge(cx,cy,2,2)
+    wait('return tostring(__gesture_client.maximized)','"true"')
+
+    # Ordinary floating-window titlebar drags use Awesome's native mover, with
+    # the same full maximize result at the top edge.
+    lua('__gesture_client.maximized=false; __gesture_client:geometry({x=180,y=210,width=400,height=200})')
+    point=lua('local c=__gesture_client; return (c.x+120)..":"..(c.y+13)')
+    px,py=map(int,re.search(r'"(-?\d+):(-?\d+)"',point).groups())
+    drag_edge(px,py,640,2)
+    wait('return tostring(__gesture_client.maximized)','"true"')
+
+    # Left/right releases fill their respective halves of the workarea.
+    lua('__gesture_client.maximized=false; __gesture_client:geometry({x=180,y=210,width=400,height=200})')
+    for edge_x,right in ((2,False),(-2,True)):
+        if right:
+            edge_x=int(float(lua('return screen[1].geometry.x+screen[1].geometry.width-2').strip().split()[-1].strip('"')))
+        point=lua('local c=__gesture_client; return (c.x+120)..":"..(c.y+13)')
+        px,py=map(int,re.search(r'"(-?\d+):(-?\d+)"',point).groups())
+        drag_edge(px,py,edge_x,300)
+        geometry=lua('local c=__gesture_client; local g=c:geometry(); return g.x..":"..g.y..":"..g.width..":"..g.height')
+        x,y,width,height=map(int,re.search(r'"(-?\d+):(-?\d+):(\d+):(\d+)"',geometry).groups())
+        area=lua('local a=screen[1].workarea; return a.x..":"..a.y..":"..a.width..":"..a.height')
+        ax,ay,aw,ah=map(int,re.search(r'"(-?\d+):(-?\d+):(\d+):(\d+)"',area).groups())
+        expected_x=ax+(aw//2 if right else 0)
+        assert abs(x-expected_x)<=2 and abs(y-ay)<=2, (right,geometry,area)
+        assert width > aw//2-10 and width <= aw//2, (right,geometry,area)
+        assert height >= ah-10, (right,geometry,area)
+        lua('__gesture_client:geometry({x=180,y=210,width=400,height=200})')
+
+    lua('__gesture_client.maximized=false; __gesture_client:geometry({x=80,y=180,width=400,height=200})')
+    coordinates=lua('local c=__gesture_client; return (c.x+c.width-36)..":"..(c.y+13)')
+    gx,gy=re.search(r'"(-?\d+):(-?\d+)"',coordinates).groups()
     pointer("mousemove", gx, gy, "mousedown", 1)
     lua('__gesture_client.fullscreen=true')
     wait('return tostring(not __gesture_client._private.release_controls.titlebar_maximize.state.armed and not mousegrabber.isrunning())', '"true"')
