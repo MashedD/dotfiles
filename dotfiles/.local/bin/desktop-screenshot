@@ -21,7 +21,7 @@ case "$mode" in
     }
     ;;
   region)
-    capture() { maim -s; }
+    capture() { maim -s --noopengl; }
     ;;
   -h|--help)
     usage

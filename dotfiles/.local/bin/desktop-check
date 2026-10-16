@@ -92,9 +92,23 @@ check_commands required "$required_commands"
 check_commands optional "$optional_commands"
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
 data_home=${XDG_DATA_HOME:-$HOME/.local/share}
-for config in awesome/rc.lua awesome/panel.lua awesome/autostart picom/picom.conf X11/xinitrc xdg-terminals.list; do
+for config in awesome/rc.lua awesome/panel.lua awesome/autostart picom/picom.conf X11/xinitrc xdg-terminals.list xsettingsd/xsettingsd.conf; do
   check_file config "$config_home/$config"
 done
+xsettings_config="$config_home/xsettingsd/xsettingsd.conf"
+if [ -f "$xsettings_config" ]; then
+  gtk_theme=no gtk_blue=no
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      'Net/ThemeName "Adwaita"') gtk_theme=yes ;;
+      *'selected_bg_color:#3584e4'*) gtk_blue=yes ;;
+    esac
+  done < "$xsettings_config"
+  if [ "$gtk_theme" = yes ]; then ok 'GTK theme Adwaita'
+  else fail "GTK theme: expected Adwaita in $xsettings_config"; fi
+  if [ "$gtk_blue" = yes ]; then ok 'GTK selection accent Adwaita blue'
+  else fail "GTK selection accent: expected #3584e4 in $xsettings_config"; fi
+fi
 terminal_list="$config_home/xdg-terminals.list"
 if [ -f "$terminal_list" ]; then
   selected_terminal=''

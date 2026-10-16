@@ -31,6 +31,8 @@ class HealthCheckTests(unittest.TestCase):
         for name in ['awesome/rc.lua', 'awesome/panel.lua', 'awesome/autostart',
                      'picom/picom.conf', 'X11/xinitrc']:
             self.file(self.config / name)
+        self.file(self.config / 'xsettingsd/xsettingsd.conf',
+                  'Net/ThemeName "Adwaita"\nGtk/ColorScheme "selected_bg_color:#3584e4\\nselected_fg_color:#ffffff"\n')
         self.file(self.config / 'xdg-terminals.list', 'kitty.desktop\n')
         for name in ['aurora-cabin.png']:
             self.file(self.home / '.local/share/wallpapers' / name)
@@ -168,6 +170,16 @@ esac
         self.assertIn('config', result.stdout)
         self.assertIn('xdg-terminals.list', result.stdout)
         self.assertIn('1 required failure(s)', result.stdout)
+
+    def test_adwaita_theme_and_blue_selection_are_required(self):
+        settings = self.config / 'xsettingsd/xsettingsd.conf'
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stdout)
+        settings.write_text('Net/ThemeName "VAX"\nGtk/ColorScheme "selected_bg_color:#001a00"\n')
+        result = self.invoke()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('GTK theme: expected Adwaita', result.stdout)
+        self.assertIn('GTK selection accent: expected #3584e4', result.stdout)
 
     def test_missing_default_wallpaper_is_required(self):
         (self.home / '.local/share/wallpapers/aurora-cabin.png').unlink()

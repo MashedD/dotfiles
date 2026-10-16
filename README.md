@@ -1,12 +1,12 @@
 # Awesome desktop dotfiles
 
 CachyOS/X11, floating AwesomeWM, four desktops, native panel and sidebar.
-Win98/Matrix styling with Frutiger Aero glass titlebars.
+Frutiger Aero-inspired blue desktop chrome, Adwaita GTK controls and VAX terminals.
 Legacy configurations remain for reference; they are not the active session.
 
 ## Install
 
-Required desktop packages (Chicago95 must be installed separately):
+Required desktop packages (Chicago95 icons/cursors are installed separately):
 
 ```sh
 sudo pacman -S --needed stow awesome xsettingsd snixembed \

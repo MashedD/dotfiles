@@ -8,7 +8,7 @@ This is the active desktop configuration for a CachyOS X11 session:
 - AwesomeWM with four workspaces, floating-by-default windows (Win+Space toggles the current tag to tile) and Win98/Matrix titlebars
 - Native Awesome 30px Win98/Matrix top panel and XEmbed tray, with snixembed bridge
 - kitty, xfce4-appfinder, pcmanfm, dunst, lxqt-policykit, and xss-lock/i3lock
-- Chicago95 controls with Matrix-green (`#001a00` / `#00ff41`) active states
+- Adwaita GTK controls with blue selection; VAX colors remain in terminals. Chicago95 icons and cursors are retained during the theme trial.
 - HDMI-A-1-0 preferred at 2560×1440/144 Hz, with internal-display recovery
 
 See the [configuration audit](config-audit.md) for references and deployment.
@@ -58,8 +58,9 @@ existing file or symlink:
 ./stow.sh unlink          # preflight, then remove only Stow-owned links
 ```
 
-Chicago95 remains an external installation. Then generate the VAX overlay and
-named panel icon separately:
+The active GTK widget theme is system Adwaita with a blue selection accent.
+Chicago95 remains external for its icon/cursor themes and for generating the
+legacy VAX overlay and named panel icon:
 
 ```sh
 ./setup-vax-theme
@@ -68,14 +69,15 @@ named panel icon separately:
 ```
 
 The helper searches standard user and system theme directories, writes the
-generated VAX theme to `${XDG_DATA_HOME:-~/.local/share}/themes/VAX`, and keeps
-the GTK2 controls and a GTK3 Matrix-green selection wrapper. It creates a
+VAX theme to `${XDG_DATA_HOME:-~/.local/share}/themes/VAX`, and keeps Chicago95's
+GTK2 controls plus the GTK3 Matrix-green selection overlay available for rollback.
+The active GTK theme remains Adwaita. It creates a
 compatibility `~/.themes/VAX` symlink only when that path is absent or is the
 old repository-owned VAX symlink. Unmarked themes, files, icon paths, and
 unrelated symlinks are refused. Re-run it after updating Chicago95.
 
-`desktop-check` is read-only: it checks Awesome syntax, commands, assets, fonts,
-generated theme files and helper executability. Default output shows failures,
+`desktop-check` is read-only: it checks Awesome syntax, commands, the configured
+Adwaita/blue GTK settings, assets, fonts, generated theme files and helper executability. Default output shows failures,
 warnings and a summary; `desktop-check --verbose` also shows successful checks
 and validator output. Required failures exit 1; optional warnings alone exit 0.
 `desktop-check --runtime` additionally queries the current X display and Awesome,

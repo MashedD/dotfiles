@@ -245,8 +245,10 @@ Solaar, and Clipman are not started by this profile, without launching real
 services. Display profile tests mock all RandR calls and assert internal-only,
 HDMI-only, and extended layouts. The display-helper test mocks RandR and does not
 change hardware modes.
-The lock-helper test checks foreground waiting, image cleanup, conversion-failure
-fallback, inherited suspend FD and duplicate prevention using a mock locker.
+The screenshot-helper test verifies region capture uses slop's no-OpenGL path and
+that cancellation saves or copies nothing. The lock-helper test checks foreground
+waiting, image cleanup, conversion-failure fallback, inherited suspend FD and
+duplicate prevention using a mock locker.
 
 ## Theme smoke test
 
