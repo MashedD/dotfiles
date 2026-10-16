@@ -759,6 +759,57 @@ def main():
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
                 menu_items = lua('local r=""; for i,item in ipairs(screen[1].start_menu.items) do r=r..i..":"..tostring(item.label and item.label.text)..":"..tostring(item.cmd)..";" end; return r')
                 assert '13:Display outputs' in menu_items, menu_items
+                press('Escape')
+                wait('return tostring(screen[1].start_menu.wibox.visible)', '"false"')
+                press('super')
+                wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
+                lua('__start_run_cmd=screen[1].start_menu.items[2].cmd; __start_mnemonic_action=nil; screen[1].start_menu.items[2].cmd=function() __start_mnemonic_action="run" end')
+                press('Down')
+                assert 'true' in lua('return screen[1].start_menu.sel==1')
+                press('Down')
+                assert 'true' in lua('return screen[1].start_menu.sel==2')
+                press('Return')
+                wait('return tostring(__start_mnemonic_action)', '"run"')
+                wait('return tostring(screen[1].start_menu.wibox.visible)', '"false"')
+                lua('screen[1].start_menu.items[2].cmd=__start_run_cmd; __start_run_cmd=nil; __start_mnemonic_action=nil')
+                press('super')
+                wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
+                mnemonic_state=lua('''
+                    local expected={[1]="a",[2]="r",[4]="k",[5]="p",[6]="f",[7]="d",
+                        [8]="g",[9]="e",[11]="m",[12]="v",[13]="y",[15]="q",
+                        [16]="u",[18]="l",[19]="o",[20]="s",[21]="w"}
+                    local seen,count,details={},0,{}
+                    for index,item in ipairs(screen[1].start_menu.items) do
+                        local key=expected[index]
+                        details[#details+1]=index..":"..tostring(item.akey)..":"..tostring(item.label and item.label.markup)
+                        if key then
+                            if item.akey~=key or not item.label.markup:find("<u>",1,true) then return table.concat(details,"|") end
+                            if seen[key] then return table.concat(details,"|duplicate:")..key end
+                            seen[key],count=true,count+1
+                        elseif item.akey and item.akey~="" then return table.concat(details,"|unexpected:") end
+                    end
+                    return table.concat(details,"|").."|count="..count
+                ''')
+                assert 'count=17' in mnemonic_state, mnemonic_state
+                lua('__start_quake1_cmd=screen[1].start_menu.items[15].cmd; __start_mnemonic_action=nil; screen[1].start_menu.items[15].cmd=function() __start_mnemonic_action="quake1" end')
+                press('q')
+                wait('return tostring(__start_mnemonic_action)', '"quake1"')
+                wait('return tostring(screen[1].start_menu.wibox.visible)', '"false"')
+                lua('screen[1].start_menu.items[15].cmd=__start_quake1_cmd; __start_quake2_cmd=screen[1].start_menu.items[16].cmd')
+                subprocess.run(["xdotool", "mousemove", "30", "15", "click", "1"], env=env, check=True)
+                wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
+                lua('__start_mnemonic_action=nil; screen[1].start_menu.items[16].cmd=function() __start_mnemonic_action="quake2" end')
+                press('u')
+                wait('return tostring(__start_mnemonic_action)', '"quake2"')
+                wait('return tostring(screen[1].start_menu.wibox.visible)', '"false"')
+                lua('screen[1].start_menu.items[16].cmd=__start_quake2_cmd; __start_quake1_cmd=nil; __start_quake2_cmd=nil; __start_mnemonic_action=nil')
+                subprocess.run(["xdotool", "mousemove", "30", "15", "click", "1"], env=env, check=True)
+                wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
+                right_click_point=menu_item_point('screen[1].start_menu', 1)
+                pointer("mousemove", *right_click_point, "click", 3)
+                wait('return tostring(screen[1].start_menu.wibox.visible)', '"false"')
+                subprocess.run(["xdotool", "mousemove", "30", "15", "click", "1"], env=env, check=True)
+                wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
                 awesome_controls.verify_native_menu_release(
                     lua=lua, pointer=pointer, wait=wait, press=press,
                     menu_item_point=menu_item_point, capture_menu_item=capture_menu_item,

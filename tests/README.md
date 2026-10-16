@@ -85,7 +85,9 @@ paths are tested without X11 by `test-awesome-session-runner.py` and
 The Awesome runtime test uses a private Xvfb display and private D-Bus bus,
 disables real autostart, and uses a temporary HOME/runtime directory. It
 checks the native 30px panel/strut, date, volume controls (mocked audio commands),
-Start menu, calendar, XEmbed tray ownership, wallpaper, plain corner resizing,
+Start menu (unique underlined mnemonics, immediate key activation, and existing
+keyboard/mouse behavior), calendar, XEmbed tray ownership, wallpaper, plain corner
+resizing,
 borderless maximization/fullscreen, zero fullscreen `_NET_FRAME_EXTENTS` and
 screen-sized native client bounds (not just WM outer geometry), repeated floating
 fullscreen round trips without size drift, complete maximize → fullscreen → exit →
