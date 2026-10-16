@@ -12,10 +12,13 @@ Required desktop packages (Chicago95 must be installed separately):
 sudo pacman -S --needed stow awesome xsettingsd snixembed \
   xorg-xrandr xorg-xset xclip xdotool maim \
   xss-lock i3lock dunst clipmenu dmenu pcmanfm \
-  gtk2 gtk3 fontconfig dbus util-linux \
+  gtk2 gtk3 fontconfig dbus util-linux xdg-terminal-exec \
   kitty xfce4-appfinder lxqt-policykit wireplumber brightnessctl \
   playerctl pavucontrol picom
 ```
+
+`xdg-terminal-exec` honors `~/.config/xdg-terminals.list`; this configuration
+selects `kitty.desktop` for desktop applications marked `Terminal=true`.
 
 From the repository root:
 
