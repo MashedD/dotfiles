@@ -34,7 +34,10 @@ adapts native grabs, clipped focus outlines, scrolling and lifecycle cancellatio
 input; application-only input requires Escape first. Calendar keyboard arithmetic
 lives with the calendar component. See [keyboard usage](../../../docs/desktop.md#sidebar-keyboard-navigation).
 `sidebar-launch.lua` rechecks executable availability on hover/click and reports
-immediate failures without disabling entries or waiting for application exit.
+immediate failures without disabling entries or waiting for application exit. TODO
+rows and calendar event entries launch their default GIO handler, allowing
+`Terminal=true` editors to open in the configured terminal instead of inheriting
+Awesome's lack of a TTY from `xdg-open`.
 `menu-release.lua` adapts native `awful.menu` entries with an in-content pressed overlay
 and activates only on a valid left-button release inside the same item; keyboard
 navigation and right-click dismissal remain native. Start-menu entries use unique,

@@ -283,7 +283,10 @@ Start. No synthetic keystrokes or modifier changes are used.
 - The calendar grid is one focus stop. Left/Right select a day; Up/Down select a
   week. Page Up/Down change month, clamping the day if needed; Home selects today,
   End selects the month's last day. Enter/Space opens `calendar.md`. Date changes
-  update the displayed events immediately. Month-arrow buttons remain separate.
+  update the displayed events immediately. Clicking a listed TODO item or
+  calendar event opens its Markdown document with the registered desktop handler;
+  date cells select dates, and section headings fold/expand. Month-arrow buttons
+  remain separate.
   When the local day changes, the next existing one-minute refresh selects today,
   shows its month and events, even during browsing or keyboard navigation. This
   also catches up after suspend. Later same-day refreshes preserve your selection;

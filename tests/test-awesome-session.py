@@ -166,6 +166,17 @@ def main():
             executable = bin_dir / name
             executable.write_text(source)
             executable.chmod(0o755)
+        (testhome / ".config").mkdir(exist_ok=True)
+        (testhome / ".config/mimeapps.list").write_text(
+            "[Default Applications]\ntext/plain=awesome-test-opener.desktop;\n"
+            "text/markdown=awesome-test-opener.desktop;\n")
+        (testhome / ".local/share/applications/awesome-test-opener.desktop").write_text(
+            "[Desktop Entry]\nType=Application\nName=Awesome test document opener\n"
+            f"Exec={bin_dir / 'xdg-open'} %U\nTerminal=false\n"
+            "NoDisplay=true\nMimeType=text/plain;text/markdown;\n")
+        (testhome / ".local/share/applications/mimeinfo.cache").write_text(
+            "[MIME Cache]\ntext/markdown=awesome-test-opener.desktop;\n"
+            "text/plain=awesome-test-opener.desktop;\n")
         volume_helper = helpers / "desktop-volume"
         volume_helper.write_text('#!/bin/sh\necho "$1" >> "$TEST_ACTIONS"\n')
         volume_helper.chmod(0o755)
@@ -640,7 +651,9 @@ def main():
                 wait('return screen[1].sidebar_calendar_month()', f'"{current_month}"')
                 lua('screen[1].sidebar_calendar_select_date(os.date("%Y-%m-%d"))')
                 assert 'true:true' in lua('local s=screen[1]; local n=0; for _,entry in ipairs(s.sidebar_calendar_entries) do if entry.date == s.sidebar_calendar_selected_date() then n=n+1 end end; return tostring(s.sidebar_calendar_day_cells()[s.sidebar_calendar_selected_date()] ~= nil)..":"..tostring(n == 2)')
-                lua('local s=screen[1]; local row=s.sidebar_calendar_events_widget:get_children()[1]; for _,button in ipairs(row:buttons()) do if button.button == 1 then button:emit_signal("press"); return true end end; return false')
+                assert 'true' in lua('local app=require("lgi").Gio.AppInfo.get_default_for_type("text/plain",false); return tostring(app and app:get_id()=="awesome-test-opener.desktop")')
+                calendar_event_point = widget_point('screen[1].sidebar_calendar_events_widget:get_children()[1]', x=150)
+                pointer("mousemove", *calendar_event_point, "click", 1)
                 expected_calendar = f"open {testhome / 'Documents/calendar.md'}"
                 deadline = time.monotonic() + 5
                 while time.monotonic() < deadline and expected_calendar not in actions_file.read_text():
@@ -710,10 +723,15 @@ def main():
                 lua('for _,b in ipairs(screen[1].sidebar_volume:buttons()) do if b.button == 3 then b:emit_signal("press") end end')
                 lua('for _,b in ipairs(screen[1].sidebar_volume:buttons()) do if b.button == 1 then b:emit_signal("press") end end')
                 time.sleep(0.3)
-                lua('screen[1].sidebar_todo_open(); screen[1].sidebar_calendar_open()')
-                wait('local f=io.open(os.getenv("TEST_ACTIONS"),"r"); local v=f and f:read("*a") or ""; if f then f:close() end; return v:find("open "..os.getenv("HOME").."/Documents/todo.md",1,true) and v:find("open "..os.getenv("HOME").."/Documents/calendar.md",1,true) and "opened" or "pending"', 'opened')
+                todo_body_point = widget_point('screen[1].sidebar_sections.todo.body:get_children()[1]:get_children()[1]', scroll=10000, x=150)
+                pointer("mousemove", *todo_body_point, "click", 1)
+                todo_path = str(testhome / "Documents/todo.md")
+                wait('local f=io.open(os.getenv("TEST_ACTIONS"),"r"); local v=f and f:read("*a") or ""; if f then f:close() end; return v:find("open "..' + repr(todo_path) + ',1,true) and "opened" or "pending"', 'opened')
+                lua('screen[1].sidebar_calendar_open()')
+                calendar_path = str(testhome / "Documents/calendar.md")
+                wait('local f=io.open(os.getenv("TEST_ACTIONS"),"r"); local v=f and f:read("*a") or ""; if f then f:close() end; return v:find("open "..' + repr(calendar_path) + ',1,true) and "opened" or "pending"', 'opened')
                 actions = (directory / "actions").read_text().splitlines()
-                assert all(action in actions for action in ("mute", "mixer", f"open {testhome}/Documents/todo.md", f"open {testhome}/Documents/calendar.md")), actions
+                assert all(action in actions for action in ("mute", "mixer", f"open {todo_path}", f"open {calendar_path}")), actions
                 assert "up" not in actions and "down" not in actions, actions
                 xlib = ctypes.CDLL("libX11.so.6")
                 xlib.XOpenDisplay.argtypes = [ctypes.c_char_p]

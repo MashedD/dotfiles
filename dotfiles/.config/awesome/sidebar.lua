@@ -47,6 +47,16 @@ local function open_document(filename)
     return io.open((os.getenv("HOME") or "") .. "/Documents/" .. filename, "r")
 end
 
+local function launch_document(path)
+    -- xdg-open runs Terminal=true apps in its caller's terminal; Awesome has no
+    -- TTY, so launch the registered GIO app and let its desktop entry open Kitty.
+    local uri = Gio.File.new_for_path(path):get_uri()
+    local ok, result = pcall(Gio.AppInfo.launch_default_for_uri, uri, nil)
+    if not ok or result ~= true then
+        gears.debug.print_error("Could not open sidebar document " .. path .. ": " .. tostring(result))
+    end
+end
+
 local function read_sidebar_todo()
     local file = open_document("todo.md")
     if not file then return {} end
@@ -923,7 +933,7 @@ function sidebar.create(s, dismiss_menu)
     }
     local function open_todo_document()
         if suppress_scroll_click then return end
-        awful.spawn({"xdg-open", (os.getenv("HOME") or "") .. "/Documents/todo.md"})
+        launch_document((os.getenv("HOME") or "") .. "/Documents/todo.md")
         if dismiss_menu then dismiss_menu() end
     end
     todo_body:buttons(gears.table.join(awful.button({}, 1, open_todo_document)))
@@ -931,7 +941,7 @@ function sidebar.create(s, dismiss_menu)
 
     local function open_calendar_document()
         if suppress_scroll_click then return end
-        awful.spawn({"xdg-open", (os.getenv("HOME") or "") .. "/Documents/calendar.md"})
+        launch_document((os.getenv("HOME") or "") .. "/Documents/calendar.md")
         if dismiss_menu then dismiss_menu() end
     end
     local calendar_ui = calendar_component.create {
