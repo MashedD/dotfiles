@@ -17,7 +17,7 @@ spec.loader.exec_module(session)
 class ArgumentTests(unittest.TestCase):
     def test_defaults_and_supported_combinations(self):
         self.assertEqual(session.parse_args([]).scenario, 'all')
-        for name in ('all', 'titlebars'):
+        for name in ('all', 'titlebars', 'workspace-transfer', 'sidebar-documents'):
             for argv in (['--scenario', name], ['--scenario='+name, '--composited', '--inside']):
                 args = session.parse_args(argv)
                 self.assertEqual(args.scenario, name)
@@ -44,7 +44,7 @@ class ArgumentTests(unittest.TestCase):
                     self.assertNotIn('--inside', out.getvalue())
 
     def test_outer_process_forwards_flags_and_exit_status(self):
-        argv = ['--scenario', 'titlebars', '--composited']
+        argv = ['--scenario', 'sidebar-documents', '--composited']
         with patch.object(sys, 'argv', [str(PATH), *argv]), \
              patch.object(session.subprocess, 'call', return_value=17) as call:
             self.assertEqual(session.main(), 17)
@@ -64,11 +64,12 @@ class DispatchTests(unittest.TestCase):
         return events, {name: callback(name) for name in ('prepare', 'controls', 'destruction')}
 
     def test_focused_order_and_default_continuation(self):
-        for scenario in ('all', 'titlebars'):
+        for scenario in ('all', 'titlebars', 'workspace-transfer', 'sidebar-documents'):
             events, callbacks = self.callbacks()
             focused = session.run_focused(scenario, **callbacks)
             self.assertEqual(focused, scenario == 'titlebars')
-            self.assertEqual(events, [] if scenario == 'all' else ['prepare', 'controls', 'destruction'])
+            expected = ['prepare', 'controls', 'destruction'] if scenario == 'titlebars' else []
+            self.assertEqual(events, expected)
 
     def test_unknown_scenario_and_failure_do_not_continue(self):
         events, callbacks = self.callbacks()

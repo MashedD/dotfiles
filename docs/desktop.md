@@ -228,6 +228,18 @@ maintainer-guided driver isolation; avoid partial Arch package upgrades.
 - Media and brightness keys use the shared desktop helpers
 - Awesome desktop menu: **Reapply Display Layout** runs the same serialized layout pass
 
+### Less-obvious controls
+
+| Action | Shortcut or gesture |
+| --- | --- |
+| Toggle floating/tiled layout for the current desktop | Win+Space |
+| Move/resize a window from anywhere | Win+left-drag / Win+right-drag |
+| Restore a maximized window and snap it | Drag its titlebar; release at the top to maximize or at a side to snap half-screen |
+| Open window actions | Alt+Space or right-click the titlebar |
+| Navigate the visible sidebar | Win+S; Escape exits; application-only keys are not replayed |
+| Toggle Start menu without selecting another shortcut | Tap and release Win |
+| Reload Awesome | Win+Ctrl+R |
+
 Screenshots are captured into `~/Pictures/Screenshots` only after a successful
 capture, then copied to the clipboard. A cancelled region selection leaves
 existing clipboard contents and saved screenshots unchanged; a clipboard

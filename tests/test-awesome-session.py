@@ -19,6 +19,7 @@ from datetime import date, timedelta
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tests/helpers"))
 import awesome_controls
+import awesome_sidebar
 from awesome_lock import PrivateLock
 import awesome_titlebars
 import awesome_keyboard
@@ -53,7 +54,7 @@ class SingleScenario(argparse.Action):
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--scenario', choices=('all', 'titlebars'), action=SingleScenario,
+    parser.add_argument('--scenario', choices=('all', 'titlebars', 'workspace-transfer', 'sidebar-documents'), action=SingleScenario,
                         help='checks to run (default: all)')
     parser.add_argument('--composited', action='store_true', help='use private Picom/XRender')
     parser.add_argument('--inside', action='store_true', help=argparse.SUPPRESS)
@@ -71,7 +72,7 @@ def run_timed(name, check):
 
 def run_focused(scenario, *, prepare, controls, destruction):
     """Return False to continue the unchanged full-session sequence."""
-    if scenario == 'all':
+    if scenario in ('all', 'workspace-transfer', 'sidebar-documents'):
         return False
     if scenario != 'titlebars':
         raise ValueError(f'Unknown scenario: {scenario}')
@@ -449,7 +450,7 @@ def main():
                     if scenario == 'all':
                         print('PASS: sidebar drag reorder/persistence/edge-scroll, native panel/widgets, Start/calendar/tray, wallpaper, fullscreen, workspaces, menus, reload and lock')
                     else:
-                        print('PASS: titlebars only (other session scenarios not run)')
+                        print(f'PASS: focused scenario {scenario} (other session scenarios not run)')
                     print(f'PASS: session scenario={scenario} ({time.monotonic()-started:.2f}s)', flush=True)
 
                 if run_focused(args.scenario,
@@ -459,6 +460,14 @@ def main():
                     return 0
 
                 wait('return #screen[1].tags', '4')
+                if args.scenario == 'workspace-transfer':
+                    spawn('AwesomeSmokeA', '400x200+100+100')
+                    wait('for _,c in ipairs(client.get()) do if c.instance=="AwesomeSmokeA" then return "ready" end end; return "waiting"', '"ready"')
+                    run_timed('workspace.transfer', lambda: awesome_controls.verify_workspace_transfer(
+                        lua=lua, pointer=pointer, wait=wait, workspace_point=workspace_point,
+                        log_text=logfile.read_text))
+                    finish_session(args.scenario)
+                    return 0
                 assert 'floating' in lua('return require("awful").layout.getname(require("awful").layout.get(screen[1]))')
                 press('super+space')
                 assert 'tile' in lua('return require("awful").layout.getname(require("awful").layout.get(screen[1]))')
@@ -478,6 +487,12 @@ def main():
                 assert 'true' in lua('local p=screen[1].panel; return p.visible and p.height == 30 and p.position == "top"')
                 assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and b.visible and not s.panel_clock_container.visible and s.sidebar_header and s.sidebar_header.forced_height == 26 and s.sidebar_mode == 3 and b.ontop and b:struts().right == 300 and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_trash_status and s.sidebar_trash_icon and s.sidebar_trash_state and s.sidebar_trash_timer.timeout == 30 and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_weather_text and s.sidebar_crypto_timer.timeout == 60 and s.sidebar_codex_card.forced_height == nil and s.sidebar_codex_timer.timeout == 60 and s.sidebar_audio_header == nil and s.sidebar_wallpaper_preview and s.sidebar_todo_card and #s.sidebar_todo_entries == 5 and s.sidebar_todo_entries[5] == "Fifth item" and s.sidebar_calendar_card and not s.sidebar_date_calendar and s.sidebar_calendar_grid and s.sidebar_calendar_weekday_order == "MoTuWeThFrSaSu" and #s.sidebar_calendar_entries == 7 and s.sidebar_calendar_entries[1].day == "past" and s.sidebar_calendar_entries[2].time == "08:15-09:00" and s.sidebar_calendar_entries[3].text == "visit: Today appointment" and s.sidebar_calendar_entries[6].text == "Third future event" and s.sidebar_todo_timer.timeout == 60 and s.sidebar_calendar_timer.timeout == 60 and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width-300 and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
                 assert 'true' in lua('local s=screen[1]; return s.sidebar_clock_mode == "text" and s.sidebar_digital_time.visible and not s.sidebar_clock.visible and s.sidebar_clock_card.forced_height == 66')
+                if args.scenario == 'sidebar-documents':
+                    run_timed('sidebar.documents', lambda: awesome_sidebar.verify_document_launches(
+                        lua=lua, wait=wait, pointer=pointer, widget_point=widget_point,
+                        actions_file=actions_file, testhome=testhome, log_text=logfile.read_text))
+                    finish_session(args.scenario)
+                    return 0
                 assert 'true' in lua('local s=screen[1]; return table.concat(s.sidebar_content_order, ",") == "calendar,todo,quick-launch,system-status,codex,crypto,weather,now-playing,wallpaper"')
                 assert 'true' in lua('local s=screen[1]; return s.sidebar_sections.crypto.collapsed')
                 click_sidebar_title("crypto")
@@ -650,14 +665,6 @@ def main():
                 wait('return screen[1].sidebar_calendar_month()', f'"{current_month}"')
                 lua('screen[1].sidebar_calendar_select_date(os.date("%Y-%m-%d"))')
                 assert 'true:true' in lua('local s=screen[1]; local n=0; for _,entry in ipairs(s.sidebar_calendar_entries) do if entry.date == s.sidebar_calendar_selected_date() then n=n+1 end end; return tostring(s.sidebar_calendar_day_cells()[s.sidebar_calendar_selected_date()] ~= nil)..":"..tostring(n == 2)')
-                assert 'true' in lua('local app=require("lgi").Gio.AppInfo.get_default_for_type("text/plain",false); return tostring(app and app:get_id()=="awesome-test-opener.desktop")')
-                calendar_event_point = widget_point('screen[1].sidebar_calendar_events_widget:get_children()[1]', x=150)
-                pointer("mousemove", *calendar_event_point, "click", 1)
-                expected_calendar = f"open {testhome / 'Documents/calendar.md'}"
-                deadline = time.monotonic() + 5
-                while time.monotonic() < deadline and expected_calendar not in actions_file.read_text():
-                    time.sleep(0.1)
-                assert expected_calendar in actions_file.read_text(), actions_file.read_text()
                 lua('screen[1].sidebar_scroll_before_todo = screen[1].sidebar_scroll_max()')
                 todo_path.write_text("# TODO\n## Sidebar\n- Refreshed item\n")
                 lua('screen[1].sidebar_todo_refresh()')
@@ -722,15 +729,8 @@ def main():
                 lua('for _,b in ipairs(screen[1].sidebar_volume:buttons()) do if b.button == 3 then b:emit_signal("press") end end')
                 lua('for _,b in ipairs(screen[1].sidebar_volume:buttons()) do if b.button == 1 then b:emit_signal("press") end end')
                 time.sleep(0.3)
-                todo_body_point = widget_point('screen[1].sidebar_sections.todo.body:get_children()[1]:get_children()[1]', scroll=10000, x=150)
-                pointer("mousemove", *todo_body_point, "click", 1)
-                todo_path = str(testhome / "Documents/todo.md")
-                wait('local f=io.open(os.getenv("TEST_ACTIONS"),"r"); local v=f and f:read("*a") or ""; if f then f:close() end; return v:find("open "..' + repr(todo_path) + ',1,true) and "opened" or "pending"', 'opened')
-                lua('screen[1].sidebar_calendar_open()')
-                calendar_path = str(testhome / "Documents/calendar.md")
-                wait('local f=io.open(os.getenv("TEST_ACTIONS"),"r"); local v=f and f:read("*a") or ""; if f then f:close() end; return v:find("open "..' + repr(calendar_path) + ',1,true) and "opened" or "pending"', 'opened')
                 actions = (directory / "actions").read_text().splitlines()
-                assert all(action in actions for action in ("mute", "mixer", f"open {todo_path}", f"open {calendar_path}")), actions
+                assert all(action in actions for action in ("mute", "mixer")), actions
                 assert "up" not in actions and "down" not in actions, actions
                 xlib = ctypes.CDLL("libX11.so.6")
                 xlib.XOpenDisplay.argtypes = [ctypes.c_char_p]
@@ -944,16 +944,9 @@ def main():
                 press('super+shift+3')
                 wait('return client.focus and client.focus.first_tag.name', '"3"')
                 wait('return screen[1].selected_tag.name', '"3"')
-                move_tag_point = workspace_point(2)
-                subprocess.run(["xdotool", "keydown", "Super_L", "mousemove", *map(str, move_tag_point), "mousedown", "1"], env=env, check=True, timeout=3)
-                time.sleep(0.1)
-                assert 'true' in lua('local a=screen[1].taglist_release_actions[screen[1].tags[2]]; return a.move_binding.state.armed and not a.view_binding.state.armed and client.focus.first_tag.index == 3 and mousegrabber.isrunning()')
-                subprocess.run(["xdotool", "mousemove", "500", "700", "mouseup", "1", "keyup", "Super_L"], env=env, check=True, timeout=3)
-                assert 'true' in lua('for _,c in ipairs(client.get()) do if c.instance == "AwesomeSmokeA" then return c.first_tag.index == 3 and not mousegrabber.isrunning() end end; return false')
-                subprocess.run(["xdotool", "keydown", "Super_L", "mousemove", *map(str, move_tag_point), "mousedown", "1"], env=env, check=True, timeout=3)
-                time.sleep(0.1)
-                subprocess.run(["xdotool", "mouseup", "1", "keyup", "Super_L"], env=env, check=True, timeout=3)
-                wait('for _,c in ipairs(client.get()) do if c.instance == "AwesomeSmokeA" then return c.first_tag.index end end', '2')
+                run_timed('workspace.transfer', lambda: awesome_controls.verify_workspace_transfer(
+                    lua=lua, pointer=pointer, wait=wait, workspace_point=workspace_point,
+                    log_text=logfile.read_text))
                 lua('for _,c in ipairs(client.get()) do if c.instance == "AwesomeSmokeA" then c:move_to_tag(screen[1].tags[3]) end end')
                 wait('for _,c in ipairs(client.get()) do if c.instance == "AwesomeSmokeA" then return c.first_tag.index end end', '3')
                 size_before = lua('local c=client.focus; return c.width..","..c.height')

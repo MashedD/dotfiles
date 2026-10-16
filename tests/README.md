@@ -44,16 +44,21 @@ python3 tests/test-desktop-display.py
 python3 tests/test-screen-lock.py
 ```
 
-### Focused titlebars
+### Focused runtime scenarios
 
 ```sh
 python3 tests/test-awesome-session.py --scenario titlebars
+python3 tests/test-awesome-session.py --scenario workspace-transfer
+python3 tests/test-awesome-session.py --scenario sidebar-documents
 AWESOME_TEST_VISUAL=1 python3 tests/test-awesome-session.py --scenario titlebars
 AWESOME_TEST_VISUAL=1 python3 tests/test-awesome-session.py --scenario titlebars --composited
 ```
 
-The direct Python command skips the fast suite; the shell runner always retains it.
-Only `all` (the default) and `titlebars` are supported, with one selector per invocation.
+The direct Python command skips the fast suite. `all` is the default;
+`titlebars`, `workspace-transfer`, and `sidebar-documents` are focused alternatives,
+with one selector per invocation. `./tests/run.sh --session` runs the workspace-transfer
+and sidebar-document scenarios separately, then the broad session. `--scenario` selects
+one scenario instead.
 `--help` describes the flags. Invalid arguments fail before launching the private bus
 or display; the shell selector requires `--session` or `--visual`.
 
@@ -62,7 +67,13 @@ windows, then run control/tooltip/always-on-top checks, maximized drag-to-restor
 click/double-click preservation, top/left/right edge snapping (including top-corner
 priority), narrow normal/dialog titlebars, window-menu, Close, and unmanage/cancellation
 checks used by the full suite.
-They do not run sidebar interactions, workspaces, persistence/reload, broad fullscreen
+The workspace-transfer scenario exercises cancellation on release outside and a
+real move to the hovered workspace; failures include the drag stage, target, client/tag,
+grab, button, pointer, and Awesome log. Sidebar-document checks click actual TODO and
+calendar rows and report the click target, current widget counts, launcher actions, and
+Awesome log. These focused paths avoid running the long unrelated integration sequence.
+
+Titlebars do not run sidebar interactions, workspaces, persistence/reload, broad fullscreen
 restoration, screen removal, or locking. Brief fullscreen interruptions of titlebar
 presses remain included. Shared fixture files, mocked collectors, startup/shutdown
 checks, optional screenshots, and private process cleanup remain unchanged.

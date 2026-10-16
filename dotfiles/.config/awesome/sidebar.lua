@@ -501,12 +501,12 @@ function sidebar.create(s, dismiss_menu)
     local clock, digital_time, date = clock_ui.clock, clock_ui.digital, clock_ui.date
     local clock_card = clock_ui.widget
     s.sidebar_clock_toggle = clock_ui.toggle
-    local cpu_text = label("CPU  measuring…", palette.text, 10, false)
-    local memory_text = label("Memory  reading…", palette.text, 10, false)
+    local cpu_text = label("CPU  ?", palette.text, 10, false)
+    local memory_text = label("Memory  ?", palette.text, 10, false)
     local battery_text = label("Battery  --", palette.text, 10, false)
     local mouse_battery_text = label("Mouse  --", palette.text, 10, false)
     mouse_battery_text.visible = false
-    local root_text = label("Free /  reading…", palette.text, 10, false)
+    local root_text = label("Free /  ?", palette.text, 10, false)
     local network_text = label("↓ ?   ↑ ?", palette.text, 10, false)
     local cpu_bar, memory_bar = progress(palette.green), progress(palette.green)
     local battery_bar, root_bar = progress(palette.green), progress(palette.green)

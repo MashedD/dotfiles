@@ -226,7 +226,7 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             calls = self.calls()
             sessions = [c for c in calls if 'tests/test-awesome-session.py' in c]
-            self.assertEqual(len(sessions), {'': 0, '--session': 1, '--visual': 2}[mode])
+            self.assertEqual(len(sessions), {'': 0, '--session': 3, '--visual': 4}[mode])
             if mode == '--visual': self.assertIn('--composited', sessions[-1])
         self.env['FAIL_TOOL'] = 'awesome'
         self.assertEqual(subprocess.run(['/bin/bash', str(runner)], env=self.env,
@@ -243,18 +243,26 @@ class RunnerTests(unittest.TestCase):
     def test_runner_scenarios_and_validation(self):
         runner = self.prepare_runner()
         for mode in ('--session', '--visual'):
-            for selector in (['--scenario', 'titlebars'], ['--scenario=all']):
+            for selector in (['--scenario', 'titlebars'], ['--scenario', 'workspace-transfer'],
+                             ['--scenario=sidebar-documents'], ['--scenario=all']):
                 if self.log.exists(): self.log.unlink()
                 result = subprocess.run(['/bin/bash', str(runner), mode, *selector],
                                         env=self.env, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 sessions = [call for call in self.calls() if 'tests/test-awesome-session.py' in call]
-                self.assertEqual(len(sessions), 1 if mode == '--session' else 2)
-                expected = 'titlebars' if selector[0] == '--scenario' else 'all'
+                selected = selector[1] if selector[0] == '--scenario' else selector[0].split('=', 1)[1]
+                if selected == 'all':
+                    expected = ['workspace-transfer', 'sidebar-documents', 'all']
+                    if mode == '--visual': expected.append('all')
+                else:
+                    expected = [selected] * (1 if mode == '--session' else 2)
+                self.assertEqual(len(sessions), len(expected))
+                actual = []
                 for call in sessions:
                     index = call.index('--scenario')
-                    self.assertEqual(call[index+1], expected)
+                    actual.append(call[index+1])
                     self.assertEqual(call.count('--scenario'), 1)
+                self.assertEqual(actual, expected)
                 if mode == '--visual': self.assertIn('--composited', sessions[-1])
         for argv, status in [(['--help'],0), (['--scenario','titlebars'],64),
                              (['--session','--visual'],64), (['--session','--session'],64),

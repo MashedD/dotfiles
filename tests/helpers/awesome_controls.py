@@ -533,6 +533,60 @@ def verify_native_menu_release(*, lua, pointer, wait, press, menu_item_point,
     lua('__awesome_menu_action_count=1')
 
 
+def verify_workspace_transfer(*, lua, pointer, wait, workspace_point, log_text):
+    """Check release-outside cancellation and release-inside window transfer."""
+    point = None
+    stage = "prepare client"
+
+    def state():
+        return lua('local c; for _,x in ipairs(client.get()) do if x.instance=="AwesomeSmokeA" then c=x end end; '
+                   'local a=screen[1].taglist_release_actions[screen[1].tags[2]]; local p=mouse.coords(); '
+                   'return table.concat({"client="..tostring(c and c.first_tag and c.first_tag.index), '
+                   '"selected="..tostring(screen[1].selected_tag.index), "grab="..tostring(mousegrabber.isrunning()), '
+                   '"move_armed="..tostring(a and a.move_binding.state.armed), '
+                   '"view_armed="..tostring(a and a.view_binding.state.armed), '
+                   '"pointer="..p.x..","..p.y}, "|")')
+
+    try:
+        lua('for _,c in ipairs(client.get()) do if c.instance=="AwesomeSmokeA" then '
+            'c.minimized=false; c:move_to_tag(screen[1].tags[3]); '
+            'c:emit_signal("request::activate","test",{raise=true}) end end; screen[1].tags[3]:view_only()')
+        wait('local c; for _,x in ipairs(client.get()) do if x.instance=="AwesomeSmokeA" then c=x end end; '
+             'return tostring(c and c.first_tag.index==3 and screen[1].selected_tag.index==3)', '"true"')
+        point = workspace_point(2)
+
+        stage = "arm move then release outside"
+        pointer("keydown", "Super_L", "mousemove", *point, "mousedown", 1)
+        wait('local a=screen[1].taglist_release_actions[screen[1].tags[2]]; return tostring('
+             'a.move_binding.state.armed and not a.view_binding.state.armed and '
+             'client.focus.first_tag.index==3 and mousegrabber.isrunning())', '"true"')
+        pointer("mousemove", 500, 700, "mouseup", 1, "keyup", "Super_L")
+        wait('local c; for _,x in ipairs(client.get()) do if x.instance=="AwesomeSmokeA" then c=x end end; '
+             'return tostring(c.first_tag.index==3 and not mousegrabber.isrunning())', '"true"')
+
+        stage = "arm move then release inside"
+        pointer("keydown", "Super_L", "mousemove", *point, "mousedown", 1)
+        wait('local a=screen[1].taglist_release_actions[screen[1].tags[2]]; return tostring('
+             'a.move_binding.state.armed and not a.view_binding.state.armed and mousegrabber.isrunning())', '"true"')
+        pointer("mouseup", 1, "keyup", "Super_L")
+        wait('local c; for _,x in ipairs(client.get()) do if x.instance=="AwesomeSmokeA" then c=x end end; '
+             'return c and c.first_tag.index', '2')
+    except BaseException as error:
+        try:
+            current = state()
+        except Exception as diagnostic_error:
+            current = f"State diagnostic failed: {diagnostic_error}"
+        try:
+            log = log_text()
+        except Exception as diagnostic_error:
+            log = f"Log diagnostic failed: {diagnostic_error}"
+        details = [f"Workspace transfer stage={stage}; target={point}; state={current}",
+                   f"Awesome log:\n{log}"]
+        raise AssertionError("\n".join(details) + f"\nOriginal failure: {error}") from error
+    finally:
+        pointer("mouseup", 1, "keyup", "Super_L")
+
+
 def verify_workspace_pointer(*, lua, pointer, wait, press, workspace_point,
                              capture_workspace, compare_visual, visual):
     press('super+2')

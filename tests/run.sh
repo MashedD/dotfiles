@@ -2,7 +2,7 @@
 set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 usage() {
-  printf 'Usage: %s [--session|--visual] [--scenario all|titlebars]\n' "$0"
+  printf 'Usage: %s [--session|--visual] [--scenario all|titlebars|workspace-transfer|sidebar-documents]\n' "$0"
   printf 'No mode: fast checks. --session: private runtime. --visual: runtime and XRender visual checks.\n'
   printf '%s\n' '--scenario selects runtime checks (default: all); it requires --session or --visual.'
 }
@@ -18,7 +18,7 @@ while (( $# )); do
         (( $# >= 2 )) || invalid
         scenario=$2; shift
       else scenario=${1#*=}; fi
-      case "$scenario" in all|titlebars) ;; *) invalid ;; esac ;;
+      case "$scenario" in all|titlebars|workspace-transfer|sidebar-documents) ;; *) invalid ;; esac ;;
     *) invalid ;;
   esac
   shift
@@ -39,9 +39,18 @@ for test in tests/test-awesome-*.lua; do run lua "$test"; done
 for test in tests/test-awesome-autostart.py tests/test-awesome-controls.py tests/test-awesome-session-runner.py tests/test-awesome-lock.py tests/test-desktop-display.py tests/test-desktop-check.py tests/test-screen-lock.py tests/test-deployment.py tests/test-status-helpers.py tests/test-idle-audit.py; do
   run python3 "$test"
 done
+run_focused_session_checks() {
+  if [[ -z "$scenario" || "$scenario" == all ]]; then
+    run python3 tests/test-awesome-session.py --scenario workspace-transfer
+    run python3 tests/test-awesome-session.py --scenario sidebar-documents
+  fi
+}
 case "$mode" in
-  --session) run python3 tests/test-awesome-session.py "${session_args[@]}" ;;
+  --session)
+    run_focused_session_checks
+    run python3 tests/test-awesome-session.py "${session_args[@]}" ;;
   --visual)
+    run_focused_session_checks
     export AWESOME_TEST_VISUAL=1
     run python3 tests/test-awesome-session.py "${session_args[@]}"
     run python3 tests/test-awesome-session.py --composited "${session_args[@]}" ;;
