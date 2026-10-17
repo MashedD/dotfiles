@@ -16,8 +16,8 @@ for option do
     *) usage >&2; exit 64 ;;
   esac
 done
-required_commands='awesome awesome-client picom pgrep xrandr xset xss-lock i3lock maim xclip xdotool snixembed dunst dunstify dmenu pcmanfm xsettingsd lxqt-policykit-agent kitty xdg-terminal-exec xfce4-appfinder pavucontrol playerctl fc-match flock setsid logger dbus-update-activation-environment wpctl brightnessctl jq curl timeout'
-optional_commands='firefox audacious gajim keepassxc xdpyinfo magick'
+required_commands='awesome awesome-client picom pgrep xrandr xset xss-lock i3lock maim xclip xdotool snixembed dunst dunstify dmenu pcmanfm xsettingsd lxqt-policykit-agent kitty xdg-terminal-exec xfce4-appfinder pavucontrol playerctl desktop-control-center fc-match flock setsid logger dbus-update-activation-environment wpctl brightnessctl jq curl timeout'
+optional_commands='firefox audacious gajim keepassxc xdpyinfo magick arandr nm-connection-editor solaar'
 failures=0
 warnings=0
 ok() { if "$verbose"; then printf 'OK       %s\n' "$*"; fi; }
@@ -128,6 +128,9 @@ validate awesome -k -c "$config_home/awesome/rc.lua"
 validate picom --config "$config_home/picom/picom.conf" --diagnostics
 check_file asset "$HOME/.local/share/wallpapers/aurora-cabin.png"
 check_file asset "$data_home/icons/hicolor/32x32/apps/tux-start.png"
+check_file app "$HOME/.local/bin/desktop-control-center"
+check_file app "$HOME/.local/lib/desktop_control_center/settings.py"
+check_file app "$data_home/applications/desktop-control-center.desktop"
 if command -v fc-match >/dev/null 2>&1; then
   if font=$(fc-match -f '%{family}\n' 'Microsoft Sans Serif' 2>&1); then
     case "$font" in

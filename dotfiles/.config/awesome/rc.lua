@@ -302,6 +302,9 @@ _G.__awesome_quit_confirmation = nil
 main_menu = awful.menu({items = {
     {"&Applications", function() menubar.show() end, menu_icon("applications-all")},
     {"&Run…", "xfce4-appfinder", menu_icon("system-run")},
+    {"Control &Panel", function() dismiss_start_menu(); run({home .. "/.local/bin/desktop-control-center"}) end,
+        menu_icon("preferences-system")},
+
     {new = menu_separator},
     {"&Kitty", "kitty", menu_icon("utilities-terminal")},
     {"&PCManFM", "pcmanfm", menu_icon("system-file-manager")},

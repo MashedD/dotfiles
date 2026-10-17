@@ -14,11 +14,14 @@ sudo pacman -S --needed stow awesome xsettingsd snixembed \
   xss-lock i3lock dunst dmenu pcmanfm \
   gtk2 gtk3 adwaita-icon-theme breeze-icons fontconfig dbus util-linux xdg-terminal-exec \
   kitty xfce4-appfinder lxqt-policykit wireplumber brightnessctl \
-  playerctl pavucontrol picom
+  playerctl pavucontrol picom python-gobject arandr
 ```
 
 `xdg-terminal-exec` honors `~/.config/xdg-terminals.list`; this configuration
 selects `kitty.desktop` for desktop applications marked `Terminal=true`.
+The Start menu's **Control Panel** provides GTK appearance settings, display/audio/network
+launchers, and a manual Solaar launcher. `nm-connection-editor` and `solaar` remain
+optional; Solaar is never started automatically.
 
 From the repository root:
 

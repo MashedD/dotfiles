@@ -37,6 +37,9 @@ class HealthCheckTests(unittest.TestCase):
         for name in ['aurora-cabin.png']:
             self.file(self.home / '.local/share/wallpapers' / name)
         self.file(self.data / 'icons/hicolor/32x32/apps/tux-start.png')
+        self.file(self.data / 'applications/desktop-control-center.desktop')
+        self.file(self.home / '.local/bin/desktop-control-center')
+        self.file(self.home / '.local/lib/desktop_control_center/settings.py')
         for name in ['lock', 'display', 'screenshot', 'battery-watch', 'brightness', 'volume']:
             path = self.helpers / f'desktop-{name}'
             self.file(path, '#!/bin/sh\nexit 99\n')  # Must only inspect, never execute.

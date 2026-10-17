@@ -132,7 +132,13 @@ python3 tests/test-awesome-session.py  # private Xvfb/D-Bus; no live-session cha
 ```
 
 Win+P opens a display menu centered on the focused screen: internal only, HDMI
-only, extended desktop, or automatic hotplug layout. Explicit HDMI modes prefer 2560×1440/144 Hz; the
+only, extended desktop, or automatic hotplug layout. The Start menu's **Control
+Panel** edits GTK theme, icon/cursor theme, interface font, selection colors,
+toolbar and image preferences, sound/animation toggles, and Xft font rendering.
+Apply saves `xsettingsd.conf` and GTK 3 `settings.ini`, then restarts only
+xsettingsd; failed restarts roll the files back. It also launches ArandR,
+Pavucontrol, NetworkManager connection editing, and Solaar on demand. Solaar is
+not started automatically. Explicit HDMI modes prefer 2560×1440/144 Hz; the
 internal display stays enabled until a requested mode succeeds. Mouse: drag
 titlebar to move, double-click to maximize, and drag a maximized titlebar to restore
 it beneath the pointer. Releasing a titlebar drag at the top edge maximizes; releasing

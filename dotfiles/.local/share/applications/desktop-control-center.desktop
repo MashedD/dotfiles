@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Desktop Control Center
+GenericName=Desktop Settings
+Comment=Configure GTK appearance and launch desktop tools
+Exec=desktop-control-center
+Icon=preferences-system
+Terminal=false
+Categories=Settings;DesktopSettings;X-GNOME-PersonalSettings;
+StartupNotify=true
