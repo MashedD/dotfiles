@@ -12,6 +12,7 @@ local appearance = dofile(config_dir .. "/appearance.lua")
 local data = dofile(config_dir .. "/sidebar-data.lua")
 local interaction = dofile(config_dir .. "/interaction.lua")
 local clock_component = dofile(config_dir .. "/sidebar-clock.lua")
+local refresh_component = dofile(config_dir .. "/sidebar-refresh.lua")
 local calendar_component = dofile(config_dir .. "/sidebar-calendar.lua")
 local scroll_component = dofile(config_dir .. "/sidebar-scroll.lua")
 local launcher = dofile(config_dir .. "/sidebar-launch.lua")
@@ -1464,6 +1465,13 @@ function sidebar.create(s, dismiss_menu)
         update_network(snapshot)
     end
 
+    local refresh_ui = refresh_component.new {
+        timer = gears.timer, delay = 0.05,
+        update_stats = update_stats,
+        update_clock = function(timestamp) clock_ui.tick(timestamp) end,
+    }
+    ui.add(refresh_ui.destroy)
+
     local function bind(name, render, body)
         local mark, tooltip
         if body then mark, tooltip = freshness(name, body) end
@@ -1475,9 +1483,9 @@ function sidebar.create(s, dismiss_menu)
         s["sidebar_" .. name .. "_timer"] = handle
     end
     bind("clock", function(state)
-        if state.value then clock_ui.tick(state.value) end
+        if state.value then refresh_ui.clock(state.value) end
     end)
-    bind("stats", update_stats)
+    bind("stats", refresh_ui.stats)
     bind("volume", render_volume)
     bind("media", function(state)
         set_text(media_text, state.value and state.value ~= "" and state.value or "Nothing playing")

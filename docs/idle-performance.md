@@ -422,6 +422,31 @@ for a two-screen optimization. Setter counts also showed repeated unchanged Syst
 Status assignments alongside changed text/value updates; the report contains counts
 only, never the corresponding values.
 
-**Decision: diagnostic only; no production optimization.** No layout, refresh cadence,
-widget, appearance, or live session was changed. The raw private results and generated
-report are ephemeral at `/tmp/awesome-sidebar-attribution.json` and `.md`.
+**Audit decision: diagnostic only.** The two-screen result was inconclusive, so no
+optimization was justified directly by the role ranking. The separate follow-up below
+is based on the independent clock/status update path. Raw results are ephemeral at
+`/tmp/awesome-sidebar-attribution.json` and `.md`.
+
+#### Follow-up fix
+
+`sidebar.lua` now batches the independent one-second clock and System Status render
+callbacks through a 50 ms one-shot timer. When both updates arrive together, their
+visible widget changes are applied in one main-loop callback so Awesome can coalesce
+them into one sidebar redraw. `sidebar-clock.lua` also updates only the active analog
+or digital representation; switching modes forces an immediate refresh. Polling
+intervals and displayed content are unchanged.
+
+Fake-timer and clock-component tests cover batching, mode switches, hidden-widget
+invalidation, and teardown. `./tests/run.sh`, an isolated sidebar-document session,
+and private Xvfb rendering tests passed. Two 60-second post-change runs per topology,
+using the same rendering instrumentation, compared with the two pre-change baselines:
+
+| Topology | Sidebar redraws/s, before → after | Redraw time ms/s, before → after | Process CPU %, before → after |
+| --- | ---: | ---: | ---: |
+| 1 screen | 2.01 → 1.18 (-41%) | 78.0 → 55.7 (-29%) | 8.45 → 6.32 |
+| 2 screens, summed | 4.00 → 2.60 (-35%) | 148.1 → 120.3 (-19%) | 15.34 → 13.03 |
+
+The redraw-rate and draw-time reductions appeared in both post-change repeats. These
+were sequential rather than interleaved A/B runs, so treat the CPU percentages as
+indicative, not a precise savings estimate. Polling intervals and displayed content
+are unchanged; the live Awesome session was not restarted.

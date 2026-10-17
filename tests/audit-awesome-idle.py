@@ -575,9 +575,10 @@ def attribution_contributors(cases, screens, prefix):
             if not key.startswith(prefix):
                 continue
             label=key[len(prefix):]
-            grouped.setdefault(label,[]).append((value['total']/elapsed,
-                                                  value['count']/elapsed))
-    return grouped
+            grouped.setdefault(label,[None,None])[index-1]=(value['total']/elapsed,
+                                                            value['count']/elapsed)
+    return {label:[value or (0.0,0.0) for value in repeats]
+            for label,repeats in grouped.items()}
 
 
 def attribution_report(result):

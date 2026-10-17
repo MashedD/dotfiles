@@ -129,10 +129,11 @@ function M.create(options)
     local widget = options.card(content, 142)
     local component = {widget = widget, clock = clock, digital = digital, date = date, ui = ui}
     function component.set_mode(mode)
-        if ui.disposed then return end
+        if ui.disposed or component.mode == mode then return end
         component.mode = mode
         clock.visible, centered.visible, digital.visible = mode == "analog", mode == "analog", mode == "text"
         widget.forced_height = mode == "analog" and 142 or 66
+        component.tick(nil, true)
         options.on_mode(mode)
     end
     function component.toggle() component.set_mode(component.mode == "analog" and "text" or "analog") end
@@ -141,17 +142,26 @@ function M.create(options)
         if options.dismiss then ui.connect(control, "button::press", options.dismiss) end
         ui.tip(control, "Click to switch analog / digital clock")
     end
-    function component.tick(timestamp)
+    function component.tick(timestamp, force)
         if ui.disposed then return end
         timestamp = timestamp or os.time()
         local now = os.date("*t", timestamp)
         local second = os.date("%H:%M:%S", timestamp)
         local day = os.date("%Y-%m-%d", timestamp)
-        if component.last_second ~= second then
+        local second_changed = component.last_second ~= second
+        if second_changed then
             component.last_second = second
+            -- Keep the inactive representation current without invalidating its parent.
             clock.current_time = now
-            clock:emit_signal("widget::redraw_needed")
-            digital.markup = string.format("<span foreground='%s' size='24pt' weight='bold'>%s</span>", palette.scrollbar_highlight, second)
+        end
+        if second_changed or force then
+            if component.mode == "analog" then
+                clock:emit_signal("widget::redraw_needed")
+            else
+                digital.markup = string.format(
+                    "<span foreground='%s' size='24pt' weight='bold'>%s</span>",
+                    palette.scrollbar_highlight, second)
+            end
         end
         if component.last_day ~= day then
             component.last_day = day

@@ -113,8 +113,9 @@ class AuditTests(unittest.TestCase):
                     if mode=='attribution':
                         metrics['measured:draw.depth16.screen1.system-status']=dict(
                             total=.6,count=60,samples=60,median=.01,p95=.02,maximum=.03)
-                        metrics['measured:update.screen1.system-status.text.changed']=dict(
-                            total=0,count=4,samples=0,median=0,p95=0,maximum=0)
+                        if index==1:
+                            metrics['measured:update.screen1.system-status.text.changed']=dict(
+                                total=0,count=4,samples=0,median=0,p95=0,maximum=0)
                     cases[f'{screens}-{mode}-{index}']=dict(
                         cpu=dict(elapsed=60,cpu_percent=5),metrics=metrics)
         gate=idle.attribution_observer_gate(cases)
