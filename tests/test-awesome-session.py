@@ -190,8 +190,11 @@ def main():
         default_sidebar_order = (f"order={all_sidebar_sections}\n"
                                  f"enabled={all_sidebar_sections}\n")
         section_state_file.parent.mkdir(parents=True)
+        legacy_sidebar_state = (
+            "order=calendar,todo,codex,system-status,crypto,weather,now-playing,quick-launch,wallpaper\n"
+            "crypto\nquick-launch\nwallpaper\n")
         section_state_file.write_text(
-            "crypto\n" if args.scenario == "sidebar-settings"
+            legacy_sidebar_state if args.scenario == "sidebar-settings"
             else f"crypto\nenabled={all_sidebar_sections}\n")
         env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}", TEST_ACTIONS=str(actions_file), TEST_WEATHER_RESPONSE=str(weather_response), AWESOME_TEST_MODE="1", AWESOME_TEST_WEATHER="1", NO_AT_BRIDGE="1", GIO_USE_VFS="local",
                    HOME=str(testhome), XDG_CONFIG_HOME=str(testhome / ".config"),
@@ -493,10 +496,12 @@ def main():
                 assert 'true' in lua('local p=screen[1].panel; return p.visible and p.height == 30 and p.position == "top"')
                 assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and b.visible and not s.panel_clock_container.visible and s.sidebar_header and s.sidebar_header.forced_height == 26 and s.sidebar_mode == 3 and b.ontop and b:struts().right == 300 and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_trash_status and s.sidebar_trash_icon and s.sidebar_trash_state and s.sidebar_trash_timer.timeout == 30 and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_weather_text and s.sidebar_crypto_timer.timeout == 60 and s.sidebar_codex_card.forced_height == nil and s.sidebar_codex_timer.timeout == 60 and s.sidebar_audio_header == nil and s.sidebar_wallpaper_preview and s.sidebar_todo_card and #s.sidebar_todo_entries == 5 and s.sidebar_todo_entries[5] == "Fifth item" and s.sidebar_calendar_card and not s.sidebar_date_calendar and s.sidebar_calendar_grid and s.sidebar_calendar_weekday_order == "MoTuWeThFrSaSu" and #s.sidebar_calendar_entries == 7 and s.sidebar_calendar_entries[1].day == "past" and s.sidebar_calendar_entries[2].time == "08:15-09:00" and s.sidebar_calendar_entries[3].text == "visit: Today appointment" and s.sidebar_calendar_entries[6].text == "Third future event" and s.sidebar_todo_timer.timeout == 60 and s.sidebar_calendar_timer.timeout == 60 and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width-300 and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
                 if args.scenario == 'sidebar-settings':
-                    assert 'true' in lua('local s=screen[1]; return table.concat(s.sidebar_content_order, ",")=="calendar,todo,system-status,codex,crypto,weather,now-playing,wallpaper" and not s.sidebar_enabled_sections["quick-launch"] and s.sidebar_sections["system-status"].trailing_widget==s.sidebar_trash_status and s.sidebar_sections["quick-launch"].trailing_widget==nil')
+                    assert 'true' in lua('local s=screen[1]; return table.concat(s.sidebar_content_order, ",")=="calendar,todo,codex,system-status,crypto,weather,now-playing,wallpaper" and not s.sidebar_enabled_sections["quick-launch"] and s.sidebar_sections["quick-launch"].collapsed and s.sidebar_sections["system-status"].trailing_widget==s.sidebar_trash_status and s.sidebar_sections["quick-launch"].trailing_widget==nil')
                     lua('screen[1].sidebar_sections.crypto.toggle_action()')
                     assert section_state_file.read_text() == (
-                        f"order={all_sidebar_sections}\nenabled=calendar,todo,system-status,codex,crypto,weather,now-playing,wallpaper\n")
+                        "order=calendar,todo,codex,system-status,crypto,weather,now-playing,quick-launch,wallpaper\n"
+                        "enabled=calendar,todo,system-status,codex,crypto,weather,now-playing,wallpaper\n"
+                        "quick-launch\nwallpaper\n")
                     finish_session(args.scenario)
                     return 0
                 assert 'true' in lua('local s=screen[1]; return s.sidebar_clock_mode == "text" and s.sidebar_digital_time.visible and not s.sidebar_clock.visible and s.sidebar_clock_card.forced_height == 66')

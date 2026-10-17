@@ -25,7 +25,8 @@ launcher. `nm-connection-editor`, `amdgpu_top`, `htop`, `xfce4-taskmanager`,
 `blueman-manager`, `xfce4-power-manager-settings`, and `solaar` remain optional;
 Solaar is never started automatically. The Control Center's Sidebar tab controls
 which sections appear; Quick Launch is hidden by default and can be enabled there.
-Save the choice, then press Win+Ctrl+R. Trash and volume remain in System Status.
+Use **Save & Restart Awesome** or save and press Win+Ctrl+R. Trash and volume
+remain in System Status.
 
 From the repository root:
 

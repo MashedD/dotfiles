@@ -140,9 +140,10 @@ xsettingsd; failed restarts roll the files back. Its Tools tab also offers the
 same four display profiles as Win+P, launches ArandR for manual layout edits,
 starts btop or htop in Kitty, launches the AMDGPU TOP GUI and XFCE Task Manager,
 and opens Pavucontrol, NetworkManager, Bluetooth Manager, Power Manager settings,
-or Solaar on demand. Its Sidebar tab has checkboxes for section visibility; Quick
-Launch is hidden by default to save space. Save sidebar choices, then press
-Win+Ctrl+R to apply them. Solaar is not started automatically. The Start menu keeps
+or Solaar on demand. The Sidebar tab follows Appearance and has checkboxes for
+section visibility; Quick Launch is hidden by default to save space. Use **Save & Restart Awesome** in
+that tab, or save the choices and press Win+Ctrl+R to apply them. Solaar is not
+started automatically. The Start menu keeps
 its Volume Control entry but no longer duplicates Monitor or Display outputs.
 Trash and the integrated volume control are in System Status. Explicit HDMI modes prefer 2560×1440/144 Hz; the
 internal display stays enabled until a requested mode succeeds. Mouse: drag

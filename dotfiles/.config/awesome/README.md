@@ -49,7 +49,7 @@ overlay that preserves native taglist backgrounds. The
 coordinator adapts component handles back to existing `s.sidebar_*` diagnostics;
 section order, fold state, and visibility are stored together in
 `$XDG_STATE_HOME/awesome/sidebar-sections`. Quick Launch defaults off; the Control
-Center's Sidebar tab can enable it, with Awesome reloaded using Win+Ctrl+R.
+Center's Sidebar tab can enable it; use its Save & Restart button or Win+Ctrl+R.
 
 | Component | Constructor inputs | Returned operations/handles |
 | --- | --- | --- |
