@@ -185,6 +185,101 @@ recovery. LTS has now been boot-tested and failed; see the
 [crash report draft](x11-crash-report.md) for both-kernel evidence.
 No further speculative graphics changes are being applied.
 
+## UEFI boot-menu output on external HDMI
+
+Read-only inspection on the MSI Bravo 15 B7ED (BIOS `E158PAMS.103`) found
+systemd-boot 262 and the current `linux-cachyos.conf` entry. The firmware reports
+American Megatrends UEFI 2.80/build 5.24. `efibootmgr` lists the normal Linux Boot
+Manager and fallback entries; these entries do not configure a video connector.
+
+The UEFI `ConOut` and `ConOutDev` variables contain the same ACPI/PCI display path.
+Its PCI route follows the iGPU-side `00:08.1` path rather than the discrete Radeon
+`03:00.0` route. The ACPI ADR node was not mapped to a physical connector, so this
+records the current firmware console path but does not by itself determine all
+available outputs. After Linux starts, DRM reports HDMI on the discrete GPU and eDP
+on the iGPU; that runtime topology does not reveal firmware GOP routing.
+
+The user recalls that the systemd-boot menu was previously visible on the external
+monitor after an unrecorded firmware setting change. It later returned to the prior
+default, possibly after a firmware update; neither the setting nor the cause of the
+reversion is independently known. This history means external boot-menu output has
+worked at least once and should be treated as a recoverable configuration, not a
+firmware limitation.
+
+The EFI system partition and loader configuration are not readable by the current
+user: `bootctl status` reports the active loader/entry but exits with a permission
+warning, and `bootctl list` cannot read `loader.conf`. No matching Bravo 15 B7ED
+firmware manual was found in the local documentation/download directories. During
+this firmware investigation, no EFI files, firmware settings, or persistent boot
+arguments were changed. The later one-boot `fbcon=map:1` test affects Linux console
+mapping after kernel startup, not the systemd-boot menu.
+
+**Conclusion:** the current firmware console path is iGPU-side, while the user
+reports a prior successful external-menu configuration. The exact setting remains
+unknown. During a future, user-chosen firmware visit, photograph or record the current
+display/graphics settings, then test only a clearly relevant option
+one at a time and record its menu path and value. Check BIOS version/change notes before
+attributing the reversion to an update. No firmware setting was changed here.
+
+## Linux text console on HDMI
+
+A one-boot test confirmed that `fbcon=map:1` sends Linux text consoles to HDMI, and
+switching virtual consoles works there. On this system `fb0` is the iGPU/internal-panel
+framebuffer and `fb1` is the discrete-GPU/HDMI framebuffer. This helps with TTY access
+if X exits while the dGPU display link remains usable; it does not prevent X crashes
+or move the UEFI/systemd-boot menu.
+
+To keep the parameter through kernel updates, use the CachyOS `sdboot-manage`
+configuration source rather than editing only a generated entry. The installed
+`sdboot-kernel-update` hook runs `sdboot-manage autogen`; the manager loads
+`/etc/sdboot-manage.conf.d/*.conf` after `/etc/sdboot-manage.conf` and regenerates
+generated entries. The current manager configuration overwrites existing kernel
+entries, so a direct edit to `/boot/loader/entries/linux-cachyos.conf` can be lost on
+a later kernel update. The persistent source is an `/etc` drop-in.
+
+After reviewing current entries and backing them up, create the drop-in:
+
+```sh
+sudo bootctl list --no-pager
+backup="/root/loader-entries.pre-fbcon.$(date +%Y%m%d-%H%M%S)"
+sudo cp -a /boot/loader/entries "$backup"
+printf 'Boot-entry backup: %s\n' "$backup"
+sudo install -d -m 755 /etc/sdboot-manage.conf.d
+sudoedit /etc/sdboot-manage.conf.d/99-fbcon.conf
+```
+
+Put these two lines in the file:
+
+```sh
+LINUX_OPTIONS+=" fbcon=map:1"
+LINUX_FALLBACK_OPTIONS+=" fbcon=map:1"
+```
+
+The first covers normal generated kernel entries; the second covers generated
+fallback-initramfs entries. Regenerate the current entries from that persistent
+source, then verify the parameter appears in the intended entries:
+
+```sh
+sudo /usr/bin/sdboot-manage autogen
+sudo bootctl list --no-pager
+sudo grep -H -o 'fbcon=map:1' /boot/loader/entries/*.conf
+```
+
+`autogen` rewrites generated kernel entries, so inspect for any manually maintained
+options before running it; record the backup directory name and do not reboot unless
+`bootctl list` still shows the expected entries. Do not run `setup` or reinstall the
+bootloader. After the next planned reboot, verify the parameter with
+`grep -o 'fbcon=map:1' /proc/cmdline` and switch to another VT to confirm HDMI still
+shows the console. To remove the setting, delete the drop-in and regenerate:
+
+```sh
+sudo rm /etc/sdboot-manage.conf.d/99-fbcon.conf
+sudo /usr/bin/sdboot-manage autogen
+```
+
+This removes the parameter from regenerated entries while retaining the remaining
+configured options.
+
 Disabling Glamor was tested and **broke HDMI**: both RandR providers advertised
 `cap: 0x0`, preventing the dGPU output provider from attaching to the iGPU.
 Do not use `AccelMethod "none"` on this hybrid-GPU setup.
