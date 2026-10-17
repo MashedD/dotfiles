@@ -54,6 +54,10 @@ class AuditTests(unittest.TestCase):
             self.assertNotIn('__idle_prof', (idle.ROOT/'dotfiles/.config/awesome/rc.lua').read_text())
             breakdown, _ = idle.prepare(directory/'breakdown', True, rendering=True, breakdown=True)
             self.assertIn('__idle_prof.install_rendering_breakdown()', (breakdown/'rc.lua').read_text())
+            attribution, _ = idle.prepare(directory/'attribution', True, rendering=True, attribution=True)
+            self.assertIn('__idle_prof.install_rendering_attribution()', (attribution/'rc.lua').read_text())
+            self.assertIn('__idle_prof.widget_update(widget, property', (attribution/'sidebar.lua').read_text())
+            self.assertNotIn('__idle_prof.widget_update', (idle.ROOT/'dotfiles/.config/awesome/sidebar.lua').read_text())
             self.assertIn('P.drawables[drawable]', (idle.LOCAL).read_text())
         with self.assertRaises(AssertionError): idle.replace_once('missing','anchor','new')
 
@@ -87,6 +91,38 @@ class AuditTests(unittest.TestCase):
             idle.main()
         self.assertEqual(matrix.call_args.args[0].duration,60)
         self.assertEqual(matrix.call_args.args[0].warmup,10)
+
+    def test_render_attribution_mode_never_samples_live(self):
+        with patch.object(idle.sys,'argv',['audit','--render-attribution']), \
+             patch.object(idle.shutil,'which',return_value='/private/stub'), \
+             patch.object(idle,'find_live',side_effect=AssertionError('Live access forbidden')), \
+             patch.object(idle,'sample_process',side_effect=AssertionError('Live access forbidden')), \
+             patch.object(idle,'rendering_attribution_matrix') as matrix:
+            idle.main()
+        self.assertEqual(matrix.call_args.args[0].duration,60)
+        self.assertEqual(matrix.call_args.args[0].warmup,10)
+
+    def test_attribution_report_and_observer_gate(self):
+        cases={}
+        for screens in (1,2):
+            for mode in ('baseline','attribution'):
+                for index in (1,2):
+                    metrics={'measured:heartbeat.lateness':dict(p95=.002)}
+                    for screen in range(1,screens+1):
+                        metrics[f'measured:redraw.sidebar.screen{screen}']=dict(total=6,count=100)
+                    if mode=='attribution':
+                        metrics['measured:draw.depth16.screen1.system-status']=dict(
+                            total=.6,count=60,samples=60,median=.01,p95=.02,maximum=.03)
+                        metrics['measured:update.screen1.system-status.text.changed']=dict(
+                            total=0,count=4,samples=0,median=0,p95=0,maximum=0)
+                    cases[f'{screens}-{mode}-{index}']=dict(
+                        cpu=dict(elapsed=60,cpu_percent=5),metrics=metrics)
+        gate=idle.attribution_observer_gate(cases)
+        self.assertTrue(gate['1']['passed'] and gate['2']['passed'])
+        report=idle.attribution_report(dict(duration=60,warmup=10,cases=cases))
+        self.assertIn('screen1.system-status',report)
+        self.assertIn('system-status.text.changed',report)
+        self.assertNotIn('private widget content',report)
 
     def test_breakdown_report_uses_only_aggregated_metrics(self):
         cases={}

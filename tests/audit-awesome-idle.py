@@ -108,11 +108,12 @@ def cached_clock(source):
                         '        clock._face_cache.destroy()\n        clock:buttons({}); digital:buttons({})')
 
 
-def instrument(config, rendering=False, breakdown=False):
+def instrument(config, rendering=False, breakdown=False, attribution=False):
     rc = config/'rc.lua'
     prefix='_G.__idle_prof=dofile(' + json.dumps(str(LOCAL)) + '); __idle_prof.install_spawn(); '
     if rendering: prefix+='__idle_prof.install_rendering(); '
     if breakdown: prefix+='__idle_prof.install_rendering_breakdown(); '
+    if attribution: prefix+='__idle_prof.install_rendering_attribution(); '
     rc.write_text(prefix+'\n'+rc.read_text())
     path = config/'sidebar-data.lua'
     source = path.read_text()
@@ -128,6 +129,11 @@ def instrument(config, rendering=False, breakdown=False):
     path.write_text(source)
     path = config/'sidebar.lua'
     source = path.read_text()
+    if attribution:
+        source = replace_once(source,
+            '    if widget._sidebar_cache[property] == value then return false end',
+            '    __idle_prof.widget_update(widget, property, widget._sidebar_cache[property] ~= value)\n'
+            '    if widget._sidebar_cache[property] == value then return false end')
     for name in ('todo', 'calendar'):
         anchor = f'    s.sidebar_{name}_timer = gears.timer {{'
         source = replace_once(source, anchor,
@@ -135,7 +141,7 @@ def instrument(config, rendering=False, breakdown=False):
     path.write_text(source)
 
 
-def prepare(directory, profiled, rendering=False, cached=False, breakdown=False):
+def prepare(directory, profiled, rendering=False, cached=False, breakdown=False, attribution=False):
     home = directory/'home'
     config = home/'.config/awesome'
     shutil.copytree(ROOT/'dotfiles/.config/awesome', config)
@@ -147,7 +153,7 @@ def prepare(directory, profiled, rendering=False, cached=False, breakdown=False)
         path=config/'sidebar-clock.lua'
         path.write_text(cached_clock(path.read_text()))
     if profiled:
-        instrument(config, rendering, breakdown)
+        instrument(config, rendering, breakdown, attribution)
     for folder in ['Documents', '.local/bin', '.local/share/wallpapers', '.local/share/applications',
                    '.local/state/awesome', 'Pictures/Wallpapers']:
         (home/folder).mkdir(parents=True, exist_ok=True)
@@ -219,8 +225,9 @@ def private_case(args):
         directory = Path(name)
         profiled = args.case != 'control'
         breakdown = args.breakdown_case == 'instrumented'
-        rendering = args.render_case is not None or args.breakdown_case is not None
-        config, env = prepare(directory, profiled, rendering, args.render_case=='cached', breakdown)
+        attribution = args.attribution_case == 'instrumented'
+        rendering = args.render_case is not None or args.breakdown_case is not None or args.attribution_case is not None
+        config, env = prepare(directory, profiled, rendering, args.render_case=='cached', breakdown, attribution)
         processes = []
         with (directory/'awesome.log').open('w') as log:
             def client(code):
@@ -259,6 +266,11 @@ def private_case(args):
                 setup += 'return screen.count()'
                 client(setup)
                 time.sleep(args.warmup)
+                if args.attribution_case == 'instrumented':
+                    target_result = client('return __idle_prof.bind_attribution()')
+                    target_match = re.search(r'\b(?:double|number|integer)\s+(\d+)\b', target_result)
+                    assert target_match, 'Could not read private attribution target count: ' + target_result
+                    assert int(target_match.group(1)) > 0, 'No depth-16 sidebar textboxes found for attribution'
                 if profiled:
                     client('__idle_prof.begin()')
                 cpu = sample_process(wm.pid, args.duration)
@@ -275,7 +287,9 @@ def private_case(args):
                 log_text=(directory/'awesome.log').read_text()
                 if rendering:
                     assert not re.search(r'stack traceback:|Error during a protected call|Error while drawing',log_text),log_text
-                result = dict(cpu=cpu, metrics=metrics, topology=topology.strip(), log=log_text)
+                result = dict(cpu=cpu, metrics=metrics, topology=topology.strip())
+                if args.attribution_case is None:
+                    result['log'] = log_text
                 if args.render_case=='cached':
                     assert 'true' in client('for s in screen do local c=s.sidebar_components.clock; for _,b in ipairs(c.clock:buttons()) do if b.button==1 then b:emit_signal("press");break end end; if c.mode~="text" or c.clock.visible then return false end; for _,b in ipairs(c.digital:buttons()) do if b.button==1 then b:emit_signal("press");break end end; if c.mode~="analog" or not c.clock.visible then return false end end; return true')
                     result['cache_lifecycle']=True
@@ -522,6 +536,129 @@ def rendering_breakdown_matrix(args):
     print(report)
 
 
+def attribution_rates(case, screens):
+    elapsed=case['cpu']['elapsed']
+    redraw=sum(metric_total(case,f'measured:redraw.sidebar.screen{screen}')
+               for screen in range(1,screens+1))/elapsed
+    background=sum(value['total'] for key,value in case['metrics'].items()
+                   if key.startswith('measured:paint.background.'))/elapsed
+    heartbeat=case['metrics'].get('measured:heartbeat.lateness',{}).get('p95',0.0)
+    return dict(redraw=redraw,background=background,heartbeat=heartbeat)
+
+
+def attribution_observer_gate(cases):
+    result={}
+    for screens in (1,2):
+        baseline=[cases[f'{screens}-baseline-{i}'] for i in (1,2)]
+        measured=[cases[f'{screens}-attribution-{i}'] for i in (1,2)]
+        baseline_cpu=[case['cpu']['cpu_percent'] for case in baseline]
+        measured_cpu=[case['cpu']['cpu_percent'] for case in measured]
+        baseline_heartbeat=[case['metrics'].get('measured:heartbeat.lateness',{}).get('p95',0.0)
+                            for case in baseline]
+        measured_heartbeat=[case['metrics'].get('measured:heartbeat.lateness',{}).get('p95',0.0)
+                            for case in measured]
+        cpu_allowance=max(.2,abs(baseline_cpu[0]-baseline_cpu[1]))
+        heartbeat_allowance=max(.005,abs(baseline_heartbeat[0]-baseline_heartbeat[1]))
+        heartbeat_regression=min(measured_heartbeat) > max(baseline_heartbeat)+heartbeat_allowance
+        delta=statistics.mean(measured_cpu)-statistics.mean(baseline_cpu)
+        result[str(screens)]=dict(cpu_delta=delta,cpu_allowance=cpu_allowance,
+            heartbeat_regression=heartbeat_regression,passed=delta<=cpu_allowance and not heartbeat_regression)
+    return result
+
+
+def attribution_contributors(cases, screens, prefix):
+    grouped={}
+    for index in (1,2):
+        case=cases[f'{screens}-attribution-{index}']
+        elapsed=case['cpu']['elapsed']
+        for key,value in case['metrics'].items():
+            if not key.startswith(prefix):
+                continue
+            label=key[len(prefix):]
+            grouped.setdefault(label,[]).append((value['total']/elapsed,
+                                                  value['count']/elapsed))
+    return grouped
+
+
+def attribution_report(result):
+    lines=['# Awesome sidebar text attribution','',
+        f'Measured {result["duration"]} seconds per case after {result["warmup"]} seconds warm-up.',
+        'Private Xvfb/D-Bus only. The output contains fixed role/property names and timing/counts, never text or markup values.', '',
+        '| Screens | Case | CPU % | Sidebar redraw ms/s | Heartbeat p95 ms |',
+        '| ---: | --- | ---: | ---: | ---: |']
+    for screens in (1,2):
+        for mode,index in [('baseline',1),('attribution',1),('attribution',2),('baseline',2)]:
+            case=result['cases'][f'{screens}-{mode}-{index}']
+            rates=attribution_rates(case,screens)
+            lines.append(f'| {screens} | {mode} {index} | {case["cpu"]["cpu_percent"]:.3f} | '
+                         f'{rates["redraw"]*1000:.3f} | {rates["heartbeat"]*1000:.3f} |')
+    gate=attribution_observer_gate(result['cases'])
+    lines += ['', '## Observer-overhead check','',
+        '| Screens | Added CPU pp | Allowed pp | Heartbeat regression | Observer within gate |',
+        '| ---: | ---: | ---: | --- | --- |']
+    for screens in (1,2):
+        item=gate[str(screens)]
+        lines.append(f'| {screens} | {item["cpu_delta"]:+.3f} | {item["cpu_allowance"]:.3f} | '
+                     f'{"yes" if item["heartbeat_regression"] else "no"} | {"yes" if item["passed"] else "no"} |')
+    lines += ['', '## Depth-16 textbox draw callbacks','',
+        '| Mean ms/s | B1 / B2 ms/s | Mean callbacks/s | Topology and screen/role |',
+        '| ---: | ---: | ---: | --- |']
+    draw_rows=[]
+    for screens in (1,2):
+        for label,repeats in attribution_contributors(
+                result['cases'],screens,'measured:draw.depth16.').items():
+            times=[rate*1000 for rate,_ in repeats]
+            calls=statistics.mean(count for _,count in repeats)
+            draw_rows.append((statistics.mean(times),times,calls,f'{screens}-screen.{label}'))
+    if draw_rows:
+        for mean,times,calls,label in sorted(draw_rows,key=lambda item:item[0],reverse=True):
+            lines.append(f'| {mean:.3f} | {times[0]:.3f} / {times[1]:.3f} | {calls:.2f} | {label} |')
+    else:
+        lines.append('| — | — | 0 | No tagged depth-16 textbox draws |')
+    lines += ['', '## Setter activity','',
+        '| Mean calls/s | B1 / B2 calls/s | Topology and screen/role/property/change |',
+        '| ---: | ---: | --- |']
+    updates=[]
+    for screens in (1,2):
+        for label,repeats in attribution_contributors(
+                result['cases'],screens,'measured:update.').items():
+            calls=[count for _,count in repeats]
+            updates.append((statistics.mean(calls),calls,f'{screens}-screen.{label}'))
+    if updates:
+        for mean,calls,label in sorted(updates,key=lambda item:item[0],reverse=True):
+            lines.append(f'| {mean:.2f} | {calls[0]:.2f} / {calls[1]:.2f} | {label} |')
+    else:
+        lines.append('| 0 | 0 / 0 | No tagged setter calls during measurement |')
+    lines += ['', 'Per-widget rows are suitable for attribution only when the same role remains prominent in both measured repeats and the observer-overhead check passes for the topology. Otherwise treat the run as inconclusive; do not change production rendering.', '']
+    return '\n'.join(lines)
+
+
+def rendering_attribution_matrix(args):
+    cases={}
+    with tempfile.TemporaryDirectory(prefix='awesome-render-attribution-') as name:
+        for screens in (1,2):
+            order=[('baseline',1),('attribution',1),('attribution',2),('baseline',2)]
+            for mode,index in order:
+                case=f'{screens}-{mode}-{index}'
+                path=Path(name)/(case+'.json')
+                run_isolated(['dbus-run-session','--',sys.executable,str(Path(__file__).resolve()),
+                              '--case','one','--attribution-case',
+                              'baseline' if mode=='baseline' else 'instrumented',
+                              '--screens',str(screens),'--duration',str(args.duration),
+                              '--warmup',str(args.warmup),'--result',str(path)])
+                cases[case]=json.loads(path.read_text())
+                print('Completed '+case,flush=True)
+    result=dict(duration=args.duration,warmup=args.warmup,cases=cases,
+                observer_gate=attribution_observer_gate(cases),
+                versions=dict(python=platform.python_version(),kernel=platform.release(),
+                              awesome=subprocess.check_output(['awesome','-v'],text=True)))
+    args.output.write_text(json.dumps(result,indent=2)+'\n')
+    report=attribution_report(result)
+    args.output.with_suffix('.md').write_text(report)
+    print('Saved '+str(args.output)+' and '+str(args.output.with_suffix('.md')))
+    print(report)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--duration', type=float)
@@ -533,12 +670,15 @@ def main():
     render_modes = parser.add_mutually_exclusive_group()
     render_modes.add_argument('--rendering', action='store_true', help='Private rendering A-B-B-A cache matrix; no live sampling')
     render_modes.add_argument('--render-breakdown', action='store_true', help='Private per-widget rendering breakdown; no live sampling')
+    render_modes.add_argument('--render-attribution', action='store_true', help='Private sidebar text attribution; no live sampling')
     parser.add_argument('--render-case', choices=['baseline','cached','digital','hidden','control'], help=argparse.SUPPRESS)
     parser.add_argument('--breakdown-case', choices=['baseline','instrumented'], help=argparse.SUPPRESS)
+    parser.add_argument('--attribution-case', choices=['baseline','instrumented'], help=argparse.SUPPRESS)
     parser.add_argument('--screens', type=int, choices=[1,2], default=1, help=argparse.SUPPRESS)
     args = parser.parse_args()
-    if args.duration is None: args.duration=60 if (args.rendering or args.render_breakdown) else 180
-    if args.warmup is None: args.warmup=10 if (args.rendering or args.render_breakdown) else 15
+    render_mode = args.rendering or args.render_breakdown or args.render_attribution
+    if args.duration is None: args.duration=60 if render_mode else 180
+    if args.warmup is None: args.warmup=10 if render_mode else 15
     if args.duration <= 0 or args.warmup < 0 or not math.isfinite(args.duration+args.warmup):
         parser.error('Durations must be finite, duration > 0 and warmup >= 0')
     if args.case:
@@ -552,6 +692,9 @@ def main():
         return
     if args.render_breakdown:
         rendering_breakdown_matrix(args)
+        return
+    if args.render_attribution:
+        rendering_attribution_matrix(args)
         return
     live = dict(status='explicitly skipped')
     if not args.skip_live:

@@ -87,6 +87,87 @@ function P.install_rendering()
         end
     end
 end
+function P.install_rendering_attribution()
+    local allowed_roles = {
+        calendar=true, todo=true, ['quick-launch']=true, ['system-status']=true,
+        codex=true, crypto=true, weather=true, ['now-playing']=true,
+        wallpaper=true, clock=true, header=true,
+    }
+    local allowed_properties = {text=true, markup=true, visible=true, value=true, color=true}
+    P.widget_roles = setmetatable({}, {__mode='k'})
+    P.tag_widget_tree = function(root, role, screen_index)
+        if not allowed_roles[role] or type(root) ~= 'table' or type(screen_index) ~= 'number'
+            or screen_index < 1 or screen_index % 1 ~= 0 then return 0 end
+        local visited, count = setmetatable({}, {__mode='k'}), 0
+        local function visit(widget)
+            if type(widget) ~= 'table' or visited[widget] then return end
+            visited[widget] = true
+            if not P.widget_roles[widget] then
+                P.widget_roles[widget] = {role=role, screen=screen_index}
+                count = count + 1
+            end
+            if type(widget.get_children) == 'function' then
+                for _, child in ipairs(widget:get_children() or {}) do visit(child) end
+            end
+        end
+        visit(root)
+        return count
+    end
+    P.widget_update = function(widget, property, changed)
+        if P.phase ~= 'measured' or not allowed_properties[property] then return end
+        local target = P.widget_roles[widget]
+        if not target then return end
+        P.count(string.format('update.screen%d.%s.%s.%s', target.screen, target.role,
+            property, changed and 'changed' or 'unchanged'))
+    end
+    P.wrap_attribution_draw = function(widget, screen_index, role)
+        if type(widget.draw) ~= 'function' or type(screen_index) ~= 'number'
+            or screen_index < 1 or screen_index % 1 ~= 0 or not allowed_roles[role] then return false end
+        P.attribution_wrapped_fields = P.attribution_wrapped_fields
+            or setmetatable({}, {__mode='k'})
+        if P.attribution_wrapped_fields[widget] ~= nil then return false end
+        local field = rawget(widget, 'draw')
+        if field == nil then P.attribution_wrapped_fields[widget] = false
+        else P.attribution_wrapped_fields[widget] = field end
+        local name = string.format('draw.depth16.screen%d.%s', screen_index, role)
+        rawset(widget, 'draw', P.wrap(name, widget.draw, false))
+        return true
+    end
+    local function is_textbox(widget)
+        if type(widget.draw) ~= 'function' then return false end
+        local info = debug.getinfo(widget.draw, 'S')
+        return info and info.source and info.source:match('/wibox/widget/textbox%.lua$') ~= nil
+    end
+    P.bind_attribution = function()
+        local targets = 0
+        for s in screen do
+            for id, section in pairs(s.sidebar_sections or {}) do
+                if section.body then P.tag_widget_tree(section.body, id, s.index) end
+                if section.header then P.tag_widget_tree(section.header, 'header', s.index) end
+            end
+            P.tag_widget_tree(s.sidebar_header, 'header', s.index)
+            local clock = s.sidebar_components and s.sidebar_components.clock
+            if clock and clock.widget then P.tag_widget_tree(clock.widget, 'clock', s.index) end
+            if s.sidebar_clock then P.tag_widget_tree(s.sidebar_clock, 'clock', s.index) end
+            local drawable = s.sidebar and s.sidebar._drawable
+            local root = drawable and drawable._widget_hierarchy
+            assert(root, 'Sidebar hierarchy is not ready for attribution')
+            local function visit(node, depth)
+                local widget = node:get_widget()
+                local target = P.widget_roles[widget]
+                if target and depth == 16 and is_textbox(widget) then
+                    if P.wrap_attribution_draw(widget, target.screen, target.role) then
+                        P.count(string.format('attribution.target.screen%d.%s', target.screen, target.role))
+                        targets = targets + 1
+                    end
+                end
+                for _, child in ipairs(node:get_children()) do visit(child, depth + 1) end
+            end
+            visit(root, 0)
+        end
+        return targets
+    end
+end
 function P.install_rendering_breakdown()
     local hierarchy = require('wibox.hierarchy')
     local original = hierarchy.draw
@@ -213,6 +294,10 @@ end
 function P.finish()
     if P.heartbeat then P.heartbeat:stop() end
     for widget, original in pairs(P.draw_wrapped_fields or {}) do
+        if original == false then rawset(widget, 'draw', nil)
+        else rawset(widget, 'draw', original) end
+    end
+    for widget, original in pairs(P.attribution_wrapped_fields or {}) do
         if original == false then rawset(widget, 'draw', nil)
         else rawset(widget, 'draw', original) end
     end

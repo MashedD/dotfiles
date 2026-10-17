@@ -6,6 +6,9 @@ Opt-in private rendering comparison: `python3 tests/audit-awesome-idle.py --rend
 (A–B–B–A, about 16 minutes; no live sampling). [Results and cache rejection](../docs/idle-performance.md#rendering-follow-up-cache-evaluated-not-shipped).
 Opt-in per-widget rendering breakdown: `python3 tests/audit-awesome-idle.py --render-breakdown --output /tmp/awesome-render-breakdown.json`
 (about 10 minutes; private Xvfb/D-Bus only, no live sampling). [Method and findings](../docs/idle-performance.md#per-widget-rendering-breakdown).
+
+Opt-in semantic sidebar text attribution: `python3 tests/audit-awesome-idle.py --render-attribution --output /tmp/awesome-sidebar-attribution.json`
+(about 10 minutes; private Xvfb/D-Bus only, no live sampling or text/markup capture). [Method and findings](../docs/idle-performance.md#semantic-sidebar-text-attribution).
 Focused read-only stats probe: `lua5.3 tests/probe-awesome-stats.lua` (60 samples,
 requires lgi for that Lua version); [results and usage](../docs/idle-performance.md#follow-up-exact-statistics-io-2026-10-15).
 

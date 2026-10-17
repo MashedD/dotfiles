@@ -129,4 +129,26 @@ assert(rawget(bad_widget,'draw')~=original_draw,'Draw wrapper was not installed'
 local failed_output=p.finish()
 assert(rawget(bad_widget,'draw')==original_draw,'Draw callback was not restored at profiler shutdown')
 assert(not failed_output:find('private draw failure',1,true))
+
+p=fresh();p.install_rendering_attribution();p.phase='measured'
+local sensitive='user-entered text must stay private'
+local leaf={draw=function() now=now+.004;return sensitive,nil,9 end}
+function leaf:get_children() return {} end
+local branch={children={leaf}}
+function branch:get_children() return self.children end
+assert(p.tag_widget_tree(branch,'system-status',1)==2)
+assert(p.tag_widget_tree(leaf,sensitive,1)==0,'Arbitrary role names must be rejected')
+p.widget_update(leaf,'markup',true)
+p.widget_update(leaf,'text',false)
+p.widget_update(leaf,sensitive,true)
+assert(not p.wrap_attribution_draw(leaf,1,sensitive),'Arbitrary draw roles must be rejected')
+assert(p.wrap_attribution_draw(leaf,1,'system-status'))
+local x,y,z=leaf:draw()
+assert(x==sensitive and y==nil and z==9,'Attribution wrapper must preserve callback returns')
+local attribution_output=p.finish()
+assert(attribution_output:find('measured:update.screen1.system%-status.markup.changed'))
+assert(attribution_output:find('measured:update.screen1.system%-status.text.unchanged'))
+assert(attribution_output:find('measured:draw.depth16.screen1.system%-status'))
+assert(not attribution_output:find(sensitive,1,true),'Widget content must not be serialized')
+assert(rawget(leaf,'draw')~=nil,'Original widget draw method must be restored')
 print('Awesome private profiler tests passed')

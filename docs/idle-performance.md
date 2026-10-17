@@ -384,3 +384,44 @@ reloaded and no production widgets, appearance, polling or refresh intervals cha
 
 Raw private measurements and the generated report are ephemeral at
 `/tmp/awesome-render-breakdown.json` and `.md`; regenerate with the command above.
+
+### Semantic sidebar text attribution
+
+```sh
+python3 tests/audit-awesome-idle.py --render-attribution --output /tmp/awesome-sidebar-attribution.json
+```
+
+This follows the depth-16 textbox hotspot with a separate eight-case private A–B–B–A
+audit: one- and two-screen topologies, rendering-hook-only baselines and an
+instrumented variant. It tags fixed sidebar roles (`calendar`, `system-status`,
+`weather`, `now-playing`, and other section IDs), the clock, and headers; it then
+wraps only depth-16 `wibox.textbox` draw callbacks. It also counts changed/unchanged
+updates by role and by a small property-name allowlist. The report includes callback
+frequency and time per screen/role, setter counts, outer redraw timing, CPU, heartbeat
+latency, and an observer-overhead check. Default warm-up and measured durations are
+10 and 60 seconds per case (about 10 minutes total).
+
+This is private Xvfb/D-Bus instrumentation only. It neither samples nor injects into
+the live session, and it makes no production widget, appearance, polling, or caching
+changes. Only fixed role/property identifiers and aggregate timings/counts are
+serialized; text and markup values, labels, document contents, and user input are
+never read by the instrumentation or written to the report. The temporary sidebar
+hook sees only the old/new equality result. As with the breakdown audit, treat
+results as inconclusive if the A/B repeats or observer-overhead gate are unstable;
+no production optimization follows automatically. Short runs are smoke tests only.
+
+#### Attribution results (2026-10-17)
+
+The one-screen repeats consistently attributed depth-16 textbox work to the calendar
+(6.62 / 6.58 ms/s) and section headers (3.70 / 3.70 ms/s); Now Playing and weather
+were much smaller (about 0.73 and 0.49 ms/s). The one-screen observer check passed
+(added CPU -0.175 pp against 0.833 pp allowed; no consistent heartbeat regression).
+The two-screen observer check failed: added CPU was +0.558 pp against a 0.200 pp
+allowance. Its callback ranking is therefore descriptive/inconclusive, not evidence
+for a two-screen optimization. Setter counts also showed repeated unchanged System
+Status assignments alongside changed text/value updates; the report contains counts
+only, never the corresponding values.
+
+**Decision: diagnostic only; no production optimization.** No layout, refresh cadence,
+widget, appearance, or live session was changed. The raw private results and generated
+report are ephemeral at `/tmp/awesome-sidebar-attribution.json` and `.md`.
