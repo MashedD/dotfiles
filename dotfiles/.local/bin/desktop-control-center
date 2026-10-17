@@ -22,16 +22,22 @@ except (ImportError, ValueError) as exc:  # pragma: no cover - depends on system
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 from desktop_control_center.settings import (  # noqa: E402
+    SIDEBAR_SECTIONS,
     TOOLBAR_STYLES,
     apply_settings,
+    atomic_write,
+    parse_sidebar_enabled,
     settings_from_files,
+    update_sidebar_enabled_text,
 )
 
 HOME = Path.home()
 CONFIG_HOME = Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config"))
 DATA_HOME = Path(os.environ.get("XDG_DATA_HOME", HOME / ".local/share"))
+STATE_HOME = Path(os.environ.get("XDG_STATE_HOME", HOME / ".local/state"))
 XSETTINGS_PATH = CONFIG_HOME / "xsettingsd/xsettingsd.conf"
 GTK_SETTINGS_PATH = CONFIG_HOME / "gtk-3.0/settings.ini"
+SIDEBAR_SECTIONS_PATH = STATE_HOME / "awesome/sidebar-sections"
 
 
 def _data_dirs() -> list[Path]:
@@ -107,6 +113,7 @@ class ControlCenter(Gtk.Window):
         self.connect("destroy", lambda *_: Gtk.main_quit())
         self.settings = _read_initial_settings()
         self.widgets: dict[str, object] = {}
+        self.sidebar_widgets: dict[str, Gtk.CheckButton] = {}
         self.tool_buttons: dict[str, Gtk.Button] = {}
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -115,25 +122,28 @@ class ControlCenter(Gtk.Window):
         self.notebook.set_border_width(12)
         outer.pack_start(self.notebook, True, True, 0)
         self._build_tools_page()
+        self._build_sidebar_page()
         self._build_appearance_page()
 
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         actions.set_border_width(12)
-        self.status = Gtk.Label(label="Appearance settings are saved to xsettingsd.conf and GTK settings.ini.")
+        self.status = Gtk.Label(label="Choose a tool or select a settings tab.")
         self.status.set_xalign(0)
         self.status.set_line_wrap(True)
         actions.pack_start(self.status, True, True, 0)
-        revert = Gtk.Button.new_with_mnemonic("_Revert")
-        revert.connect("clicked", self._revert)
-        actions.pack_start(revert, False, False, 0)
-        apply = Gtk.Button.new_with_mnemonic("_Apply")
-        apply.get_style_context().add_class("suggested-action")
-        apply.connect("clicked", self._apply)
-        actions.pack_start(apply, False, False, 0)
+        self.revert_button = Gtk.Button.new_with_mnemonic("_Revert")
+        self.revert_button.connect("clicked", self._revert)
+        actions.pack_start(self.revert_button, False, False, 0)
+        self.apply_button = Gtk.Button.new_with_mnemonic("_Apply")
+        self.apply_button.get_style_context().add_class("suggested-action")
+        self.apply_button.connect("clicked", self._apply)
+        actions.pack_start(self.apply_button, False, False, 0)
         close = Gtk.Button.new_with_mnemonic("_Close")
         close.connect("clicked", lambda *_: self.destroy())
         actions.pack_start(close, False, False, 0)
         outer.pack_end(actions, False, False, 0)
+        self.notebook.connect("switch-page", self._update_action_buttons)
+        self._update_action_buttons(self.notebook, None, self.notebook.get_current_page())
 
     def _add_tab(self, title: str) -> tuple[Gtk.Grid, Gtk.ScrolledWindow]:
         grid = Gtk.Grid(column_spacing=16, row_spacing=9, margin=12)
@@ -332,6 +342,80 @@ class ControlCenter(Gtk.Window):
         note.set_line_wrap(True)
         grid.attach(note, 0, (len(tools) + 1) // 2, 2, 1)
 
+    def _build_sidebar_page(self) -> None:
+        grid, _ = self._add_tab("Sidebar")
+        intro = Gtk.Label(label="Choose which sections appear in the Awesome sidebar.")
+        intro.set_xalign(0)
+        intro.set_line_wrap(True)
+        grid.attach(intro, 0, 0, 2, 1)
+
+        frame = Gtk.Frame(label="Visible sections")
+        options = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        options.set_border_width(10)
+        try:
+            text = SIDEBAR_SECTIONS_PATH.read_text(encoding="utf-8") if SIDEBAR_SECTIONS_PATH.exists() else ""
+            enabled = parse_sidebar_enabled(text)
+        except OSError as exc:
+            raise RuntimeError(f"Could not read sidebar settings: {exc}") from exc
+        for section_id, label in SIDEBAR_SECTIONS:
+            checkbox = Gtk.CheckButton.new_with_label(label)
+            checkbox.set_active(section_id in enabled)
+            self.sidebar_widgets[section_id] = checkbox
+            options.pack_start(checkbox, False, False, 0)
+        frame.add(options)
+        grid.attach(frame, 0, 1, 2, 1)
+
+        note = Gtk.Label(label=(
+            "Quick Launch starts hidden to save space. Trash is shown in System Status. "
+            "Save Sidebar, then press Win+Ctrl+R to apply changes."
+        ))
+        note.set_xalign(0)
+        note.set_line_wrap(True)
+        grid.attach(note, 0, 2, 2, 1)
+
+    def _update_action_buttons(self, _notebook: Gtk.Notebook, _page: Gtk.Widget | None,
+                               page_number: int) -> None:
+        if page_number == 1:
+            self.revert_button.set_label("_Reload")
+            self.apply_button.set_label("_Save Sidebar")
+            self.revert_button.set_sensitive(True)
+            self.apply_button.set_sensitive(True)
+            self.status.set_text("Save sidebar visibility here; press Win+Ctrl+R to reload Awesome.")
+        elif page_number == 2:
+            self.revert_button.set_label("_Revert")
+            self.apply_button.set_label("_Apply")
+            self.revert_button.set_sensitive(True)
+            self.apply_button.set_sensitive(True)
+            self.status.set_text("Appearance settings are saved to xsettingsd.conf and GTK settings.ini.")
+        else:
+            self.revert_button.set_sensitive(False)
+            self.apply_button.set_sensitive(False)
+            self.status.set_text("Choose a tool or select a settings tab.")
+
+    def _save_sidebar_settings(self) -> None:
+        enabled = {section_id for section_id, checkbox in self.sidebar_widgets.items()
+                   if checkbox.get_active()}
+        try:
+            previous = (SIDEBAR_SECTIONS_PATH.read_text(encoding="utf-8")
+                        if SIDEBAR_SECTIONS_PATH.exists() else "")
+            updated = update_sidebar_enabled_text(previous, enabled)
+            atomic_write(SIDEBAR_SECTIONS_PATH, updated)
+        except Exception as exc:
+            self.status.set_text(f"Could not save sidebar settings: {exc}")
+            return
+        self.status.set_text("Sidebar visibility saved. Press Win+Ctrl+R to apply it.")
+
+    def _reload_sidebar_settings(self) -> None:
+        try:
+            text = (SIDEBAR_SECTIONS_PATH.read_text(encoding="utf-8")
+                    if SIDEBAR_SECTIONS_PATH.exists() else "")
+            enabled = parse_sidebar_enabled(text)
+            for section_id, checkbox in self.sidebar_widgets.items():
+                checkbox.set_active(section_id in enabled)
+            self.status.set_text("Sidebar choices reloaded from saved settings.")
+        except OSError as exc:
+            self.status.set_text(f"Could not reload sidebar settings: {exc}")
+
     def _show_display_profiles(self, button: Gtk.Button, executable: str) -> None:
         menu = Gtk.Menu()
         for label, option in (
@@ -370,6 +454,12 @@ class ControlCenter(Gtk.Window):
         return result
 
     def _apply(self, *_args: object) -> None:
+        page_number = self.notebook.get_current_page()
+        if page_number == 1:
+            self._save_sidebar_settings()
+            return
+        if page_number != 2:
+            return
         try:
             settings = self._collect_settings()
             apply_settings(XSETTINGS_PATH, GTK_SETTINGS_PATH, settings)
@@ -387,6 +477,12 @@ class ControlCenter(Gtk.Window):
         self.status.set_text("Settings saved and xsettingsd restarted. Reopen apps that do not update live.")
 
     def _revert(self, *_args: object) -> None:
+        page_number = self.notebook.get_current_page()
+        if page_number == 1:
+            self._reload_sidebar_settings()
+            return
+        if page_number != 2:
+            return
         try:
             self.settings = _read_initial_settings()
             for key, widget in self.widgets.items():

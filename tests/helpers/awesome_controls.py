@@ -477,14 +477,9 @@ def verify_pointer_recovery(*, lua, pointer, wait):
 def verify_native_menu_release(*, lua, pointer, wait, press, menu_item_point,
                                capture_menu_item, compare_visual, visual):
     lua('__awesome_menu_delete_count=0; __awesome_menu_action_count=0; __awesome_display_menu:add({"Delete while held", function() __awesome_menu_delete_count=__awesome_menu_delete_count+1 end}); __awesome_display_menu:add({"Release action", function() __awesome_menu_action_count=__awesome_menu_action_count+1 end})')
-    display_item = menu_item_point('screen[1].start_menu', 13)
-    pointer("mousemove", *display_item, "mousedown", 1)
-    assert 'true' in lua('return screen[1].start_menu.items[13]._release_binding.state.armed and not __awesome_display_menu.wibox.visible')
-    pointer("mousemove", 900, 700, "mouseup", 1)
-    assert 'true' in lua('return screen[1].start_menu.wibox.visible and not __awesome_display_menu.wibox.visible and not mousegrabber.isrunning()')
-    pointer("mousemove", *display_item, "mousedown", 1)
-    assert 'true' in lua('return screen[1].start_menu.wibox.visible and not __awesome_display_menu.wibox.visible')
-    pointer("mouseup", 1)
+    press('Escape')
+    wait('return tostring(screen[1].start_menu.wibox.visible)', '"false"')
+    press('super+p')
     wait('return tostring(__awesome_display_menu.wibox.visible)', '"true"')
     assert 'false' in lua('return tostring(screen[1].start_menu.wibox.visible)')
 

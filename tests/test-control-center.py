@@ -71,6 +71,30 @@ class XSettingsFileTests(unittest.TestCase):
             settings.update_xsettings_text("", {"Desktop/Unknown": 1})
 
 
+class SidebarSettingsTests(unittest.TestCase):
+    def test_legacy_state_defaults_to_compact_sidebar(self):
+        self.assertEqual(settings.parse_sidebar_enabled("order=calendar,todo\ncrypto\n"),
+                         set(settings.DEFAULT_SIDEBAR_ENABLED))
+        self.assertNotIn("quick-launch", settings.parse_sidebar_enabled(""))
+
+    def test_explicit_sidebar_visibility_including_empty_list(self):
+        self.assertEqual(settings.parse_sidebar_enabled("enabled=quick-launch,crypto,unknown\n"),
+                         {"quick-launch", "crypto"})
+        self.assertEqual(settings.parse_sidebar_enabled("enabled=\n"), set())
+
+    def test_update_preserves_order_and_collapsed_state(self):
+        original = "order=calendar,quick-launch,todo\ncrypto\n"
+        updated = settings.update_sidebar_enabled_text(original, {"calendar", "quick-launch"})
+        self.assertEqual(updated, "order=calendar,quick-launch,todo\nenabled=calendar,quick-launch\ncrypto\n")
+        replaced = settings.update_sidebar_enabled_text(
+            updated + "enabled=crypto\n", {"weather"})
+        self.assertEqual(replaced, "order=calendar,quick-launch,todo\nenabled=weather\ncrypto\n")
+
+    def test_unknown_sidebar_sections_rejected(self):
+        with self.assertRaisesRegex(settings.SettingsError, "Unknown sidebar section"):
+            settings.update_sidebar_enabled_text("", {"not-a-section"})
+
+
 class ApplyTests(unittest.TestCase):
     def test_apply_writes_both_files_then_restarts(self):
         with tempfile.TemporaryDirectory() as temp:

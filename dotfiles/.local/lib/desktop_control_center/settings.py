@@ -44,6 +44,67 @@ TOOLBAR_STYLES = {
 }
 TOOLBAR_STYLE_IDS = {value: key for key, value in TOOLBAR_STYLES.items()}
 
+SIDEBAR_SECTIONS = (
+    ("calendar", "Calendar"),
+    ("todo", "To-do list"),
+    ("quick-launch", "Quick Launch"),
+    ("system-status", "System Status"),
+    ("codex", "Codex quotas"),
+    ("crypto", "Crypto prices"),
+    ("weather", "Weather"),
+    ("now-playing", "Now Playing"),
+    ("wallpaper", "Wallpaper picker"),
+)
+SIDEBAR_SECTION_IDS = tuple(section_id for section_id, _ in SIDEBAR_SECTIONS)
+DEFAULT_SIDEBAR_ENABLED = frozenset(
+    section_id for section_id in SIDEBAR_SECTION_IDS if section_id != "quick-launch"
+)
+
+
+def parse_sidebar_enabled(text: str) -> set[str]:
+    """Read enabled section IDs; legacy state defaults to a compact sidebar."""
+    enabled_line: str | None = None
+    for line in text.splitlines():
+        key, separator, value = line.partition("=")
+        if separator and key.strip() == "enabled":
+            enabled_line = value
+    if enabled_line is None:
+        return set(DEFAULT_SIDEBAR_ENABLED)
+    enabled: set[str] = set()
+    for section_id in enabled_line.split(","):
+        section_id = section_id.strip()
+        if section_id in SIDEBAR_SECTION_IDS:
+            enabled.add(section_id)
+    return enabled
+
+
+def update_sidebar_enabled_text(text: str, enabled: set[str]) -> str:
+    """Replace the enabled list without disturbing order or collapsed-section state."""
+    unknown = set(enabled) - set(SIDEBAR_SECTION_IDS)
+    if unknown:
+        raise SettingsError(f"Unknown sidebar section(s): {', '.join(sorted(unknown))}")
+    line = "enabled=" + ",".join(
+        section_id for section_id in SIDEBAR_SECTION_IDS if section_id in enabled
+    ) + "\n"
+    output: list[str] = []
+    replaced = False
+    for existing in text.splitlines(keepends=True):
+        key, separator, _ = existing.rstrip("\r\n").partition("=")
+        if separator and key.strip() == "enabled":
+            if not replaced:
+                output.append(line)
+                replaced = True
+            continue
+        output.append(existing)
+    if not replaced:
+        insertion = next((index + 1 for index, existing in enumerate(output)
+                          if existing.rstrip("\r\n").lstrip().startswith("order=")), len(output))
+        if insertion == len(output) and output and not output[-1].endswith(("\n", "\r")):
+            output[-1] += "\n"
+        output.insert(insertion, line)
+    return "".join(output)
+
+
 GTK_INI_KEYS = {
     "Net/ThemeName": "gtk-theme-name",
     "Net/IconThemeName": "gtk-icon-theme-name",

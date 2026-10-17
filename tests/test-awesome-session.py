@@ -54,7 +54,7 @@ class SingleScenario(argparse.Action):
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--scenario', choices=('all', 'titlebars', 'workspace-transfer', 'sidebar-documents', 'menu-popups'), action=SingleScenario,
+    parser.add_argument('--scenario', choices=('all', 'titlebars', 'workspace-transfer', 'sidebar-documents', 'sidebar-settings', 'menu-popups'), action=SingleScenario,
                         help='checks to run (default: all)')
     parser.add_argument('--composited', action='store_true', help='use private Picom/XRender')
     parser.add_argument('--inside', action='store_true', help=argparse.SUPPRESS)
@@ -72,7 +72,7 @@ def run_timed(name, check):
 
 def run_focused(scenario, *, prepare, controls, destruction):
     """Return False to continue the unchanged full-session sequence."""
-    if scenario in ('all', 'workspace-transfer', 'sidebar-documents', 'menu-popups'):
+    if scenario in ('all', 'workspace-transfer', 'sidebar-documents', 'sidebar-settings', 'menu-popups'):
         return False
     if scenario != 'titlebars':
         raise ValueError(f'Unknown scenario: {scenario}')
@@ -186,9 +186,13 @@ def main():
         actions_file = directory / "actions"
         actions_file.touch()
         section_state_file = testhome / ".local/state/awesome/sidebar-sections"
-        default_sidebar_order = "order=calendar,todo,quick-launch,system-status,codex,crypto,weather,now-playing,wallpaper\n"
+        all_sidebar_sections = "calendar,todo,quick-launch,system-status,codex,crypto,weather,now-playing,wallpaper"
+        default_sidebar_order = (f"order={all_sidebar_sections}\n"
+                                 f"enabled={all_sidebar_sections}\n")
         section_state_file.parent.mkdir(parents=True)
-        section_state_file.write_text("crypto\n")
+        section_state_file.write_text(
+            "crypto\n" if args.scenario == "sidebar-settings"
+            else f"crypto\nenabled={all_sidebar_sections}\n")
         env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}", TEST_ACTIONS=str(actions_file), TEST_WEATHER_RESPONSE=str(weather_response), AWESOME_TEST_MODE="1", AWESOME_TEST_WEATHER="1", NO_AT_BRIDGE="1", GIO_USE_VFS="local",
                    HOME=str(testhome), XDG_CONFIG_HOME=str(testhome / ".config"),
                    XDG_DATA_HOME=str(testhome / ".local/share"),
@@ -488,6 +492,13 @@ def main():
                 wait('return screen[1].workarea.y', '30')
                 assert 'true' in lua('local p=screen[1].panel; return p.visible and p.height == 30 and p.position == "top"')
                 assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and b.visible and not s.panel_clock_container.visible and s.sidebar_header and s.sidebar_header.forced_height == 26 and s.sidebar_mode == 3 and b.ontop and b:struts().right == 300 and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_trash_status and s.sidebar_trash_icon and s.sidebar_trash_state and s.sidebar_trash_timer.timeout == 30 and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_weather_text and s.sidebar_crypto_timer.timeout == 60 and s.sidebar_codex_card.forced_height == nil and s.sidebar_codex_timer.timeout == 60 and s.sidebar_audio_header == nil and s.sidebar_wallpaper_preview and s.sidebar_todo_card and #s.sidebar_todo_entries == 5 and s.sidebar_todo_entries[5] == "Fifth item" and s.sidebar_calendar_card and not s.sidebar_date_calendar and s.sidebar_calendar_grid and s.sidebar_calendar_weekday_order == "MoTuWeThFrSaSu" and #s.sidebar_calendar_entries == 7 and s.sidebar_calendar_entries[1].day == "past" and s.sidebar_calendar_entries[2].time == "08:15-09:00" and s.sidebar_calendar_entries[3].text == "visit: Today appointment" and s.sidebar_calendar_entries[6].text == "Third future event" and s.sidebar_todo_timer.timeout == 60 and s.sidebar_calendar_timer.timeout == 60 and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width-300 and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
+                if args.scenario == 'sidebar-settings':
+                    assert 'true' in lua('local s=screen[1]; return table.concat(s.sidebar_content_order, ",")=="calendar,todo,system-status,codex,crypto,weather,now-playing,wallpaper" and not s.sidebar_enabled_sections["quick-launch"] and s.sidebar_sections["system-status"].trailing_widget==s.sidebar_trash_status and s.sidebar_sections["quick-launch"].trailing_widget==nil')
+                    lua('screen[1].sidebar_sections.crypto.toggle_action()')
+                    assert section_state_file.read_text() == (
+                        f"order={all_sidebar_sections}\nenabled=calendar,todo,system-status,codex,crypto,weather,now-playing,wallpaper\n")
+                    finish_session(args.scenario)
+                    return 0
                 assert 'true' in lua('local s=screen[1]; return s.sidebar_clock_mode == "text" and s.sidebar_digital_time.visible and not s.sidebar_clock.visible and s.sidebar_clock_card.forced_height == 66')
                 menu_audit = lua('local m=__awesome_main_menu; local panel,icon,monitor,display=false,false,false,false; for _,item in ipairs((m and m.items) or {}) do local text=item.label and item.label:get_markup() or ""; text=text:gsub("<[^>]*>",""):gsub("&amp;","&"); if text=="Control Panel" then panel=true; icon=item.icon~=nil elseif text=="Monitor" then monitor=true elseif text=="Display outputs" then display=true end end; return "panel="..tostring(panel)..";icon="..tostring(icon)..";monitor="..tostring(monitor)..";display="..tostring(display)')
                 assert all(token in menu_audit for token in ('panel=true', 'icon=true', 'monitor=false', 'display=false')), menu_audit
@@ -523,7 +534,8 @@ def main():
                 click_sidebar_title("crypto")
                 wait('return tostring(screen[1].sidebar_sections.crypto.collapsed)', '"false"')
                 assert section_state_file.read_text() == default_sidebar_order
-                section_state_file.write_text("order=calendar,calendar,unknown\n")
+                section_state_file.write_text(
+                    f"order=calendar,calendar,unknown\nenabled={all_sidebar_sections}\n")
                 subprocess.run(["awesome-client", "awesome.restart()"], env=env,
                                capture_output=True, text=True, timeout=5)
                 wait('return table.concat(screen[1].sidebar_content_order, ",")',
@@ -625,7 +637,8 @@ def main():
                 wait('return table.concat(screen[1].sidebar_content_order, ",")', f'"{first_reordered}"')
                 click_sidebar_title("calendar")
                 assert 'true' in lua('return not screen[1].sidebar_sections.calendar.collapsed')
-                first_order_state = f"order={first_reordered}\ncrypto\n"
+                first_order_state = (f"order={first_reordered}\n"
+                                     f"enabled={all_sidebar_sections}\ncrypto\n")
                 assert section_state_file.read_text() == first_order_state
                 subprocess.run(["awesome-client", "awesome.restart()"], env=env,
                                capture_output=True, text=True, timeout=5)
@@ -634,7 +647,8 @@ def main():
                 assert section_state_file.read_text() == first_order_state
                 click_sidebar_title("crypto")
                 wait('return tostring(screen[1].sidebar_sections.crypto.collapsed)', '"false"')
-                default_sidebar_order = f"order={first_reordered}\n"
+                default_sidebar_order = (f"order={first_reordered}\n"
+                                         f"enabled={all_sidebar_sections}\n")
                 assert section_state_file.read_text() == default_sidebar_order
 
                 awesome_controls.verify_sidebar_edge_scroll(
@@ -642,12 +656,15 @@ def main():
                     log_text=logfile.read_text)
                 second_reordered = "calendar,quick-launch,system-status,codex,crypto,weather,now-playing,wallpaper,todo"
                 wait('return table.concat(screen[1].sidebar_content_order, ",")', f'"{second_reordered}"')
-                assert section_state_file.read_text() == f"order={second_reordered}\n"
+                assert section_state_file.read_text() == (
+                    f"order={second_reordered}\nenabled={all_sidebar_sections}\n")
                 subprocess.run(["awesome-client", "awesome.restart()"], env=env,
                                capture_output=True, text=True, timeout=5)
                 wait('return table.concat(screen[1].sidebar_content_order, ",")', f'"{second_reordered}"')
-                assert section_state_file.read_text() == f"order={second_reordered}\n"
-                default_sidebar_order = f"order={second_reordered}\n"
+                assert section_state_file.read_text() == (
+                    f"order={second_reordered}\nenabled={all_sidebar_sections}\n")
+                default_sidebar_order = (f"order={second_reordered}\n"
+                                         f"enabled={all_sidebar_sections}\n")
                 lua('for _,section in pairs(screen[1].sidebar_sections) do if not section.collapsed then for _,button in ipairs(section.marker:buttons()) do if button.button == 1 then button:emit_signal("press"); break end end end end')
                 wait('return tostring(not screen[1].sidebar_scrollbar.visible and screen[1].sidebar_scroll_max() == 0)', '"true"')
                 assert 'true' in lua('local s=screen[1]; return s.sidebar_scroll_view.forced_height == s.sidebar.height - s.sidebar_header.forced_height - s.sidebar_clock_card.forced_height')
@@ -714,7 +731,7 @@ def main():
                 assert 'true' in lua('return screen[1].sidebar_quick_launch_buttons.Terminal.widget._sidebar_release_binding.state.armed')
                 pointer("mousemove", 400, 700, "mouseup", 1)
                 assert 'true' in lua('local b=screen[1].sidebar_quick_launch_buttons.Terminal.widget; return not b._sidebar_release_binding.state.armed and #b:buttons()==0')
-                control_position = widget_point('screen[1].sidebar_quick_launch_buttons["Control Panel"].widget', x=60)
+                control_position = widget_point('screen[1].sidebar_quick_launch_buttons["Control Panel"].widget', x=240)
                 pointer("mousemove", *control_position, "click", 1)
                 deadline = time.monotonic() + 3
                 while time.monotonic() < deadline and "control-center" not in actions_file.read_text():
@@ -810,7 +827,7 @@ def main():
                 subprocess.run(["xdotool", "mousemove", "30", "15", "click", "1"], env=env, check=True)
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
                 menu_items = lua('local r=""; for i,item in ipairs(screen[1].start_menu.items) do r=r..i..":"..tostring(item.label and item.label.text)..":"..tostring(item.cmd)..";" end; return r')
-                assert '13:Display outputs' in menu_items, menu_items
+                assert 'Display outputs' not in menu_items and 'Monitor' not in menu_items, menu_items
                 press('Escape')
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"false"')
                 press('super')
@@ -827,9 +844,9 @@ def main():
                 press('super')
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
                 mnemonic_state=lua('''
-                    local expected={[1]="a",[2]="r",[4]="k",[5]="p",[6]="f",[7]="d",
-                        [8]="g",[9]="e",[11]="m",[12]="v",[13]="y",[15]="q",
-                        [16]="u",[18]="l",[19]="o",[20]="s",[21]="w"}
+                    local expected={[1]="a",[2]="r",[3]="n",[5]="k",[6]="p",[7]="f",
+                        [8]="d",[9]="g",[10]="e",[12]="v",[14]="q",[15]="u",
+                        [17]="l",[18]="o",[19]="s",[20]="w"}
                     local seen,count,details={},0,{}
                     for index,item in ipairs(screen[1].start_menu.items) do
                         local key=expected[index]
@@ -842,19 +859,19 @@ def main():
                     end
                     return table.concat(details,"|").."|count="..count
                 ''')
-                assert 'count=17' in mnemonic_state, mnemonic_state
-                lua('__start_quake1_cmd=screen[1].start_menu.items[15].cmd; __start_mnemonic_action=nil; screen[1].start_menu.items[15].cmd=function() __start_mnemonic_action="quake1" end')
+                assert 'count=16' in mnemonic_state, mnemonic_state
+                lua('__start_quake1_cmd=screen[1].start_menu.items[14].cmd; __start_mnemonic_action=nil; screen[1].start_menu.items[14].cmd=function() __start_mnemonic_action="quake1" end')
                 press('q')
                 wait('return tostring(__start_mnemonic_action)', '"quake1"')
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"false"')
-                lua('screen[1].start_menu.items[15].cmd=__start_quake1_cmd; __start_quake2_cmd=screen[1].start_menu.items[16].cmd')
+                lua('screen[1].start_menu.items[14].cmd=__start_quake1_cmd; __start_quake2_cmd=screen[1].start_menu.items[15].cmd')
                 subprocess.run(["xdotool", "mousemove", "30", "15", "click", "1"], env=env, check=True)
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
-                lua('__start_mnemonic_action=nil; screen[1].start_menu.items[16].cmd=function() __start_mnemonic_action="quake2" end')
+                lua('__start_mnemonic_action=nil; screen[1].start_menu.items[15].cmd=function() __start_mnemonic_action="quake2" end')
                 press('u')
                 wait('return tostring(__start_mnemonic_action)', '"quake2"')
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"false"')
-                lua('screen[1].start_menu.items[16].cmd=__start_quake2_cmd; __start_quake1_cmd=nil; __start_quake2_cmd=nil; __start_mnemonic_action=nil')
+                lua('screen[1].start_menu.items[15].cmd=__start_quake2_cmd; __start_quake1_cmd=nil; __start_quake2_cmd=nil; __start_mnemonic_action=nil')
                 subprocess.run(["xdotool", "mousemove", "30", "15", "click", "1"], env=env, check=True)
                 wait('return tostring(screen[1].start_menu.wibox.visible)', '"true"')
                 right_click_point=menu_item_point('screen[1].start_menu', 1)

@@ -2,7 +2,7 @@
 set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 usage() {
-  printf 'Usage: %s [--session|--visual] [--scenario all|titlebars|workspace-transfer|sidebar-documents|menu-popups]\n' "$0"
+  printf 'Usage: %s [--session|--visual] [--scenario all|titlebars|workspace-transfer|sidebar-documents|sidebar-settings|menu-popups]\n' "$0"
   printf 'No mode: fast checks. --session: private runtime. --visual: runtime and XRender visual checks.\n'
   printf '%s\n' '--scenario selects runtime checks (default: all); it requires --session or --visual.'
 }
@@ -18,7 +18,7 @@ while (( $# )); do
         (( $# >= 2 )) || invalid
         scenario=$2; shift
       else scenario=${1#*=}; fi
-      case "$scenario" in all|titlebars|workspace-transfer|sidebar-documents|menu-popups) ;; *) invalid ;; esac ;;
+      case "$scenario" in all|titlebars|workspace-transfer|sidebar-documents|sidebar-settings|menu-popups) ;; *) invalid ;; esac ;;
     *) invalid ;;
   esac
   shift
@@ -43,6 +43,7 @@ run_focused_session_checks() {
   if [[ -z "$scenario" || "$scenario" == all ]]; then
     run python3 tests/test-awesome-session.py --scenario workspace-transfer
     run python3 tests/test-awesome-session.py --scenario sidebar-documents
+    run python3 tests/test-awesome-session.py --scenario sidebar-settings
   fi
 }
 case "$mode" in

@@ -412,34 +412,85 @@ function sidebar.create(s, dismiss_menu)
     local state_root = os.getenv("XDG_STATE_HOME")
         or ((os.getenv("HOME") or ".") .. "/.local/state")
     local section_state_path = state_root .. "/awesome/sidebar-sections"
-    local collapsed_ids, saved_order_ids = {}, {}
+    local all_section_ids = {"calendar", "todo", "quick-launch", "system-status", "codex",
+        "crypto", "weather", "now-playing", "wallpaper"}
+    local known_section_ids, collapsed_ids, saved_order_ids, saved_order_seen = {}, {}, {}, {}
+    for _, id in ipairs(all_section_ids) do known_section_ids[id] = true end
+    local saved_enabled_ids
     local saved_sections = read(section_state_path) or ""
     for id in saved_sections:gmatch("[^\r\n]+") do
         id = id:gsub("^%s+", ""):gsub("%s+$", "")
         local order = id:match("^order=(.*)$")
+        local enabled = id:match("^enabled=(.*)$")
         if order then
             for section_id in order:gmatch("[^,]+") do
                 section_id = section_id:gsub("^%s+", ""):gsub("%s+$", "")
-                if section_id:match("^[%w-]+$") then saved_order_ids[#saved_order_ids + 1] = section_id end
+                if known_section_ids[section_id] and not saved_order_seen[section_id] then
+                    saved_order_ids[#saved_order_ids + 1] = section_id
+                    saved_order_seen[section_id] = true
+                end
             end
-        elseif id:match("^[%w-]+$") then
+        elseif enabled then
+            saved_enabled_ids = {}
+            for section_id in enabled:gmatch("[^,]+") do
+                section_id = section_id:gsub("^%s+", ""):gsub("%s+$", "")
+                if known_section_ids[section_id] then saved_enabled_ids[section_id] = true end
+            end
+        elseif known_section_ids[id] then
             collapsed_ids[id] = true
         end
     end
+    local enabled_ids = saved_enabled_ids or {}
+    if not saved_enabled_ids then
+        for _, id in ipairs(all_section_ids) do
+            if id ~= "quick-launch" then enabled_ids[id] = true end
+        end
+    end
+    for _, id in ipairs(all_section_ids) do
+        if not saved_order_seen[id] then
+            saved_order_ids[#saved_order_ids + 1] = id
+            saved_order_seen[id] = true
+        end
+    end
+    s.sidebar_enabled_sections = enabled_ids
     local function save_section_state()
+        local ordered_ids, active_index = {}, 1
+        for _, id in ipairs(saved_order_ids) do
+            if enabled_ids[id] then
+                local section = section_order[active_index]
+                if section then
+                    ordered_ids[#ordered_ids + 1] = section.id
+                    active_index = active_index + 1
+                end
+            else
+                ordered_ids[#ordered_ids + 1] = id
+            end
+        end
+        while active_index <= #section_order do
+            ordered_ids[#ordered_ids + 1] = section_order[active_index].id
+            active_index = active_index + 1
+        end
+        saved_order_ids = ordered_ids
+
         local directory = section_state_path:match("^(.*)/")
         if not directory or not pcall(gears.filesystem.make_directories, directory) then return end
         local temporary = section_state_path .. ".tmp"
         local file = io.open(temporary, "w")
         if not file then return end
-        file:write("order=")
-        for index, section in ipairs(section_order) do
-            if index > 1 then file:write(",") end
-            file:write(section.id)
+        file:write("order=", table.concat(saved_order_ids, ","), "\n")
+        file:write("enabled=")
+        local first_enabled = true
+        for _, id in ipairs(all_section_ids) do
+            if enabled_ids[id] then
+                if not first_enabled then file:write(",") end
+                file:write(id)
+                first_enabled = false
+            end
         end
         file:write("\n")
-        for _, section in ipairs(section_order) do
-            if section.collapsed then file:write(section.id, "\n") end
+        for _, id in ipairs(all_section_ids) do
+            local section = sections_by_id[id]
+            if section and section.collapsed then file:write(id, "\n") end
         end
         file:close()
         if not os.rename(temporary, section_state_path) then os.remove(temporary) end
@@ -459,6 +510,7 @@ function sidebar.create(s, dismiss_menu)
         local section = {
             id = id, title = title_text, header = header, title_widget = title,
             marker = marker, body = body, body_container = body_container, card = section_card,
+            trailing_widget = trailing_widget,
             expanded_height = expanded_height, collapsed = collapsed_ids[id] == true,
         }
         local collapsed_height = header.forced_height + 2 * section_vertical_padding + 6
@@ -815,7 +867,7 @@ function sidebar.create(s, dismiss_menu)
         layout = wibox.layout.fixed.vertical,
     }
     local quick_launch_card = collapsible_card(
-        "quick-launch", "QUICK LAUNCH", quick_launch_body, nil, trash_status)
+        "quick-launch", "QUICK LAUNCH", quick_launch_body)
     s.sidebar_launch = launcher
 
     local volume_control = wibox.layout.fixed.vertical()
@@ -829,7 +881,7 @@ function sidebar.create(s, dismiss_menu)
         volume_control, network_text,
         spacing = compact_spacing, layout = wibox.layout.fixed.vertical,
     }
-    local stats_card = collapsible_card("system-status", "SYSTEM STATUS", stats_body)
+    local stats_card = collapsible_card("system-status", "SYSTEM STATUS", stats_body, nil, trash_status)
 
     local function codex_window_row(period)
         local summary = label(period .. " unavailable", palette.muted, 9, false)
@@ -989,14 +1041,14 @@ function sidebar.create(s, dismiss_menu)
     for _, entry in ipairs(default_content_sections) do default_by_id[entry.id] = entry end
     local function append_ordered_section(id)
         local entry = default_by_id[id]
-        if entry and not seen[id] then
+        if entry and enabled_ids[id] and not seen[id] then
             content_sections[#content_sections + 1] = entry
             section_order[#section_order + 1] = sections_by_id[id]
             seen[id] = true
         end
     end
     local function insert_missing_default(entry)
-        if seen[entry.id] then return end
+        if not enabled_ids[entry.id] or seen[entry.id] then return end
         local insert_at, reached_entry = nil, false
         if entry.id == "quick-launch" then
             for index, current in ipairs(content_sections) do
@@ -1284,8 +1336,8 @@ function sidebar.create(s, dismiss_menu)
                         if section.collapsed~=(key=='Left') then section.toggle_action() end
                         return true
                     end}
-                if section.id=='quick-launch' then
-                    result[#result+1]={id='quick-launch:trash',section='quick-launch',widget=trash_status,activate=open_trash,exit=true}
+                if section.id=='system-status' then
+                    result[#result+1]={id='system-status:trash',section='system-status',widget=trash_status,activate=open_trash,exit=true}
                 end
                 if not section.collapsed then
                     for _,entry in ipairs(keyboard_targets[section.id] or {}) do result[#result+1]=entry end

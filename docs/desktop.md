@@ -140,10 +140,11 @@ xsettingsd; failed restarts roll the files back. Its Tools tab also offers the
 same four display profiles as Win+P, launches ArandR for manual layout edits,
 starts btop or htop in Kitty, launches the AMDGPU TOP GUI and XFCE Task Manager,
 and opens Pavucontrol, NetworkManager, Bluetooth Manager, Power Manager settings,
-or Solaar on demand. Solaar is not started automatically. The Start menu keeps
+or Solaar on demand. Its Sidebar tab has checkboxes for section visibility; Quick
+Launch is hidden by default to save space. Save sidebar choices, then press
+Win+Ctrl+R to apply them. Solaar is not started automatically. The Start menu keeps
 its Volume Control entry but no longer duplicates Monitor or Display outputs.
-Sidebar Quick Launch opens the Control Panel instead of duplicating Monitor and
-Volume; the integrated System Status volume control remains available. Explicit HDMI modes prefer 2560×1440/144 Hz; the
+Trash and the integrated volume control are in System Status. Explicit HDMI modes prefer 2560×1440/144 Hz; the
 internal display stays enabled until a requested mode succeeds. Mouse: drag
 titlebar to move, double-click to maximize, and drag a maximized titlebar to restore
 it beneath the pointer. Releasing a titlebar drag at the top edge maximizes; releasing
@@ -311,7 +312,7 @@ Start. No synthetic keystrokes or modifier changes are used.
   also catches up after suspend. Later same-day refreshes preserve your selection;
   hidden sidebars and folded calendars stay hidden/folded.
 - Offscreen controls scroll into view. Folded sections expose their headers (and
-  the Quick Launch header's Trash link); navigation follows the current section
+  the System Status header's Trash link); navigation follows the current section
   order. Calendar refreshes keep a valid focus target.
 
 Mouse interaction, application focus/workspace changes, hiding, fullscreen, and

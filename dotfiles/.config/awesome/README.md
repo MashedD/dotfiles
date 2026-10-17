@@ -47,7 +47,9 @@ on the top panel dismisses the open menu. Workspace
 actions use the shared grab/release handler and an immediate, fading dark-teal
 overlay that preserves native taglist backgrounds. The
 coordinator adapts component handles back to existing `s.sidebar_*` diagnostics;
-document formats and persisted state are unchanged.
+section order, fold state, and visibility are stored together in
+`$XDG_STATE_HOME/awesome/sidebar-sections`. Quick Launch defaults off; the Control
+Center's Sidebar tab can enable it, with Awesome reloaded using Win+Ctrl+R.
 
 | Component | Constructor inputs | Returned operations/handles |
 | --- | --- | --- |
@@ -64,7 +66,8 @@ registers those methods in its lifetime group. Collector timers remain owned by
 `sidebar-data.lua`; document refresh timers remain in the parent. Components do not
 start desktop services or create independent polling loops for data. Release-bound
 sidebar actions activate only after a valid left-button release inside the control;
-Quick Launch availability is checked anew for each tooltip/click.
+Quick Launch availability is checked anew for each tooltip/click. Its section is
+hidden by default; the Trash indicator is attached to System Status.
 
 See `../../../tests/README.md` for syntax, Lua, isolated Xvfb, and private
 Picom/XRender compositing checks. Compositor configuration preserves explicit ARGB
