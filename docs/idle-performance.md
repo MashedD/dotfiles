@@ -453,3 +453,26 @@ memory, and network at 1-second refreshes while moving battery and root-filesyst
 probes to 30 seconds; the displayed content and formats are unchanged. Battery and
 root-space changes can take up to 30 seconds to appear. The live Awesome session was
 not restarted.
+
+#### Calendar label raster-cache candidate rejected
+
+A private candidate cached only weekday and day-number text rasters while preserving
+the existing clickable widget tree. It passed 50 direct-versus-cached Pango/Cairo
+pixel comparisons (zero channel error), the 2× cache-memory fixture (<1 MiB), and
+private calendar-session lifecycle checks. Those results establish visual and
+lifecycle compatibility, not a performance win.
+
+A private 30-second A–B–B–A comparison after a 5-second warm-up failed the render
+ship gate on both topologies:
+
+| Screens | Direct sidebar redraw ms/s (A1, A2) | Cached redraw ms/s (B1, B2) | Mean change | Awesome CPU delta |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 44.46, 42.93 | 46.19, 49.01 | +8.9% | +0.42 percentage points |
+| 2 (summed) | 90.82, 90.20 | 99.69, 95.22 | +7.7% | +0.87 percentage points |
+
+The two-screen cached heartbeat p95 also rose in both runs. In this fixture the
+per-draw cache lookup/setup did not pay for itself relative to drawing the small labels
+directly. The candidate and its production hooks were discarded; calendar layout, appearance,
+interactions, and update cadence remain unchanged. No live session was sampled or
+reloaded. Raw private-run data is ephemeral at
+`/tmp/awesome-calendar-text-cache-abba.json`.
