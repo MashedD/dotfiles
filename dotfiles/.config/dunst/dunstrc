@@ -1,4 +1,4 @@
-# Windows 98-style notifications for Openbox.
+# Square-edged, Aero-blue notifications for the Awesome desktop.
 
 [global]
     follow = keyboard
@@ -16,9 +16,9 @@
     ellipsize = end
 
     frame_width = 2
-    frame_color = "#000000"
+    frame_color = "#73a7c5"
     separator_height = 1
-    separator_color = "#000000"
+    separator_color = "#527b96"
     padding = 6
     horizontal_padding = 8
     text_icon_padding = 6
@@ -38,22 +38,22 @@
     mouse_right_click = close_all
 
 [urgency_low]
-    background = "#ffffe1"
-    foreground = "#000000"
-    frame_color = "#000000"
-    highlight = "#00ff41"
+    background = "#183d5b"
+    foreground = "#b8c5d6"
+    frame_color = "#536a82"
+    highlight = "#9cddd4"
     timeout = 8
 
 [urgency_normal]
-    background = "#ffffe1"
-    foreground = "#000000"
-    frame_color = "#000000"
-    highlight = "#00ff41"
+    background = "#183d5b"
+    foreground = "#e0e8f2"
+    frame_color = "#73a7c5"
+    highlight = "#a8f0bd"
     timeout = 10
 
 [urgency_critical]
-    background = "#ffffe1"
-    foreground = "#000000"
-    frame_color = "#000000"
-    highlight = "#00ff41"
+    background = "#183d5b"
+    foreground = "#f2fffb"
+    frame_color = "#ff8e89"
+    highlight = "#ff8e89"
     timeout = 0

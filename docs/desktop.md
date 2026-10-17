@@ -7,7 +7,7 @@ This is the active desktop configuration for a CachyOS X11 session:
 
 - AwesomeWM with four workspaces, floating-by-default windows (Win+Space toggles the current tag to tile) and Win98/Matrix titlebars
 - Native Awesome 30px Win98/Matrix top panel and XEmbed tray, with snixembed bridge
-- kitty, xfce4-appfinder, pcmanfm, dunst, lxqt-policykit, and xss-lock/i3lock
+- kitty, xfce4-appfinder, pcmanfm, Dunst with square-edged navy/Aero notifications and urgency accents, lxqt-policykit, and xss-lock/i3lock
 - Adwaita GTK controls with blue selection, Breeze icons, and Adwaita cursors; VAX colors remain in terminals.
 - HDMI-A-1-0 preferred at 2560×1440/144 Hz, with internal-display recovery
 
