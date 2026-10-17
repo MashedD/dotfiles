@@ -107,6 +107,7 @@ class ControlCenter(Gtk.Window):
         self.connect("destroy", lambda *_: Gtk.main_quit())
         self.settings = _read_initial_settings()
         self.widgets: dict[str, object] = {}
+        self.tool_buttons: dict[str, Gtk.Button] = {}
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.add(outer)
@@ -258,12 +259,17 @@ class ControlCenter(Gtk.Window):
     def _build_tools_page(self) -> None:
         grid, _ = self._add_tab("Devices & Tools")
         tools = (
-            ("Display", "arandr", "video-display", "Arrange monitors and resolutions"),
+            ("Display outputs", "display-profiles", "video-display",
+             "Choose internal, HDMI, extended, or automatic layout"),
+            ("Arrange displays (ArandR)", "arandr", "video-display",
+             "Fine-tune monitor positions and resolutions"),
+            ("System monitor", "btop", "utilities-system-monitor", "Open btop in Kitty"),
             ("Sound", "pavucontrol", "audio-volume-high", "Manage audio devices and applications"),
             ("Network", "nm-connection-editor", "network-wired", "Manage NetworkManager connections"),
-            ("Logitech devices", "solaar", "input-mouse", "Inspect and configure Logitech devices (manual launch only)"),
+            ("Logitech devices", "solaar", "input-mouse",
+             "Inspect and configure Logitech devices (manual launch only)"),
         )
-        for index, (label, command, icon, description) in enumerate(tools):
+        for index, (label, action, icon, description) in enumerate(tools):
             row, column = divmod(index, 2)
             button = Gtk.Button()
             contents = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
@@ -281,17 +287,51 @@ class ControlCenter(Gtk.Window):
             text_box.pack_start(detail, False, False, 0)
             contents.pack_start(text_box, True, True, 0)
             button.add(contents)
-            executable = shutil.which(command)
-            if executable:
-                button.connect("clicked", self._launch_tool, executable)
+            self.tool_buttons[action] = button
+
+            if action == "display-profiles":
+                executable = shutil.which("desktop-display")
+                if executable:
+                    button.connect("clicked", self._show_display_profiles, executable)
+                else:
+                    button.set_sensitive(False)
+                    button.set_tooltip_text("desktop-display is not installed")
+            elif action == "btop":
+                kitty, btop = shutil.which("kitty"), shutil.which("btop")
+                if kitty and btop:
+                    button.connect("clicked", self._launch_argv,
+                                   [kitty, "--title", "System Monitor", btop])
+                else:
+                    button.set_sensitive(False)
+                    button.set_tooltip_text("Kitty and btop are required")
             else:
-                button.set_sensitive(False)
-                button.set_tooltip_text(f"{command} is not installed")
+                executable = shutil.which(action)
+                if executable:
+                    button.connect("clicked", self._launch_tool, executable)
+                else:
+                    button.set_sensitive(False)
+                    button.set_tooltip_text(f"{action} is not installed")
             grid.attach(button, column, row, 1, 1)
-        note = Gtk.Label(label="Solaar is never started automatically; launch it here when you need it.")
+        note = Gtk.Label(label="Display profiles use the same desktop-display helper as Awesome. Solaar is never started automatically.")
         note.set_xalign(0)
         note.set_line_wrap(True)
-        grid.attach(note, 0, 2, 2, 1)
+        grid.attach(note, 0, 3, 2, 1)
+
+    def _show_display_profiles(self, button: Gtk.Button, executable: str) -> None:
+        menu = Gtk.Menu()
+        for label, option in (
+            ("Internal display only", "--internal"),
+            ("External HDMI only", "--hdmi"),
+            ("Extend desktop (laptop + HDMI)", "--extend"),
+            ("Restore automatic layout", "--once"),
+        ):
+            item = Gtk.MenuItem.new_with_label(label)
+            item.connect("activate", self._launch_argv, [executable, option])
+            menu.append(item)
+        self.display_profile_menu = menu
+        menu.show_all()
+        menu.popup_at_widget(button, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST,
+                             Gtk.get_current_event())
 
     def _collect_settings(self) -> dict[str, object]:
         result: dict[str, object] = {}
@@ -359,15 +399,18 @@ class ControlCenter(Gtk.Window):
         except Exception as exc:
             self.status.set_text(f"Could not reload settings: {exc}")
 
-    def _launch_tool(self, _button: Gtk.Button, executable: str) -> None:
+    def _launch_tool(self, button: Gtk.Button, executable: str) -> None:
+        self._launch_argv(button, [executable])
+
+    def _launch_argv(self, _button: Gtk.Widget, argv: list[str]) -> None:
         try:
-            subprocess.Popen([executable], stdin=subprocess.DEVNULL,
+            subprocess.Popen(argv, stdin=subprocess.DEVNULL,
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                              start_new_session=True)
         except OSError as exc:
             dialog = Gtk.MessageDialog(
                 transient_for=self, modal=True, message_type=Gtk.MessageType.ERROR,
-                buttons=Gtk.ButtonsType.CLOSE, text=f"Could not launch {Path(executable).name}",
+                buttons=Gtk.ButtonsType.CLOSE, text=f"Could not launch {Path(argv[0]).name}",
             )
             dialog.format_secondary_text(str(exc))
             dialog.run()

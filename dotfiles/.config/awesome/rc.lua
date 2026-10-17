@@ -269,6 +269,7 @@ local legacy_menu_fallbacks = {
     ["im-message"] = "applications-internet.png",
     ["dialog-password"] = "dialog-password.png",
     ["utilities-system-monitor"] = "utilities-system-monitor.png",
+    ["preferences-system"] = "/usr/share/icons/breeze/apps/32/preferences-system.svg",
     ["audio-volume-high"] = "audio-volume-high.png",
     ["video-display"] = "video-display.png",
     ["applications-games"] = "applications-games.png",
@@ -304,7 +305,6 @@ main_menu = awful.menu({items = {
     {"&Run…", "xfce4-appfinder", menu_icon("system-run")},
     {"Control &Panel", function() dismiss_start_menu(); run({home .. "/.local/bin/desktop-control-center"}) end,
         menu_icon("preferences-system")},
-
     {new = menu_separator},
     {"&Kitty", "kitty", menu_icon("utilities-terminal")},
     {"&PCManFM", "pcmanfm", menu_icon("system-file-manager")},
@@ -313,11 +313,7 @@ main_menu = awful.menu({items = {
     {"&Gajim", "gajim", menu_icon("im-message")},
     {"K&eePassXC", "keepassxc", menu_icon("dialog-password")},
     {new = menu_separator},
-    {"&Monitor", function() dismiss_start_menu(); run({"kitty", "--title", "System Monitor", "btop"}) end,
-        menu_icon("utilities-system-monitor")},
     {"&Volume Control", "pavucontrol", menu_icon("audio-volume-high")},
-    {"Displa&y outputs", function() dismiss_start_menu(); show_centered_menu(display_menu) end,
-        menu_icon("video-display")},
     {new = menu_separator},
     {"&Quake 1", function() dismiss_start_menu(); run({home .. "/Games/quake-rerelease/vkquake.sh"}) end,
         menu_icon("applications-games")},
@@ -330,6 +326,7 @@ main_menu = awful.menu({items = {
         menu_icon("system-suspend")},
     {"Po&weroff", confirm_poweroff, menu_icon("system-shutdown")},
 }})
+_G.__awesome_main_menu = main_menu
 local main_menu_keygrabber = main_menu._keygrabber
 local start_key_pending = false
 main_menu._keygrabber = function(modifiers, key_name, event)

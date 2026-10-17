@@ -19,9 +19,9 @@ sudo pacman -S --needed stow awesome xsettingsd snixembed \
 
 `xdg-terminal-exec` honors `~/.config/xdg-terminals.list`; this configuration
 selects `kitty.desktop` for desktop applications marked `Terminal=true`.
-The Start menu's **Control Panel** provides GTK appearance settings, display/audio/network
-launchers, and a manual Solaar launcher. `nm-connection-editor` and `solaar` remain
-optional; Solaar is never started automatically.
+The Start menu's **Control Panel** provides GTK appearance settings, display profiles,
+ArandR, btop, audio/network launchers, and a manual Solaar launcher. `nm-connection-editor`
+and `solaar` remain optional; Solaar is never started automatically.
 
 From the repository root:
 

@@ -136,9 +136,12 @@ only, extended desktop, or automatic hotplug layout. The Start menu's **Control
 Panel** edits GTK theme, icon/cursor theme, interface font, selection colors,
 toolbar and image preferences, sound/animation toggles, and Xft font rendering.
 Apply saves `xsettingsd.conf` and GTK 3 `settings.ini`, then restarts only
-xsettingsd; failed restarts roll the files back. It also launches ArandR,
-Pavucontrol, NetworkManager connection editing, and Solaar on demand. Solaar is
-not started automatically. Explicit HDMI modes prefer 2560×1440/144 Hz; the
+xsettingsd; failed restarts roll the files back. Its Tools tab also offers the
+same four display profiles as Win+P, launches ArandR for manual layout edits,
+starts btop in Kitty, and opens Pavucontrol, NetworkManager connection editing,
+or Solaar on demand. Solaar is not started automatically; the
+Start menu keeps its Volume Control entry but no longer duplicates Monitor or
+Display outputs. Explicit HDMI modes prefer 2560×1440/144 Hz; the
 internal display stays enabled until a requested mode succeeds. Mouse: drag
 titlebar to move, double-click to maximize, and drag a maximized titlebar to restore
 it beneath the pointer. Releasing a titlebar drag at the top edge maximizes; releasing

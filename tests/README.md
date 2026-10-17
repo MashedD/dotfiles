@@ -14,7 +14,7 @@ From any directory, invoke the repository's runner:
 ./tests/run.sh --session   # also private Xvfb Awesome session
 ./tests/run.sh --visual    # also visual sessions without/with private Picom
 ./tests/run.sh --session --scenario titlebars   # fast checks + focused runtime
-./tests/run.sh --session --scenario menu-popups # verify centered popup menus
+./tests/run.sh --session --scenario menu-popups # verify popup placement and Start menu entries
 ./tests/run.sh --visual --scenario titlebars    # fast checks + focused visual matrix
 ```
 
