@@ -20,8 +20,11 @@ sudo pacman -S --needed stow awesome xsettingsd snixembed \
 `xdg-terminal-exec` honors `~/.config/xdg-terminals.list`; this configuration
 selects `kitty.desktop` for desktop applications marked `Terminal=true`.
 The Start menu's **Control Panel** provides GTK appearance settings, display profiles,
-ArandR, btop, audio/network launchers, and a manual Solaar launcher. `nm-connection-editor`
-and `solaar` remain optional; Solaar is never started automatically.
+ArandR, btop/htop, AMDGPU TOP, Task Manager, Bluetooth and power settings, plus audio/network launchers and a manual Solaar
+launcher. `nm-connection-editor`, `amdgpu_top`, `htop`, `xfce4-taskmanager`,
+`blueman-manager`, `xfce4-power-manager-settings`, and `solaar` remain optional;
+Solaar is never started automatically. The sidebar Quick Launch has a Control
+Panel shortcut; volume remains integrated in the System Status card.
 
 From the repository root:
 

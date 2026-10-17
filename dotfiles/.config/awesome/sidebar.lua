@@ -346,6 +346,7 @@ local function quick_launch_button(text, icon_name, callback, dismiss_menu, bind
         ["utilities-terminal"] = "utilities-terminal.png",
         ["system-file-manager"] = "system-file-manager.png",
         ["utilities-system-monitor"] = "utilities-system-monitor.png",
+        ["preferences-system"] = "/usr/share/icons/breeze/apps/32/preferences-system.svg",
         ["system-run"] = "system-run.png",
         ["web-browser"] = "web-browser.png",
         ["audio-volume-high"] = "audio-volume-high.png",
@@ -797,12 +798,12 @@ function sidebar.create(s, dismiss_menu)
     launch_rows:add(launch_row({
         {"Terminal", "utilities-terminal", {"kitty"}},
         {"Files", "system-file-manager", {"pcmanfm"}},
-        {"Monitor", "utilities-system-monitor", {"kitty", "--title", "System Monitor", "btop"}, {"kitty", "btop"}},
+        {"Control Panel", "preferences-system", {home .. "/.local/bin/desktop-control-center"},
+            {home .. "/.local/bin/desktop-control-center"}},
     }))
     launch_rows:add(launch_row({
         {"Finder", "system-run", {"xfce4-appfinder"}},
         {"Firefox", "web-browser", {"firefox"}},
-        {"Volume", "audio-volume-high", {"pavucontrol"}},
     }))
     launch_rows:add(launch_row({
         {"Quake 1", "applications-games", {home .. "/Games/quake-rerelease/vkquake.sh"}, {home .. "/Games/quake-rerelease/vkquake.sh"}},

@@ -179,6 +179,10 @@ def main():
         volume_helper = helpers / "desktop-volume"
         volume_helper.write_text('#!/bin/sh\necho "$1" >> "$TEST_ACTIONS"\n')
         volume_helper.chmod(0o755)
+        control_center = testhome / ".local/bin/desktop-control-center"
+        control_center.parent.mkdir(parents=True, exist_ok=True)
+        control_center.write_text('#!/bin/sh\necho control-center >> "$TEST_ACTIONS"\n')
+        control_center.chmod(0o755)
         actions_file = directory / "actions"
         actions_file.touch()
         section_state_file = testhome / ".local/state/awesome/sidebar-sections"
@@ -487,6 +491,14 @@ def main():
                 assert 'true' in lua('local s=screen[1]; return s.sidebar_clock_mode == "text" and s.sidebar_digital_time.visible and not s.sidebar_clock.visible and s.sidebar_clock_card.forced_height == 66')
                 menu_audit = lua('local m=__awesome_main_menu; local panel,icon,monitor,display=false,false,false,false; for _,item in ipairs((m and m.items) or {}) do local text=item.label and item.label:get_markup() or ""; text=text:gsub("<[^>]*>",""):gsub("&amp;","&"); if text=="Control Panel" then panel=true; icon=item.icon~=nil elseif text=="Monitor" then monitor=true elseif text=="Display outputs" then display=true end end; return "panel="..tostring(panel)..";icon="..tostring(icon)..";monitor="..tostring(monitor)..";display="..tostring(display)')
                 assert all(token in menu_audit for token in ('panel=true', 'icon=true', 'monitor=false', 'display=false')), menu_audit
+                quick_launch_audit = lua('local q=screen[1].sidebar_quick_launch_buttons; local c=q["Control Panel"]; return tostring(c~=nil and c.entry.argv[1]==os.getenv("HOME").."/.local/bin/desktop-control-center")..":"..tostring(q.Monitor==nil)..":"..tostring(q.Volume==nil)')
+                assert 'true:true:true' in quick_launch_audit, quick_launch_audit
+                control_center_position = widget_point('screen[1].sidebar_quick_launch_buttons["Control Panel"].widget', x=240)
+                pointer("mousemove", *control_center_position, "click", 1)
+                deadline = time.monotonic() + 3
+                while time.monotonic() < deadline and "control-center" not in actions_file.read_text():
+                    time.sleep(0.05)
+                assert "control-center" in actions_file.read_text(), actions_file.read_text()
                 if args.scenario == 'sidebar-documents':
                     run_timed('sidebar.documents', lambda: awesome_sidebar.verify_document_launches(
                         lua=lua, wait=wait, pointer=pointer, widget_point=widget_point,
@@ -702,6 +714,12 @@ def main():
                 assert 'true' in lua('return screen[1].sidebar_quick_launch_buttons.Terminal.widget._sidebar_release_binding.state.armed')
                 pointer("mousemove", 400, 700, "mouseup", 1)
                 assert 'true' in lua('local b=screen[1].sidebar_quick_launch_buttons.Terminal.widget; return not b._sidebar_release_binding.state.armed and #b:buttons()==0')
+                control_position = widget_point('screen[1].sidebar_quick_launch_buttons["Control Panel"].widget', x=60)
+                pointer("mousemove", *control_position, "click", 1)
+                deadline = time.monotonic() + 3
+                while time.monotonic() < deadline and "control-center" not in actions_file.read_text():
+                    time.sleep(0.05)
+                assert "control-center" in actions_file.read_text(), actions_file.read_text()
                 wallpaper = subprocess.run(["xprop", "-root", "_XROOTPMAP_ID"], env=env,
                                            capture_output=True, text=True, check=True, timeout=3).stdout
                 assert "PIXMAP" in wallpaper, wallpaper

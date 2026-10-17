@@ -264,8 +264,15 @@ class ControlCenter(Gtk.Window):
             ("Arrange displays (ArandR)", "arandr", "video-display",
              "Fine-tune monitor positions and resolutions"),
             ("System monitor", "btop", "utilities-system-monitor", "Open btop in Kitty"),
+            ("htop", "htop", "utilities-system-monitor", "Lightweight process viewer in Kitty"),
+            ("AMDGPU TOP", "amdgpu_top", "video-display", "GPU utilization and performance"),
+            ("Task Manager", "xfce4-taskmanager", "utilities-system-monitor", "Manage and stop desktop applications"),
             ("Sound", "pavucontrol", "audio-volume-high", "Manage audio devices and applications"),
             ("Network", "nm-connection-editor", "network-wired", "Manage NetworkManager connections"),
+            ("Bluetooth Manager", "blueman-manager", "preferences-system-bluetooth",
+             "Pair and manage Bluetooth devices"),
+            ("Power Manager", "xfce4-power-manager-settings", "preferences-system-power-management",
+             "Configure laptop power and battery behavior"),
             ("Logitech devices", "solaar", "input-mouse",
              "Inspect and configure Logitech devices (manual launch only)"),
         )
@@ -296,14 +303,22 @@ class ControlCenter(Gtk.Window):
                 else:
                     button.set_sensitive(False)
                     button.set_tooltip_text("desktop-display is not installed")
-            elif action == "btop":
-                kitty, btop = shutil.which("kitty"), shutil.which("btop")
-                if kitty and btop:
+            elif action in {"btop", "htop"}:
+                kitty, monitor = shutil.which("kitty"), shutil.which(action)
+                if kitty and monitor:
+                    title = "System Monitor" if action == "btop" else "Process Viewer"
                     button.connect("clicked", self._launch_argv,
-                                   [kitty, "--title", "System Monitor", btop])
+                                   [kitty, "--title", title, monitor])
                 else:
                     button.set_sensitive(False)
-                    button.set_tooltip_text("Kitty and btop are required")
+                    button.set_tooltip_text(f"Kitty and {action} are required")
+            elif action == "amdgpu_top":
+                executable = shutil.which(action)
+                if executable:
+                    button.connect("clicked", self._launch_argv, [executable, "--gui"])
+                else:
+                    button.set_sensitive(False)
+                    button.set_tooltip_text("amdgpu_top is not installed")
             else:
                 executable = shutil.which(action)
                 if executable:
@@ -312,10 +327,10 @@ class ControlCenter(Gtk.Window):
                     button.set_sensitive(False)
                     button.set_tooltip_text(f"{action} is not installed")
             grid.attach(button, column, row, 1, 1)
-        note = Gtk.Label(label="Display profiles use the same desktop-display helper as Awesome. Solaar is never started automatically.")
+        note = Gtk.Label(label="Display profiles use the same desktop-display helper as Awesome. Device and power tools launch only when selected; Solaar is never started automatically.")
         note.set_xalign(0)
         note.set_line_wrap(True)
-        grid.attach(note, 0, 3, 2, 1)
+        grid.attach(note, 0, (len(tools) + 1) // 2, 2, 1)
 
     def _show_display_profiles(self, button: Gtk.Button, executable: str) -> None:
         menu = Gtk.Menu()

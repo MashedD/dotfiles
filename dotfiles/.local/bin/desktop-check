@@ -17,7 +17,7 @@ for option do
   esac
 done
 required_commands='awesome awesome-client picom pgrep xrandr xset xss-lock i3lock maim xclip xdotool snixembed dunst dunstify dmenu pcmanfm xsettingsd lxqt-policykit-agent kitty xdg-terminal-exec xfce4-appfinder pavucontrol playerctl desktop-control-center fc-match flock setsid logger dbus-update-activation-environment wpctl brightnessctl jq curl timeout'
-optional_commands='firefox audacious gajim keepassxc xdpyinfo magick arandr nm-connection-editor solaar'
+optional_commands='firefox audacious gajim keepassxc xdpyinfo magick arandr nm-connection-editor solaar btop htop amdgpu_top xfce4-taskmanager blueman-manager xfce4-power-manager-settings'
 failures=0
 warnings=0
 ok() { if "$verbose"; then printf 'OK       %s\n' "$*"; fi; }
