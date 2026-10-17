@@ -101,7 +101,7 @@ def _read_initial_settings() -> dict[str, object]:
 class ControlCenter(Gtk.Window):
     def __init__(self) -> None:
         super().__init__(title="Desktop Control Center")
-        self.set_default_size(760, 610)
+        self.set_default_size(760, 800)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.set_icon_name("preferences-system")
         self.connect("destroy", lambda *_: Gtk.main_quit())
@@ -114,8 +114,8 @@ class ControlCenter(Gtk.Window):
         self.notebook = Gtk.Notebook()
         self.notebook.set_border_width(12)
         outer.pack_start(self.notebook, True, True, 0)
-        self._build_appearance_page()
         self._build_tools_page()
+        self._build_appearance_page()
 
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         actions.set_border_width(12)
