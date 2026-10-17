@@ -1,6 +1,10 @@
 -- Private-copy instrumentation only. No arguments, output, or document contents recorded.
 local clock = function() return require('lgi').GLib.get_monotonic_time() / 1000000 end
-local P = {phase = 'startup', buckets = {}, collectors = {}, intervals = {}, cache = {builds=0,releases=0,bytes=0,peak=0}}
+local P = {
+    phase = 'startup', buckets = {}, collectors = {}, intervals = {},
+    drawables = setmetatable({}, {__mode='k'}),
+    cache = {builds=0,releases=0,bytes=0,peak=0},
+}
 local unpack = table.unpack
 local function bucket(name)
     local key = P.phase .. ':' .. name
@@ -83,12 +87,85 @@ function P.install_rendering()
         end
     end
 end
+function P.install_rendering_breakdown()
+    local hierarchy = require('wibox.hierarchy')
+    local original = hierarchy.draw
+    local frames, node_info, wrapped_widgets, widget_classes = {}, setmetatable({}, {__mode='k'}),
+        setmetatable({}, {__mode='k'}), setmetatable({}, {__mode='k'})
+    local level = 0
+    local function widget_class(widget)
+        local callback = widget.draw
+        if type(callback) ~= 'function' then return 'no_draw' end
+        local info = debug.getinfo(callback, 'S')
+        local source = info and info.source or ''
+        local name = source:match('/wibox/[^/]+/([%w_.-]+)%.lua$')
+        return name and ('wibox.' .. name) or 'custom'
+    end
+    local function info_for(node, target)
+        local info = node_info[node]
+        if info then return info end
+        local depth, parent = 0, node._parent
+        while parent do depth, parent = depth + 1, parent._parent end
+        local widget = node:get_widget()
+        local class = widget_classes[widget] or widget_class(widget)
+        widget_classes[widget] = class
+        local prefix = 'hierarchy.sidebar.screen' .. target.screen
+        info = {
+            depth=depth, class=class,
+            inclusive=string.format('%s.node.%s.depth%d.inclusive', prefix, class, depth),
+            exclusive=string.format('%s.node.%s.depth%d.exclusive', prefix, class, depth),
+            callback=string.format('draw.callback.sidebar.screen%d.%s.depth%d', target.screen, class, depth),
+            total=depth == 0 and (prefix .. '.total') or nil,
+        }
+        node_info[node] = info
+        P.wrap_widget_draw(widget)
+        return info
+    end
+    P.wrap_widget_draw = function(widget)
+        if wrapped_widgets[widget] then return end
+        local callback = widget.draw
+        if type(callback) ~= 'function' then return end
+        wrapped_widgets[widget] = true
+        widget_classes[widget] = widget_classes[widget] or widget_class(widget)
+        P.count('draw_wrapper_installed')
+        local original_field = rawget(widget, 'draw')
+        P.draw_wrapped_fields = P.draw_wrapped_fields or setmetatable({}, {__mode='k'})
+        if original_field == nil then P.draw_wrapped_fields[widget] = false
+        else P.draw_wrapped_fields[widget] = original_field end
+        rawset(widget, 'draw', function(self, ...)
+            local frame = frames[level]
+            if not frame then return callback(self, ...) end
+            local started = clock()
+            local result = table.pack(callback(self, ...))
+            P.sample(frame.callback, clock() - started)
+            return unpack(result, 1, result.n)
+        end)
+    end
+    hierarchy.draw = function(node, context, cr)
+        local target = context and P.drawables[context.drawable]
+        if not target or target.name ~= 'sidebar' then return original(node, context, cr) end
+        local info = info_for(node, target)
+        level = level + 1
+        local frame = frames[level]
+        if not frame then frame = {}; frames[level] = frame end
+        frame.child_time, frame.callback = 0, info.callback
+        local started = clock()
+        original(node, context, cr)
+        local elapsed = clock() - started
+        level = level - 1
+        if level > 0 then frames[level].child_time = frames[level].child_time + elapsed end
+        P.sample(info.inclusive, elapsed)
+        P.sample(info.exclusive, math.max(0, elapsed - frame.child_time))
+        if info.total then P.sample(info.total, elapsed) end
+    end
+end
 function P.bind_rendering()
     for s in screen do
         for _,name in ipairs({'panel','sidebar','sidebar_scrollbar_panel'}) do
             local box=s[name]
             if box then
                 local drawable=assert(box._drawable,'Missing private drawable: '..name)
+                P.drawables[drawable] = {name=name, screen=s.index}
                 local label=name..'.screen'..s.index
                 drawable._do_redraw=P.wrap('redraw.'..label,drawable._do_redraw,false)
                 local request=drawable.draw
@@ -135,6 +212,10 @@ local function percentile(values, fraction)
 end
 function P.finish()
     if P.heartbeat then P.heartbeat:stop() end
+    for widget, original in pairs(P.draw_wrapped_fields or {}) do
+        if original == false then rawset(widget, 'draw', nil)
+        else rawset(widget, 'draw', original) end
+    end
     local lines = {'IDLE_BEGIN'}
     for key, b in pairs(P.buckets) do
         table.sort(b.values)

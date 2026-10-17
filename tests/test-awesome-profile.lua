@@ -76,4 +76,57 @@ assert(#p.intervals==0, 'Nested render scopes must not flood heartbeat overlap t
 for i=1,10005 do p.sample('bounded',.1) end
 assert(p.buckets['measured:bounded'].count==10005 and #p.buckets['measured:bounded'].values==10000)
 assert(math.abs(p.buckets['measured:bounded'].total-1000.5)<1e-6)
+
+-- Hierarchy breakdown reports sanitized widget classes, exclusive/inclusive costs,
+-- and direct draw callback costs while restoring wrapped methods at shutdown.
+local hierarchy={}
+hierarchy.draw=function(node,context,cr)
+    node:get_widget():draw(context,cr)
+    for _,child in ipairs(node.children) do hierarchy.draw(child,context,cr) end
+end
+package.loaded['wibox.hierarchy']=hierarchy
+p=fresh();p.phase='measured';p.install_rendering_breakdown()
+local drawable={}
+p.drawables[drawable]={name='sidebar',screen=2}
+local child_callback=function() now=now+.002;return 'private widget text' end
+local root_callback=function() now=now+.003 end
+local child_widget={draw=child_callback}
+local root_widget={draw=root_callback}
+local child={widget=child_widget,_parent=nil,children={}}
+function child:get_widget() return self.widget end
+local root={widget=root_widget,_parent=nil,children={child}}
+function root:get_widget() return self.widget end
+child._parent=root
+p.wrap_widget_draw(root_widget);p.wrap_widget_draw(child_widget)
+assert(hierarchy.draw(root,{drawable=drawable}, {})==nil)
+assert(p.buckets['measured:hierarchy.sidebar.screen2.total'].count==1)
+assert(p.buckets['measured:hierarchy.sidebar.screen2.node.custom.depth0.inclusive'].count==1)
+assert(p.buckets['measured:hierarchy.sidebar.screen2.node.custom.depth1.exclusive'].count==1)
+assert(p.buckets['measured:draw.callback.sidebar.screen2.custom.depth0'].count==1)
+assert(p.buckets['measured:draw.callback.sidebar.screen2.custom.depth1'].count==1)
+assert(rawget(root_widget,'draw')~=root_callback and rawget(child_widget,'draw')~=child_callback)
+local breakdown_output=p.finish()
+assert(rawget(root_widget,'draw')==root_callback and rawget(child_widget,'draw')==child_callback)
+assert(not breakdown_output:find('private widget text',1,true))
+assert(not breakdown_output:find('test-awesome-profile.lua',1,true))
+
+p=fresh();p.phase='measured'
+hierarchy={draw=function(node)
+    node:get_widget():draw()
+    return 'unexpected'
+end}
+package.loaded['wibox.hierarchy']=hierarchy
+p.install_rendering_breakdown()
+drawable={};p.drawables[drawable]={name='sidebar',screen=1}
+local original_draw=function() error('private draw failure') end
+local bad_widget={draw=original_draw}
+p.wrap_widget_draw(bad_widget)
+local bad_node={_parent=nil,children={}}
+function bad_node:get_widget() return bad_widget end
+ok,err=pcall(hierarchy.draw,bad_node,{drawable=drawable},{})
+assert(not ok and tostring(err):find('private draw failure',1,true))
+assert(rawget(bad_widget,'draw')~=original_draw,'Draw wrapper was not installed')
+local failed_output=p.finish()
+assert(rawget(bad_widget,'draw')==original_draw,'Draw callback was not restored at profiler shutdown')
+assert(not failed_output:find('private draw failure',1,true))
 print('Awesome private profiler tests passed')

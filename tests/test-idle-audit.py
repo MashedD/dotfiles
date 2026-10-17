@@ -52,6 +52,9 @@ class AuditTests(unittest.TestCase):
             self.assertIn('document.todo.screen',(config/'sidebar.lua').read_text())
             self.assertNotIn('new_for_uri("trash:///")',(config/'sidebar-data.lua').read_text())
             self.assertNotIn('__idle_prof', (idle.ROOT/'dotfiles/.config/awesome/rc.lua').read_text())
+            breakdown, _ = idle.prepare(directory/'breakdown', True, rendering=True, breakdown=True)
+            self.assertIn('__idle_prof.install_rendering_breakdown()', (breakdown/'rc.lua').read_text())
+            self.assertIn('P.drawables[drawable]', (idle.LOCAL).read_text())
         with self.assertRaises(AssertionError): idle.replace_once('missing','anchor','new')
 
     def test_isolated_cleanup_only_signals_owned_process_group(self):
@@ -74,6 +77,44 @@ class AuditTests(unittest.TestCase):
             idle.main()
         self.assertEqual(matrix.call_args.args[0].duration,60)
         self.assertEqual(matrix.call_args.args[0].warmup,10)
+
+    def test_render_breakdown_mode_never_samples_live(self):
+        with patch.object(idle.sys,'argv',['audit','--render-breakdown']), \
+             patch.object(idle.shutil,'which',return_value='/private/stub'), \
+             patch.object(idle,'find_live',side_effect=AssertionError('Live access forbidden')), \
+             patch.object(idle,'sample_process',side_effect=AssertionError('Live access forbidden')), \
+             patch.object(idle,'rendering_breakdown_matrix') as matrix:
+            idle.main()
+        self.assertEqual(matrix.call_args.args[0].duration,60)
+        self.assertEqual(matrix.call_args.args[0].warmup,10)
+
+    def test_breakdown_report_uses_only_aggregated_metrics(self):
+        cases={}
+        for screens in (1,2):
+            for mode in ('baseline','breakdown'):
+                for index in (1,2):
+                    metrics={
+                        'measured:heartbeat.lateness':dict(total=0,count=100,samples=100,median=.001,p95=.002,maximum=.01),
+                    }
+                    for screen in range(1,screens+1):
+                        metrics[f'measured:redraw.sidebar.screen{screen}']=dict(total=6.0,count=100,samples=100,median=.01,p95=.02,maximum=.03)
+                        metrics[f'measured:paint.background.draw.screen{screen}']=dict(total=.2,count=100,samples=100,median=.001,p95=.002,maximum=.01)
+                        if mode=='breakdown':
+                            prefix=f'measured:hierarchy.sidebar.screen{screen}'
+                            metrics[prefix+'.total']=dict(total=4.0,count=100,samples=100,median=.01,p95=.02,maximum=.03)
+                            metrics[prefix+'.node.wibox.textbox.depth2.exclusive']=dict(total=2.0,count=10,samples=10,median=.1,p95=.2,maximum=.3)
+                            metrics[f'measured:draw.callback.sidebar.screen{screen}.wibox.textbox.depth2']=dict(total=1.5,count=10,samples=10,median=.1,p95=.2,maximum=.3)
+                    cases[f'{screens}-{mode}-{index}']=dict(cpu=dict(elapsed=60,cpu_percent=5),metrics=metrics)
+        rates=idle.breakdown_rates(cases['2-breakdown-1'],2)
+        self.assertAlmostEqual(rates['redraw'],.2)
+        self.assertAlmostEqual(rates['hierarchy'],4/30)
+        callbacks=idle.top_callback_metrics(cases['2-breakdown-1'],2)
+        self.assertAlmostEqual(callbacks[0][0],3/60)
+        report=idle.rendering_breakdown_report(dict(duration=60,warmup=10,cases=cases))
+        self.assertIn('wibox.textbox.depth2',report)
+        self.assertIn('Outer minus hierarchy',report)
+        self.assertIn('not a measurement of native flush time',report)
+        self.assertNotIn('fixture private text',report)
 
     def test_rendering_gate_requires_both_topologies_and_cpu_safety(self):
         cases={}

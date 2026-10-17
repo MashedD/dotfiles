@@ -108,10 +108,11 @@ def cached_clock(source):
                         '        clock._face_cache.destroy()\n        clock:buttons({}); digital:buttons({})')
 
 
-def instrument(config, rendering=False):
+def instrument(config, rendering=False, breakdown=False):
     rc = config/'rc.lua'
     prefix='_G.__idle_prof=dofile(' + json.dumps(str(LOCAL)) + '); __idle_prof.install_spawn(); '
     if rendering: prefix+='__idle_prof.install_rendering(); '
+    if breakdown: prefix+='__idle_prof.install_rendering_breakdown(); '
     rc.write_text(prefix+'\n'+rc.read_text())
     path = config/'sidebar-data.lua'
     source = path.read_text()
@@ -134,7 +135,7 @@ def instrument(config, rendering=False):
     path.write_text(source)
 
 
-def prepare(directory, profiled, rendering=False, cached=False):
+def prepare(directory, profiled, rendering=False, cached=False, breakdown=False):
     home = directory/'home'
     config = home/'.config/awesome'
     shutil.copytree(ROOT/'dotfiles/.config/awesome', config)
@@ -146,7 +147,7 @@ def prepare(directory, profiled, rendering=False, cached=False):
         path=config/'sidebar-clock.lua'
         path.write_text(cached_clock(path.read_text()))
     if profiled:
-        instrument(config, rendering)
+        instrument(config, rendering, breakdown)
     for folder in ['Documents', '.local/bin', '.local/share/wallpapers', '.local/share/applications',
                    '.local/state/awesome', 'Pictures/Wallpapers']:
         (home/folder).mkdir(parents=True, exist_ok=True)
@@ -217,7 +218,9 @@ def private_case(args):
     with tempfile.TemporaryDirectory(prefix='awesome-idle-') as name:
         directory = Path(name)
         profiled = args.case != 'control'
-        config, env = prepare(directory, profiled, args.render_case is not None, args.render_case=='cached')
+        breakdown = args.breakdown_case == 'instrumented'
+        rendering = args.render_case is not None or args.breakdown_case is not None
+        config, env = prepare(directory, profiled, rendering, args.render_case=='cached', breakdown)
         processes = []
         with (directory/'awesome.log').open('w') as log:
             def client(code):
@@ -251,7 +254,7 @@ def private_case(args):
                 elif args.render_case == 'hidden':
                     setup += 'for s in screen do s.sidebar_mode=0; s.selected_tag:emit_signal("property::selected"); s.sidebar.visible=false; s.sidebar_scrollbar_panel.visible=false; s.panel_clock_container.visible=true; s.sidebar:struts({left=0,right=0,top=0,bottom=0}) end; '
                 if profiled:
-                    if args.render_case is not None: setup += '__idle_prof.bind_rendering(); '
+                    if rendering: setup += '__idle_prof.bind_rendering(); '
                     setup += '__idle_prof.phase="warmup"; '
                 setup += 'return screen.count()'
                 client(setup)
@@ -270,7 +273,7 @@ def private_case(args):
                         if key.startswith('collector:'):
                             assert value['samples'] == expected_listeners, f'Unexpected subscriptions: {key}'
                 log_text=(directory/'awesome.log').read_text()
-                if args.render_case is not None:
+                if rendering:
                     assert not re.search(r'stack traceback:|Error during a protected call|Error while drawing',log_text),log_text
                 result = dict(cpu=cpu, metrics=metrics, topology=topology.strip(), log=log_text)
                 if args.render_case=='cached':
@@ -401,6 +404,124 @@ def rendering_matrix(args):
     print(json.dumps(result['gate'],indent=2))
 
 
+def metric_total(case, key):
+    return case['metrics'].get(key, {}).get('total', 0.0)
+
+
+def breakdown_rates(case, screens):
+    elapsed=case['cpu']['elapsed']
+    hierarchy=sum(metric_total(case,f'measured:hierarchy.sidebar.screen{screen}.total')
+                  for screen in range(1,screens+1))/elapsed
+    redraw=sum(metric_total(case,f'measured:redraw.sidebar.screen{screen}')
+               for screen in range(1,screens+1))/elapsed
+    background=sum(value['total'] for key,value in case['metrics'].items()
+                   if key.startswith('measured:paint.background.'))/elapsed
+    heartbeat=case['metrics'].get('measured:heartbeat.lateness',{}).get('p95',0.0)
+    return dict(redraw=redraw,hierarchy=hierarchy,remainder=redraw-hierarchy,
+                background=background,heartbeat=heartbeat)
+
+
+def top_breakdown_metrics(case, screens, kind, limit=10):
+    grouped={}
+    for screen in range(1,screens+1):
+        prefix=f'measured:hierarchy.sidebar.screen{screen}.node.'
+        for key,value in case['metrics'].items():
+            if key.startswith(prefix) and key.endswith('.'+kind):
+                label=key[len(prefix):-len('.'+kind)]
+                total,count=grouped.get(label,(0.0,0))
+                grouped[label]=(total+value['total'],count+value['count'])
+    elapsed=case['cpu']['elapsed']
+    return sorted(((total/elapsed,label,count) for label,(total,count) in grouped.items()),
+                  reverse=True)[:limit]
+
+
+def top_callback_metrics(case, screens, limit=10):
+    grouped={}
+    for screen in range(1,screens+1):
+        prefix=f'measured:draw.callback.sidebar.screen{screen}.'
+        for key,value in case['metrics'].items():
+            if key.startswith(prefix):
+                label=key[len(prefix):]
+                total,count=grouped.get(label,(0.0,0))
+                grouped[label]=(total+value['total'],count+value['count'])
+    elapsed=case['cpu']['elapsed']
+    return sorted(((total/elapsed,label,count) for label,(total,count) in grouped.items()),
+                  reverse=True)[:limit]
+
+
+def rendering_breakdown_report(result):
+    lines=['# Awesome private rendering breakdown','',
+           f'Measured {result["duration"]} seconds per case after {result["warmup"]} seconds warm-up.',
+           'Private Xvfb/D-Bus only; no live sampling or session injection. Times are descriptive, not a shipment gate.', '',
+           '| Screens | Case | CPU % | Sidebar outer redraw ms/s | Hierarchy ms/s | Outer minus hierarchy ms/s | Background-hook ms/s* | Heartbeat p95 ms |',
+           '| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |']
+    for screens in (1,2):
+        for mode,index in [('baseline',1),('breakdown',1),('breakdown',2),('baseline',2)]:
+            case=result['cases'][f'{screens}-{mode}-{index}']
+            rates=breakdown_rates(case,screens)
+            hierarchy='—' if mode=='baseline' else f'{rates["hierarchy"]*1000:.3f}'
+            remainder='—' if mode=='baseline' else f'{rates["remainder"]*1000:.3f}'
+            lines.append(f'| {screens} | {mode} {index} | {case["cpu"]["cpu_percent"]:.3f} | '
+                         f'{rates["redraw"]*1000:.3f} | {hierarchy} | {remainder} | '
+                         f'{rates["background"]*1000:.3f} | {rates["heartbeat"]*1000:.3f} |')
+    lines += ['', '* Background hooks cover all wiboxes and overlap hierarchy/outer redraw rows; do not add these rows.',
+              'Outer-minus-hierarchy is an unattributed remainder (surface setup, background and refresh are among its possible costs), not a measurement of native flush time.',
+              'Hierarchy exclusive time subtracts nested child-hierarchy time and still includes Cairo hierarchy handling and container callbacks.',
+              'Widget draw-callback time is reported separately but is included in its hierarchy-exclusive row; do not add the rows.',
+              'Classes are sanitized to Awesome module basenames or `custom`, never widget content.',
+              'Per-widget rows are aggregated across the two instrumented repeats for ranking; they are timing clues, not proof of a production bottleneck.', '']
+    for screens in (1,2):
+        baseline=[result['cases'][f'{screens}-baseline-{i}'] for i in (1,2)]
+        instrumented=[result['cases'][f'{screens}-breakdown-{i}'] for i in (1,2)]
+        cpu_delta=statistics.mean(case['cpu']['cpu_percent'] for case in instrumented)-statistics.mean(
+            case['cpu']['cpu_percent'] for case in baseline)
+        lines += [f'## {screens}-screen contributors','',
+                  f'Mean instrumentation CPU delta versus rendering-hook baseline: {cpu_delta:+.3f} percentage points.',
+                  '### Hierarchy exclusive time','', '| ms/s | Widget class / depth | Calls |','| ---: | --- | ---: |']
+        grouped={}
+        for case in instrumented:
+            for rate,label,count in top_breakdown_metrics(case,screens,'exclusive',limit=10000):
+                total,calls=grouped.get(label,(0.0,0))
+                grouped[label]=(total+rate/2,calls+count)
+        for label,(rate,calls) in sorted(grouped.items(),key=lambda item:item[1][0],reverse=True)[:10]:
+            lines.append(f'| {rate*1000:.3f} | {label} | {calls} |')
+        lines += ['', '### Widget draw callbacks','', '| ms/s | Widget class / depth | Calls |','| ---: | --- | ---: |']
+        callbacks={}
+        for case in instrumented:
+            for rate,label,count in top_callback_metrics(case,screens,limit=10000):
+                total,calls=callbacks.get(label,(0.0,0))
+                callbacks[label]=(total+rate/2,calls+count)
+        for label,(rate,calls) in sorted(callbacks.items(),key=lambda item:item[1][0],reverse=True)[:10]:
+            lines.append(f'| {rate*1000:.3f} | {label} | {calls} |')
+    lines += ['', 'No production rendering change is implied by these measurements. A contributor must be repeatable across runs/topologies and exceed observer/run variation before a separate optimization is proposed.', '']
+    return '\n'.join(lines)
+
+
+def rendering_breakdown_matrix(args):
+    cases={}
+    with tempfile.TemporaryDirectory(prefix='awesome-render-breakdown-') as name:
+        for screens in (1,2):
+            order=[('baseline',1),('breakdown',1),('breakdown',2),('baseline',2)]
+            for mode,index in order:
+                case=f'{screens}-{mode}-{index}'
+                path=Path(name)/(case+'.json')
+                run_isolated(['dbus-run-session','--',sys.executable,str(Path(__file__).resolve()),
+                              '--case','one','--breakdown-case',
+                              'baseline' if mode=='baseline' else 'instrumented',
+                              '--screens',str(screens),'--duration',str(args.duration),
+                              '--warmup',str(args.warmup),'--result',str(path)])
+                cases[case]=json.loads(path.read_text())
+                print('Completed '+case,flush=True)
+    result=dict(duration=args.duration,warmup=args.warmup,cases=cases,
+                versions=dict(python=platform.python_version(),kernel=platform.release(),
+                              awesome=subprocess.check_output(['awesome','-v'],text=True)))
+    args.output.write_text(json.dumps(result,indent=2)+'\n')
+    report=rendering_breakdown_report(result)
+    args.output.with_suffix('.md').write_text(report)
+    print('Saved '+str(args.output)+' and '+str(args.output.with_suffix('.md')))
+    print(report)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--duration', type=float)
@@ -409,12 +530,15 @@ def main():
     parser.add_argument('--output', type=Path, default=Path('/tmp/awesome-idle-audit.json'))
     parser.add_argument('--case', choices=['control', 'one', 'two'], help=argparse.SUPPRESS)
     parser.add_argument('--result', help=argparse.SUPPRESS)
-    parser.add_argument('--rendering', action='store_true', help='Private rendering A-B-B-A matrix; no live sampling')
+    render_modes = parser.add_mutually_exclusive_group()
+    render_modes.add_argument('--rendering', action='store_true', help='Private rendering A-B-B-A cache matrix; no live sampling')
+    render_modes.add_argument('--render-breakdown', action='store_true', help='Private per-widget rendering breakdown; no live sampling')
     parser.add_argument('--render-case', choices=['baseline','cached','digital','hidden','control'], help=argparse.SUPPRESS)
+    parser.add_argument('--breakdown-case', choices=['baseline','instrumented'], help=argparse.SUPPRESS)
     parser.add_argument('--screens', type=int, choices=[1,2], default=1, help=argparse.SUPPRESS)
     args = parser.parse_args()
-    if args.duration is None: args.duration=60 if args.rendering else 180
-    if args.warmup is None: args.warmup=10 if args.rendering else 15
+    if args.duration is None: args.duration=60 if (args.rendering or args.render_breakdown) else 180
+    if args.warmup is None: args.warmup=10 if (args.rendering or args.render_breakdown) else 15
     if args.duration <= 0 or args.warmup < 0 or not math.isfinite(args.duration+args.warmup):
         parser.error('Durations must be finite, duration > 0 and warmup >= 0')
     if args.case:
@@ -425,6 +549,9 @@ def main():
             parser.error('Required command not found: '+command)
     if args.rendering:
         rendering_matrix(args)
+        return
+    if args.render_breakdown:
+        rendering_breakdown_matrix(args)
         return
     live = dict(status='explicitly skipped')
     if not args.skip_live:

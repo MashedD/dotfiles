@@ -321,8 +321,66 @@ CPU shifts lie within large sequential baseline variation and are not evidence o
 meaningful desktop CPU savings. Instrumented A cases also cost more than the single
 uninstrumented control; observer overhead and host variation are not separable here.
 
-Next measurement: split the remaining drawable cost into hierarchy/leaf drawing versus
-native surface/flush work, then identify the largest repeatable contributor. Do not
-add more caches, slow polling, change visuals or weaken this gate to force a win.
 Raw A/B data: `/tmp/awesome-render-audit.json`; final pixel check:
 `/tmp/clock-render-check-final.json` (both ephemeral, reproducible with the command).
+
+### Per-widget rendering breakdown
+
+```sh
+python3 tests/audit-awesome-idle.py --render-breakdown --output /tmp/awesome-render-breakdown.json
+```
+
+This dedicated diagnostic avoids rerunning the rejected clock-cache experiment. It
+runs eight private cases: one- and two-screen topologies, each in rendering-hook-only
+baseline A1 → hierarchy/callback-instrumented B1 → B2 → baseline A2 order. Defaults
+are 10 seconds warm-up and 60 seconds measured per case (about 10 minutes total).
+Both variants use the same outer-redraw/background hooks; B additionally wraps
+`wibox.hierarchy.draw` and each encountered widget's `draw` callback. Thus the A/B
+CPU difference estimates the additional profiler's observer cost, subject to run
+variation, rather than comparing instrumentation with a wholly unprofiled desktop.
+The command never performs live sampling or changes the live session.
+
+Timing labels contain only screen, hierarchy depth, and a sanitized widget class
+(`wibox` module basename or `custom`); text/markup and documents are never inspected.
+The hierarchy's exclusive time subtracts nested child hierarchy calls but still
+includes Cairo hierarchy operations and container callbacks. Direct widget draw
+callbacks are reported separately but are contained within their hierarchy-exclusive
+rows; do not add the two. Outer redraw minus hierarchy time is explicitly
+an unattributed residual, not native surface-flush time. Background hooks span all
+wiboxes and overlap the other timing rows. Aggregates are descriptive, not a shipment
+gate: observer overhead and host variation must be considered before treating any
+ranking as a production bottleneck.
+
+The audit writes JSON plus a summary Markdown file beside `--output`. It is not part
+of `tests/run.sh`; a short `--duration 2 --warmup 1` invocation is useful only to
+smoke-test isolation, serialization and teardown, not to infer performance. Do not
+add caches, slow polling, alter visuals or weaken the existing rendering gate based
+on a short run.
+
+#### Measurement and interpretation
+
+The 60-second A–B–B–A audit found a repeatable hotspot in textbox drawing at hierarchy
+depth 16. Direct textbox callbacks accounted for about **13.1 ms/s** on one screen
+and **24.6 ms/s summed across two screens**; the corresponding hierarchy-exclusive
+buckets were about 23.4 and 44.3 ms/s. This is a plausible future profiling/optimization
+target, not a production change: callbacks include Pango/Cairo work, but the audit does
+not separate those native operations or identify the text content involved.
+
+| Topology | Baseline outer redraw ms/s | Instrumented outer redraw ms/s | Instrumented hierarchy ms/s | Textbox callback ms/s | Added profiler CPU pp | Instrumented heartbeat p95 ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 screen | 75.3 | 93.6 | 85.6 | 13.1 | +1.900 | 15.5–41.3 |
+| 2 screens, summed | 164.6 | 178.7 | 163.5 | 24.6 | +1.367 | 64.1–68.3 |
+
+The added callback/hierarchy instrumentation measurably perturbs the run: outer redraw
+timing rises, CPU increases, and heartbeat p95 varies substantially between cases.
+The baseline one-screen heartbeat p95 was 1.6–1.9 ms; the two-screen baseline was
+46.9–72.5 ms. Treat absolute instrumented timings as inflated and use the repeated
+class/depth ranking as the useful result. About 8.1 ms/s (one screen) and 15.2 ms/s
+(two screens) remained outside the measured hierarchy; this residual includes other
+drawable work and is not evidence for GPU/native flush cost. The results support a
+separate, narrowly scoped investigation of textbox/Pango drawing, with visual and
+observer-overhead checks, before any production optimization. No Awesome session was
+reloaded and no production widgets, appearance, polling or refresh intervals changed.
+
+Raw private measurements and the generated report are ephemeral at
+`/tmp/awesome-render-breakdown.json` and `.md`; regenerate with the command above.
