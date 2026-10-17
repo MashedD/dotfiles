@@ -110,6 +110,54 @@ ca=cancellable.subscribe('sync',function() end); ca:stop(); assert(#cancel_logs=
 cancellable.define('bad-cancel',1,function() return function() error('cancel failed') end end)
 ca=cancellable.subscribe('bad-cancel',function() end); ca:stop(); ca:stop(); assert(#cancel_logs==1)
 
+-- Fast stats and slow battery/storage probes have independent shared timers and failures.
+local independent_now, fast_done, power_done, power_cancels = 1000, nil, nil, 0
+local independent_timers={}
+local independent=module.new {
+    now=function() return independent_now end,
+    timer=function(options)
+        local timer={timeout=options.timeout,callback=options.callback,stopped=false}
+        function timer:stop() self.stopped=true end
+        independent_timers[#independent_timers+1]=timer
+        return timer
+    end,
+}
+independent.define('stats',1,function(done) fast_done=done end)
+independent.define('power',30,function(done)
+    power_done=done
+    return function() power_cancels=power_cancels+1 end
+end)
+local fast_a,fast_b,power_a,power_b=0,0,0,0
+local stop_fast_a=independent.subscribe('stats',function() fast_a=fast_a+1 end)
+local stop_fast_b=independent.subscribe('stats',function() fast_b=fast_b+1 end)
+local stop_power_a=independent.subscribe('power',function() power_a=power_a+1 end)
+local stop_power_b=independent.subscribe('power',function() power_b=power_b+1 end)
+assert(#independent_timers==2 and independent_timers[1].timeout==1
+    and independent_timers[2].timeout==30)
+assert(independent.collectors.stats.requests==1 and independent.collectors.power.requests==1)
+fast_done({cpu=5,network=10})
+power_done({capacity=80,root_free=500})
+assert(independent.state('stats').value.cpu==5 and independent.state('power').value.capacity==80)
+assert(fast_a==2 and fast_b==2 and power_a==2 and power_b==2)
+independent_now=1030
+assert(independent.state('stats').stale and not independent.state('power').stale,
+    'Fast and slow collectors must use independent freshness windows')
+independent.refresh('stats'); fast_done({cpu=6,network=12})
+assert(not independent.state('stats').stale and independent.state('power').value.capacity==80,
+    'Fast refresh succeeds independently of the slow collector')
+independent.refresh('power'); power_done(nil,'battery unavailable')
+assert(independent.state('power').stale and independent.state('power').value.root_free==500)
+assert(not independent.state('stats').stale and independent.state('stats').value.cpu==6,
+    'Slow collector errors must not block fast status')
+independent.refresh('power')
+stop_fast_a:stop(); stop_power_a:stop()
+assert(not independent_timers[1].stopped and not independent_timers[2].stopped)
+stop_fast_b:stop(); stop_power_b:stop()
+assert(independent_timers[1].stopped and independent_timers[2].stopped and power_cancels==1)
+power_done({capacity=99})
+assert(independent.state('power').value.capacity==80,
+    'Late slow results after teardown must be ignored')
+
 assert(module.parse_weather('{"current":{"temperature_2m":12.3,"apparent_temperature":11,"weather_code":3,"wind_speed_10m":9}}').temperature == 12.3)
 assert(not module.parse_weather('{"current":{"temperature_2m":12}}'))
 assert(not module.parse_weather('bad response'))

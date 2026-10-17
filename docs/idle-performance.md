@@ -448,5 +448,8 @@ using the same rendering instrumentation, compared with the two pre-change basel
 
 The redraw-rate and draw-time reductions appeared in both post-change repeats. These
 were sequential rather than interleaved A/B runs, so treat the CPU percentages as
-indicative, not a precise savings estimate. Polling intervals and displayed content
-are unchanged; the live Awesome session was not restarted.
+indicative, not a precise savings estimate. A subsequent collector split keeps CPU,
+memory, and network at 1-second refreshes while moving battery and root-filesystem
+probes to 30 seconds; the displayed content and formats are unchanged. Battery and
+root-space changes can take up to 30 seconds to appear. The live Awesome session was
+not restarted.

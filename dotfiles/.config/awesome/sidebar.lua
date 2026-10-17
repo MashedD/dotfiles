@@ -311,19 +311,20 @@ end
 -- Clock ticks are cheap and shared; they never trigger system probes.
 data.define("clock", 1, function(done) done(os.time()) end)
 
--- Widget-independent sampling, shared by every screen subscriber.
+-- Fast-changing counters stay responsive; slow-changing battery/storage probes are separate.
 data.define("stats", 1, function(done)
+    local ok, value = pcall(function()
+        local rx, tx = network_stats()
+        return {stat = read("/proc/stat"), meminfo = read("/proc/meminfo") or "", rx = rx, tx = tx}
+    end)
+    if ok then done(value) else done(nil, tostring(value)) end
+end)
+data.define("power", 30, function(done)
     local root_total, root_free = filesystem_stats()
     return battery_stats(function(capacity, battery_state, mouse_capacity, mouse_state, err)
         if err then done(nil, err); return end
-        local ok, value = pcall(function()
-            local rx, tx = network_stats()
-            return {stat = read("/proc/stat"), meminfo = read("/proc/meminfo") or "",
-                root_total = root_total, root_free = root_free, capacity = capacity,
-                battery_state = battery_state, mouse_capacity = mouse_capacity, mouse_state = mouse_state,
-                rx = rx, tx = tx, now = os.time()}
-        end)
-        if ok then done(value) else done(nil, tostring(value)) end
+        done({root_total = root_total, root_free = root_free, capacity = capacity,
+            battery_state = battery_state, mouse_capacity = mouse_capacity, mouse_state = mouse_state})
     end)
 end)
 
@@ -1437,6 +1438,12 @@ function sidebar.create(s, dismiss_menu)
             set_value(memory_bar, math.floor(used * 100 / mem_total + 0.5))
         end
 
+        update_network(snapshot)
+    end
+
+    local function update_power(state)
+        local snapshot = state.value
+        if not snapshot then return end
         local root_total, root_free = snapshot.root_total, snapshot.root_free
         if root_total and root_total > 0 and root_free then
             set_cached(root_bar, "color", appearance.remaining_color(root_free * 100 / root_total, 10, 5))
@@ -1461,13 +1468,12 @@ function sidebar.create(s, dismiss_menu)
             set_cached(mouse_battery_bar, "color", appearance.remaining_color(mouse_capacity))
         end
         if battery_layout_changed then stats_card:emit_signal("widget::layout_changed") end
-
-        update_network(snapshot)
     end
 
     local refresh_ui = refresh_component.new {
         timer = gears.timer, delay = 0.05,
         update_stats = update_stats,
+        update_power = update_power,
         update_clock = function(timestamp) clock_ui.tick(timestamp) end,
     }
     ui.add(refresh_ui.destroy)
@@ -1486,6 +1492,7 @@ function sidebar.create(s, dismiss_menu)
         if state.value then refresh_ui.clock(state.value) end
     end)
     bind("stats", refresh_ui.stats)
+    bind("power", refresh_ui.power)
     bind("volume", render_volume)
     bind("media", function(state)
         set_text(media_text, state.value and state.value ~= "" and state.value or "Nothing playing")
@@ -1511,6 +1518,7 @@ function sidebar.create(s, dismiss_menu)
         ui.destroy()
         s.sidebar_clock_timer:stop()
         s.sidebar_stats_timer:stop()
+        s.sidebar_power_timer:stop()
         s.sidebar_volume_timer:stop()
         s.sidebar_media_timer:stop()
         s.sidebar_trash_timer:stop()

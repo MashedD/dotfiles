@@ -20,14 +20,16 @@ disconnect signals and cancel delayed tooltips.
 
 `sidebar.lua` remains the screen-level coordinator: sections, persistence, collector
 subscriptions, launch actions, and section reordering. `sidebar-data.lua` shares
-session samples and only notifies on visible state/value changes; a separate shared
-clock tick performs no system probes. Widget setters skip identical rendered values,
-and system-status layout is invalidated only when optional readings appear/disappear.
-`sidebar-battery.lua` uses Gio async reads for slow laptop capacity files; the same
-one-second stats collector waits without blocking the main loop. Pending requests
-do not overlap, become stale normally, and are cancelled when the last subscriber
-leaves; late callbacks cannot update a replacement collector generation. Missing
-capacity values still remove that battery from the sample, as before.
+session samples and only notifies on state/value changes. Fast CPU/memory/network
+stats run every second; battery and root-filesystem capacity use a separate 30-second
+collector. Clock, fast-stat, and slow-power widget updates are coalesced by
+`sidebar-refresh.lua` within a 50 ms window. Widget setters skip identical rendered
+values, and system-status layout is invalidated only when optional readings
+appear/disappear. `sidebar-battery.lua` uses Gio async reads for laptop capacity files;
+slow power requests do not block the fast stats collector. Pending requests do not
+overlap, become stale normally, and are cancelled when the last subscriber leaves;
+late callbacks cannot update a replacement collector generation. Missing capacity
+values still remove that battery from the sample, as before.
 `sidebar-keyboard.lua` owns modal Win+S navigation; `sidebar-keyboard-view.lua`
 adapts native grabs, clipped focus outlines, scrolling and lifecycle cancellation.
 `keyboard-shortcuts.lua` dispatches the existing WM callbacks without synthesizing
@@ -54,6 +56,7 @@ Center's Sidebar tab can enable it; use its Save & Restart button or Win+Ctrl+R.
 | Component | Constructor inputs | Returned operations/handles |
 | --- | --- | --- |
 | `sidebar-clock.lua` | appearance, label/card factories, interaction, dismiss and mode callbacks | widget, analog/digital/date widgets, set_mode, toggle, tick, destroy |
+| `sidebar-refresh.lua` | timer factory/delay and fast-stat, slow-power, and clock update callbacks | coalesced stats, power, and clock submissions; destroy |
 | `sidebar-calendar.lua` | appearance, label/section factories, document path, interaction, open/blocked/entry callbacks, button surfaces | widget, grid, navigation widgets, refresh, select_date, shift_month, selected_date, month, day_cells, destroy |
 | `sidebar-scroll.lua` | appearance, screen, content/header/clock widgets, width, panel accessor, interaction, offset/click-suppression callbacks | column/view/bar/bar-panel widgets, set_offset, scroll_by, offset/max, thumb_geometry, attach, cancel_drag, destroy |
 
