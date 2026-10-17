@@ -131,8 +131,8 @@ awesome -k -c ~/.config/awesome/rc.lua
 python3 tests/test-awesome-session.py  # private Xvfb/D-Bus; no live-session changes
 ```
 
-Win+P opens the display menu: internal only, HDMI only, extended desktop, or
-automatic hotplug layout. Explicit HDMI modes prefer 2560×1440/144 Hz; the
+Win+P opens a display menu centered on the focused screen: internal only, HDMI
+only, extended desktop, or automatic hotplug layout. Explicit HDMI modes prefer 2560×1440/144 Hz; the
 internal display stays enabled until a requested mode succeeds. Mouse: drag
 titlebar to move, double-click to maximize, and drag a maximized titlebar to restore
 it beneath the pointer. Releasing a titlebar drag at the top edge maximizes; releasing
@@ -145,7 +145,8 @@ a window to a screen half. Alt+Tab/Shift+Alt+Tab cycles; Alt+F4 closes;
 Alt+F11 toggles fullscreen. Win+D toggles show-desktop. Ctrl+Alt+arrows switches
 workspaces without wrapping; Win+Shift+arrows focuses directionally.
 Win+Ctrl+R reloads Awesome without duplicating session services; **Win+Shift+Q
-opens a Quit/Cancel confirmation**. Desktop right-click and the native Start button show the daily-tools
+opens a centered Quit/Cancel confirmation**. Desktop right-click and the native
+Start button show the daily-tools
 menu; Applications opens Awesome's built-in application launcher, and Run
 opens xfce4-appfinder. Openbox-specific edge-resize/shade controls are not emulated;
 use Win+right-drag anywhere or plain left-drag on the bottom-right grip for

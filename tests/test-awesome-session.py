@@ -54,7 +54,7 @@ class SingleScenario(argparse.Action):
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--scenario', choices=('all', 'titlebars', 'workspace-transfer', 'sidebar-documents'), action=SingleScenario,
+    parser.add_argument('--scenario', choices=('all', 'titlebars', 'workspace-transfer', 'sidebar-documents', 'menu-popups'), action=SingleScenario,
                         help='checks to run (default: all)')
     parser.add_argument('--composited', action='store_true', help='use private Picom/XRender')
     parser.add_argument('--inside', action='store_true', help=argparse.SUPPRESS)
@@ -72,7 +72,7 @@ def run_timed(name, check):
 
 def run_focused(scenario, *, prepare, controls, destruction):
     """Return False to continue the unchanged full-session sequence."""
-    if scenario in ('all', 'workspace-transfer', 'sidebar-documents'):
+    if scenario in ('all', 'workspace-transfer', 'sidebar-documents', 'menu-popups'):
         return False
     if scenario != 'titlebars':
         raise ValueError(f'Unknown scenario: {scenario}')
@@ -489,6 +489,19 @@ def main():
                     run_timed('sidebar.documents', lambda: awesome_sidebar.verify_document_launches(
                         lua=lua, wait=wait, pointer=pointer, widget_point=widget_point,
                         actions_file=actions_file, testhome=testhome, log_text=logfile.read_text))
+                    finish_session(args.scenario)
+                    return 0
+                if args.scenario == 'menu-popups':
+                    press('super+p')
+                    wait('return tostring(__awesome_display_menu.wibox.visible)', '"true"')
+                    assert 'true' in lua('local m=__awesome_display_menu; local g=screen[1].geometry; return m.x == g.x + math.floor((g.width-m.wibox.width)/2) and m.y == g.y + math.floor((g.height-m.wibox.height)/2)')
+                    press('Escape')
+                    wait('return tostring(__awesome_display_menu.wibox.visible)', '"false"')
+                    press('super+shift+q')
+                    wait('return tostring(__awesome_quit_confirmation.wibox.visible)', '"true"')
+                    assert 'true' in lua('local m=__awesome_quit_confirmation; local g=screen[1].geometry; return m.x == g.x + math.floor((g.width-m.wibox.width)/2) and m.y == g.y + math.floor((g.height-m.wibox.height)/2)')
+                    press('Escape')
+                    wait('return tostring(__awesome_quit_confirmation.wibox.visible)', '"false"')
                     finish_session(args.scenario)
                     return 0
                 assert 'true' in lua('local s=screen[1]; return table.concat(s.sidebar_content_order, ",") == "calendar,todo,quick-launch,system-status,codex,crypto,weather,now-playing,wallpaper"')
@@ -1005,6 +1018,7 @@ def main():
                 assert wm.poll() is None, logfile.read_text()
                 press('super+p')
                 wait('return tostring(__awesome_display_menu.wibox.visible)', '"true"')
+                assert 'true' in lua('local m=__awesome_display_menu; local g=screen[1].geometry; return m.x == g.x + math.floor((g.width-m.wibox.width)/2) and m.y == g.y + math.floor((g.height-m.wibox.height)/2)')
                 assert 'true' in lua('local m=__awesome_display_menu; local b=require("beautiful"); return m.theme.width == 270 and m.theme.height == 28 and m.theme.border_width == 1 and m.theme.bg_normal==b.menu_bg_normal and m.theme.bg_focus==b.menu_bg_focus and m.theme.fg_focus==b.menu_fg_focus')
                 lua('__awesome_display_menu:item_enter(2)')
                 capture("display-menu")
@@ -1012,7 +1026,7 @@ def main():
                 wait('return tostring(__awesome_display_menu.wibox.visible)', '"false"')
                 press('super+shift+q')
                 wait('return tostring(__awesome_quit_confirmation.wibox.visible)', '"true"')
-                assert 'true' in lua('local m=__awesome_quit_confirmation; local b=require("beautiful"); return m.theme.bg_normal==b.menu_bg_normal and m.theme.bg_focus==b.menu_bg_focus')
+                assert 'true' in lua('local m=__awesome_quit_confirmation; local b=require("beautiful"); local g=screen[1].geometry; return m.x == g.x + math.floor((g.width-m.wibox.width)/2) and m.y == g.y + math.floor((g.height-m.wibox.height)/2) and m.theme.bg_normal==b.menu_bg_normal and m.theme.bg_focus==b.menu_bg_focus')
                 capture("quit-confirmation")
                 press('Escape')
                 wait('return tostring(__awesome_quit_confirmation.wibox.visible)', '"false"')

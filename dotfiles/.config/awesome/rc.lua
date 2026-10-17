@@ -190,6 +190,14 @@ local titlebar_drag = titlebar_drag_module.new {
     native_move = awful.mouse.client.move, snap = snap,
     snap_distance = awful.mouse.snap.default_distance, threshold = 4,
 }
+local function show_centered_menu(menu)
+    local s = awful.screen.focused()
+    local geometry = s.geometry
+    menu:show({coords = {
+        x = geometry.x + math.floor((geometry.width - menu.wibox.width) / 2),
+        y = geometry.y + math.floor((geometry.height - menu.wibox.height) / 2),
+    }})
+end
 local function window_menu(c)
     dismiss_start_menu()
     awful.menu({items = {
@@ -208,7 +216,7 @@ local function confirm_quit()
         {"Cancel", function() end},
     }})
     _G.__awesome_quit_confirmation = confirmation
-    confirmation:show()
+    show_centered_menu(confirmation)
 end
 local function confirm_poweroff()
     dismiss_start_menu()
@@ -217,7 +225,7 @@ local function confirm_poweroff()
         {"Cancel", function() end},
     }})
     _G.__awesome_poweroff_confirmation = confirmation
-    confirmation:show()
+    show_centered_menu(confirmation)
 end
 local function menu_separator(_, args)
     local rule = wibox.widget {
@@ -305,7 +313,7 @@ main_menu = awful.menu({items = {
     {"&Monitor", function() dismiss_start_menu(); run({"kitty", "--title", "System Monitor", "btop"}) end,
         menu_icon("utilities-system-monitor")},
     {"&Volume Control", "pavucontrol", menu_icon("audio-volume-high")},
-    {"Displa&y outputs", function() dismiss_start_menu(); display_menu:show() end,
+    {"Displa&y outputs", function() dismiss_start_menu(); show_centered_menu(display_menu) end,
         menu_icon("video-display")},
     {new = menu_separator},
     {"&Quake 1", function() dismiss_start_menu(); run({home .. "/Games/quake-rerelease/vkquake.sh"}) end,
@@ -450,7 +458,7 @@ key({"Mod1", "Shift"}, "Tab", function() cycle(-1) end)
 key({"Control", "Mod1"}, "Tab", function() cycle(1) end)
 key({mod, "Control"}, "r", awesome.restart)
 key({mod, "Shift"}, "q", confirm_quit)
-key({mod}, "p", function() display_menu:show() end)
+key({mod}, "p", function() show_centered_menu(display_menu) end)
 for i = 1, 4 do
     key({mod}, "#" .. (i + 9), function()
         local t = awful.screen.focused().tags[i]

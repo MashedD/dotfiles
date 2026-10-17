@@ -13,8 +13,9 @@ From any directory, invoke the repository's runner:
 ./tests/run.sh             # syntax and unit tests (default)
 ./tests/run.sh --session   # also private Xvfb Awesome session
 ./tests/run.sh --visual    # also visual sessions without/with private Picom
-./tests/run.sh --session --scenario titlebars  # fast checks + focused runtime
-./tests/run.sh --visual --scenario titlebars   # fast checks + focused visual matrix
+./tests/run.sh --session --scenario titlebars   # fast checks + focused runtime
+./tests/run.sh --session --scenario menu-popups # verify centered popup menus
+./tests/run.sh --visual --scenario titlebars    # fast checks + focused visual matrix
 ```
 
 The commands above assume the repository root; an absolute runner path also works.
@@ -50,13 +51,14 @@ python3 tests/test-screen-lock.py
 python3 tests/test-awesome-session.py --scenario titlebars
 python3 tests/test-awesome-session.py --scenario workspace-transfer
 python3 tests/test-awesome-session.py --scenario sidebar-documents
+python3 tests/test-awesome-session.py --scenario menu-popups
 AWESOME_TEST_VISUAL=1 python3 tests/test-awesome-session.py --scenario titlebars
 AWESOME_TEST_VISUAL=1 python3 tests/test-awesome-session.py --scenario titlebars --composited
 ```
 
 The direct Python command skips the fast suite. `all` is the default;
-`titlebars`, `workspace-transfer`, and `sidebar-documents` are focused alternatives,
-with one selector per invocation. `./tests/run.sh --session` runs the workspace-transfer
+`titlebars`, `workspace-transfer`, `sidebar-documents`, and `menu-popups` are
+focused alternatives, with one selector per invocation. `./tests/run.sh --session` runs the workspace-transfer
 and sidebar-document scenarios separately, then the broad session. `--scenario` selects
 one scenario instead.
 `--help` describes the flags. Invalid arguments fail before launching the private bus

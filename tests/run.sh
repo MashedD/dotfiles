@@ -2,7 +2,7 @@
 set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 usage() {
-  printf 'Usage: %s [--session|--visual] [--scenario all|titlebars|workspace-transfer|sidebar-documents]\n' "$0"
+  printf 'Usage: %s [--session|--visual] [--scenario all|titlebars|workspace-transfer|sidebar-documents|menu-popups]\n' "$0"
   printf 'No mode: fast checks. --session: private runtime. --visual: runtime and XRender visual checks.\n'
   printf '%s\n' '--scenario selects runtime checks (default: all); it requires --session or --visual.'
 }
@@ -18,7 +18,7 @@ while (( $# )); do
         (( $# >= 2 )) || invalid
         scenario=$2; shift
       else scenario=${1#*=}; fi
-      case "$scenario" in all|titlebars|workspace-transfer|sidebar-documents) ;; *) invalid ;; esac ;;
+      case "$scenario" in all|titlebars|workspace-transfer|sidebar-documents|menu-popups) ;; *) invalid ;; esac ;;
     *) invalid ;;
   esac
   shift

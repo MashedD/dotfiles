@@ -17,7 +17,7 @@ spec.loader.exec_module(session)
 class ArgumentTests(unittest.TestCase):
     def test_defaults_and_supported_combinations(self):
         self.assertEqual(session.parse_args([]).scenario, 'all')
-        for name in ('all', 'titlebars', 'workspace-transfer', 'sidebar-documents'):
+        for name in ('all', 'titlebars', 'workspace-transfer', 'sidebar-documents', 'menu-popups'):
             for argv in (['--scenario', name], ['--scenario='+name, '--composited', '--inside']):
                 args = session.parse_args(argv)
                 self.assertEqual(args.scenario, name)
@@ -64,7 +64,7 @@ class DispatchTests(unittest.TestCase):
         return events, {name: callback(name) for name in ('prepare', 'controls', 'destruction')}
 
     def test_focused_order_and_default_continuation(self):
-        for scenario in ('all', 'titlebars', 'workspace-transfer', 'sidebar-documents'):
+        for scenario in ('all', 'titlebars', 'workspace-transfer', 'sidebar-documents', 'menu-popups'):
             events, callbacks = self.callbacks()
             focused = session.run_focused(scenario, **callbacks)
             self.assertEqual(focused, scenario == 'titlebars')

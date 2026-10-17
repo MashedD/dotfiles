@@ -26,7 +26,8 @@
 - The session uses four desktops: **1**, **2**, **3**, and **4**.
   - Win+1–4 switches desktops.
   - Win+Shift+1–4 sends the focused window to a desktop and follows it.
-  - Win+P opens display outputs; Win+Shift+Q requires quit confirmation.
+  - Win+P opens the display-output menu centered on the focused screen.
+  - Win+Shift+Q opens a centered quit confirmation.
 - Start only X11-compatible services from Awesome autostart. Do not add Wayland daemons there.
 - Autostart must tolerate Awesome reloads without duplicate services. Solaar is not started by default; users may still launch it manually. The sidebar reads Logitech mouse battery status directly from sysfs.
 - Awesome's built-in systray is the sole XEmbed tray owner, displayed on the primary monitor. Start `snixembed --fork` after Awesome initializes it to bridge modern StatusNotifierItem applications (such as Gajim).
