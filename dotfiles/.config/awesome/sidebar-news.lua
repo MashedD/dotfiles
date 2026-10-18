@@ -326,10 +326,13 @@ function M.new(options)
 
     local function remove_escape_binding()
         if not escape_binding then return end
+        -- awful.key returns a list (including Lock/Mod2 variants), which root.keys flattens.
         local current = root.keys()
         local remaining = {}
+        local bindings = {}
+        for _, key in ipairs(escape_binding) do bindings[key] = true end
         for _, key in ipairs(current) do
-            if key ~= escape_binding then remaining[#remaining + 1] = key end
+            if not bindings[key] then remaining[#remaining + 1] = key end
         end
         root.keys(remaining)
         escape_binding = nil

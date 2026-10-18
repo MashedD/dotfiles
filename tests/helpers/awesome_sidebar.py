@@ -20,6 +20,7 @@ def verify_news(*, lua, wait, pointer, widget_point, press, actions_file, log_te
         raise AssertionError(f"News action button not visible after scrolling: {expression}")
 
     try:
+        assert 'true' in lua('for _,k in ipairs(root.keys()) do if k.key=="Escape" then return false end end; return true')
         initial = lua('local s=screen[1]; local n=s.sidebar_news; return tostring(n~=nil and n.popup==s.sidebar_news_popup and s.sidebar_news_timer.timeout==1800 and n.filtered_items and #n.filtered_items()==8)')
         assert 'true' in initial, initial
         assert 'true' in lua('local s=screen[1]; return s.sidebar_news.unread_label.markup:find("8 unread",1,true)~=nil and s.sidebar_sections.news and s.sidebar_enabled_sections.news')
@@ -27,6 +28,7 @@ def verify_news(*, lua, wait, pointer, widget_point, press, actions_file, log_te
         point = sidebar_news_button_point()
         pointer("mousemove", *point, "click", 1)
         wait('return tostring(screen[1].sidebar_news_popup.visible)', '"true"')
+        assert 'true' in lua('local n=0; for _,k in ipairs(root.keys()) do if k.key=="Escape" then n=n+1 end end; return tostring(n==4)')
         assert 'true' in lua('local s=screen[1]; local p=s.sidebar_news_popup; return p.ontop and p.width<=520 and p.x+p.width<=s.sidebar.x and p.y>=s.geometry.y and p.y+p.height<=s.geometry.y+s.geometry.height and s.sidebar:struts().right==300 and s.workarea.width==s.geometry.width-300')
         if capture: capture("sidebar-news-popup")
 
@@ -58,6 +60,7 @@ def verify_news(*, lua, wait, pointer, widget_point, press, actions_file, log_te
         assert f"desktop-news mark-read {story_id}" in actions_file.read_text(), actions_file.read_text()
         press('Escape')
         wait('return tostring(screen[1].sidebar_news_popup.visible)', '"false"')
+        assert 'true' in lua('for _,k in ipairs(root.keys()) do if k.key=="Escape" then return false end end; return true')
 
         stage = "mark unread, mark all read, and remove"
         point = sidebar_news_button_point()
@@ -77,6 +80,7 @@ def verify_news(*, lua, wait, pointer, widget_point, press, actions_file, log_te
         stage = "outside click dismissal"
         pointer("mousemove", 30, 700, "click", 1)
         wait('return tostring(screen[1].sidebar_news_popup.visible)', '"false"')
+        assert 'true' in lua('for _,k in ipairs(root.keys()) do if k.key=="Escape" then return false end end; return true')
     except BaseException as error:
         try:
             state = lua('local s=screen[1]; local p=s.sidebar_news_popup; return table.concat({"visible="..tostring(p.visible), '
