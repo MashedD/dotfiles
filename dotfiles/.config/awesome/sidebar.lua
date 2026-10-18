@@ -1051,10 +1051,12 @@ function sidebar.create(s, dismiss_menu)
     local news_card
     local function make_news_button(text, callback, width, group)
         local text_widget = label("", palette.text, 8, true, "center")
+        local button_text = tostring(text)
         local function update_text(value)
+            button_text = tostring(value)
             set_markup(text_widget, string.format(
                 "<span foreground='%s' size='8pt' weight='bold'>%s</span>",
-                palette.text, gstring.xml_escape(tostring(value))))
+                palette.text, gstring.xml_escape(button_text)))
         end
         update_text(text)
         local button = style_button(wibox.widget {
@@ -1065,28 +1067,16 @@ function sidebar.create(s, dismiss_menu)
         })
         bind_sidebar_action(button, callback, "news", nil, group)
         button.set_text = update_text
+        button.get_text = function() return button_text end
         return button
     end
-    local popup_width = math.max(180, math.min(520, s.geometry.width - 24))
-    local popup_height = math.max(160, math.min(680, s.geometry.height - 40))
+    local popup_width = math.max(180, math.min(520, s.geometry.width - sidebar_width - 24))
+    local popup_height = sidebar_height
     local news_ui = news_component.new {
         screen = s, ui = ui, data = data, interaction = interaction, appearance = appearance,
         label = label, button = make_news_button, helper = (os.getenv("HOME") or "") .. "/.local/bin/desktop-news",
         dismiss = dismiss_menu, popup_width = popup_width, popup_height = popup_height,
-        list_height = math.max(60, popup_height - 130),
-        anchor = function()
-            if not panel or not panel.visible or not news_card then return nil end
-            local x = math.floor(panel.width / 2)
-            for y = 0, panel.height - 1 do
-                for _, found in ipairs(panel:find_widgets(x, y)) do
-                    if found.widget == news_card then
-                        return {x = panel.x + found.x, y = panel.y + found.y,
-                            width = found.width, height = found.height}
-                    end
-                end
-            end
-            return nil
-        end,
+        list_height = math.max(120, popup_height - 140),
     }
     local news_section, news_height
     news_card, news_height, news_section = collapsible_card("news", "NEWS", news_ui.body)

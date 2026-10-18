@@ -147,7 +147,10 @@ Sidebar or News tab, or save choices and press Win+Ctrl+R to apply them. Solaar 
 started automatically. The Start menu keeps
 its Volume Control entry but no longer duplicates Monitor or Display outputs.
 The sidebar also has a scrollable News inbox (default view: unread) backed only by
-curated RSS/Atom sources. The Control Center's Sidebar tab toggles News visibility;
+curated RSS/Atom sources. Its non-modal reader opens beside the sidebar at full
+available screen height, with smooth wheel scrolling and a draggable scrollbar;
+Open toggles to Close, the X closes explicitly, and outside clicks/Escape leave it open.
+The Control Center's Sidebar tab toggles News visibility;
 its News tab edits category names and multiple feed sources per category, including
 URLs, labels, enabled state, and a bounded feed test. New profiles start with no
 categories or feeds. Existing profiles migrate their four current category filters

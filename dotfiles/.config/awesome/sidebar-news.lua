@@ -1,4 +1,4 @@
--- Scrollable, screen-anchored RSS inbox; feed I/O and persistence live in desktop-news.
+-- Full-height, sidebar-adjacent RSS inbox; feed I/O and persistence live in desktop-news.
 local awful = require("awful")
 local gears = require("gears")
 local wibox = require("wibox")
@@ -24,11 +24,14 @@ end
 function M.new(options)
     local s, ui, data = options.screen, options.ui, options.data
     local appearance, palette = options.appearance, options.appearance.palette
-    local popup, current_state, action_error
+    local popup, popup_widget, current_state, action_error
     local row_lifetime
     local view_unread, view_category = true, "all"
-    local scroll_offset, content_height = 0, 0
-    local escape_binding, leave_timer
+    local scroll_offset, scroll_target, content_height = 0, 0, 0
+    local viewport_height = options.list_height
+    local scroll_animation, scrollbar_dragging
+    local scroll_start_offset, scroll_started_at = 0, 0
+    local scrollbar_owner = {}
     local component = {ui = ui}
 
     local count_text = options.label("Loading news…", palette.muted, 9, false)
@@ -43,15 +46,58 @@ function M.new(options)
     local list = wibox.layout.fixed.vertical()
     list.spacing = 5
     local viewport = wibox.widget.base.make_widget()
+    local scrollbar
+    local function max_scroll()
+        return math.max(0, content_height - viewport_height)
+    end
+    local function clamp_scroll(value)
+        return math.max(0, math.min(max_scroll(), value))
+    end
+    local function redraw_scroll()
+        viewport:emit_signal("widget::layout_changed")
+        viewport:emit_signal("widget::redraw_needed")
+        if scrollbar then scrollbar:emit_signal("widget::redraw_needed") end
+    end
+    local function stop_scroll_animation()
+        if scroll_animation then scroll_animation:stop(); scroll_animation = nil end
+    end
+    local function scroll_to(value, smooth)
+        scroll_target = clamp_scroll(value)
+        if not smooth then
+            stop_scroll_animation()
+            scroll_offset = scroll_target
+            redraw_scroll()
+            return
+        end
+        scroll_start_offset = scroll_offset
+        scroll_started_at = options.interaction.monotonic_time()
+        if scroll_animation then return end
+        scroll_animation = gears.timer.start_new(1 / 60, function()
+            if ui.disposed or not popup or not popup.visible then
+                scroll_animation = nil
+                return false
+            end
+            local progress = math.min(1,
+                (options.interaction.monotonic_time() - scroll_started_at) / 0.24)
+            local eased = progress * progress * (3 - 2 * progress)
+            scroll_offset = scroll_start_offset + (scroll_target - scroll_start_offset) * eased
+            if progress >= 1 then
+                scroll_offset = scroll_target
+                scroll_animation = nil
+            end
+            redraw_scroll()
+            return progress < 1
+        end)
+    end
     viewport.fit = function(_, context, width)
         local _, height = wibox.widget.base.fit_widget(viewport, context, list, width, 2^20)
         content_height = height
-        return width, math.min(height, options.list_height)
+        return math.max(0, width - 14), math.min(height, options.list_height)
     end
     viewport.layout = function(_, context, width, height)
         local _, measured = wibox.widget.base.fit_widget(viewport, context, list, width, 2^20)
-        content_height = measured
-        scroll_offset = math.max(0, math.min(scroll_offset, math.max(0, content_height - height)))
+        content_height, viewport_height = measured, height
+        scroll_offset, scroll_target = clamp_scroll(scroll_offset), clamp_scroll(scroll_target)
         return {wibox.widget.base.place_widget_at(list, 0, -scroll_offset, width, content_height)}
     end
     viewport.draw = function() end
@@ -61,16 +107,62 @@ function M.new(options)
     viewport.after_draw_children = function(_, _, cr)
         cr:restore()
     end
-    function component.scroll_by(delta)
-        local maximum = math.max(0, content_height - options.list_height)
-        local next_offset = math.max(0, math.min(maximum, scroll_offset + delta))
-        if next_offset == scroll_offset then return false end
-        scroll_offset = next_offset
-        viewport:emit_signal("widget::layout_changed")
-        viewport:emit_signal("widget::redraw_needed")
-        return true
+    viewport.forced_height = options.list_height
+    function component.scroll_by(delta, smooth)
+        local previous = scroll_target
+        scroll_to(scroll_target + delta, smooth == true)
+        return scroll_target ~= previous
     end
     component.viewport = viewport
+
+    scrollbar = wibox.widget.base.make_widget()
+    scrollbar.forced_width = 14
+    scrollbar.fit = function(_, _, width, height) return width, height end
+    local function thumb_geometry(height)
+        if content_height <= viewport_height or viewport_height <= 0 then return 0, height end
+        local thumb_height = math.min(height, math.max(28,
+            math.floor(height * viewport_height / content_height)))
+        local range = math.max(0, height - thumb_height)
+        local top = max_scroll() > 0 and range * scroll_offset / max_scroll() or 0
+        return top, thumb_height
+    end
+    scrollbar.draw = function(_, _, cr, width, height)
+        cr:set_source(gears.color(palette.scrollbar_track)); cr:rectangle(0, 0, width, height); cr:fill()
+        local rail_width = 4
+        local rail_x = math.floor((width - rail_width) / 2)
+        cr:set_source(gears.color(palette.scrollbar_rail)); cr:rectangle(rail_x, 0, rail_width, height); cr:fill()
+        local top, thumb_height = thumb_geometry(height)
+        cr:set_source(appearance.gradient("scrollbar", math.max(1, thumb_height)))
+        cr:rectangle(math.max(0, rail_x - 2), top, math.min(width, rail_width + 4), thumb_height); cr:fill()
+        cr:set_source(gears.color(palette.scrollbar_highlight))
+        cr:rectangle(math.max(0, rail_x - 1), top + 1, math.min(width, rail_width + 2), 1); cr:fill()
+    end
+    scrollbar:connect_signal("button::press", function(_, _, y, button, _, geometry)
+        if button ~= 1 or max_scroll() <= 0 or mousegrabber.isrunning() or not geometry
+            or not geometry.hierarchy or not geometry.drawable then return end
+        local top, thumb_height = thumb_geometry(viewport_height)
+        local range = math.max(1, viewport_height - thumb_height)
+        if y < top or y > top + thumb_height then
+            component.scroll_by((y < top and -1 or 1) * math.max(80, viewport_height * 0.8), true)
+            return
+        end
+        local matrix = geometry.hierarchy:get_matrix_from_device()
+        local window_geometry = geometry.drawable.drawable:geometry()
+        matrix = matrix:translate(-window_geometry.x, -window_geometry.y)
+        local grab_offset = y - top
+        scrollbar_dragging = true
+        local started = options.interaction.start_grab(scrollbar_owner, function(pointer)
+            if not scrollbar_dragging or ui.disposed or not popup.visible then return false end
+            local _, local_y = matrix:transform_point(pointer.x, pointer.y)
+            local new_top = math.max(0, math.min(range, local_y - grab_offset))
+            scroll_to((new_top / range) * max_scroll(), false)
+            if pointer.buttons[1] then return true end
+            scrollbar_dragging = false
+            return false
+        end, "sb_v_double_arrow")
+        if not started then scrollbar_dragging = false end
+    end)
+    component.scrollbar = scrollbar
 
     local popup_status = options.label("Waiting for first feed refresh…", palette.muted, 9, false)
     popup_status.wrap = "word_char"
@@ -81,10 +173,16 @@ function M.new(options)
     filter_rows.spacing = 2
     component.filter_rows = filter_rows
     local filter_lifetime, filter_signature
+    local update_popup_list_height
     local list_column = wibox.layout.fixed.vertical()
     list_column.spacing = 5
+    local scroll_row = wibox.layout.fixed.horizontal()
+    scroll_row.spacing = 0
+    scroll_row:add(viewport)
+    scroll_row:add(scrollbar)
+    scroll_row.forced_height = options.list_height
     list_column:add(popup_status)
-    list_column:add(viewport)
+    list_column:add(scroll_row)
 
     local function set_markup(widget, markup)
         widget.markup = markup
@@ -172,9 +270,11 @@ function M.new(options)
             list:add(wibox.widget {empty, left = 8, right = 8, top = 12, bottom = 12,
                 widget = wibox.container.margin})
         end
-        scroll_offset = 0
+        scroll_offset, scroll_target = 0, 0
+        stop_scroll_animation()
         viewport:emit_signal("widget::layout_changed")
         list_column:emit_signal("widget::layout_changed")
+        if scrollbar then scrollbar:emit_signal("widget::redraw_needed") end
     end
     local function render_filters(value)
         local categories = value and value.categories or {}
@@ -224,6 +324,7 @@ function M.new(options)
         end
         component.unread_button.set_text((view_unread and "• " or "") .. "Unread")
         component.all_button.set_text((not view_unread and "• " or "") .. "All")
+        if update_popup_list_height then update_popup_list_height() end
     end
     local function update_summary(state)
         local value = state and state.value
@@ -283,7 +384,7 @@ function M.new(options)
     toolbar:add(top_actions)
     toolbar:add(wibox.widget {title, widget = wibox.container.place})
     toolbar:add(right_actions)
-    local popup_widget = wibox.widget {
+    popup_widget = wibox.widget {
         {toolbar, forced_height = 30, bg = appearance.gradient("selected", 30),
             widget = wibox.container.background},
         {filter_rows, bg = "#17283bf5",
@@ -294,29 +395,38 @@ function M.new(options)
         spacing = 0,
         layout = wibox.layout.fixed.vertical,
     }
+    update_popup_list_height = function()
+        local _, natural_height = popup_widget:fit({dpi = s.dpi or 96}, options.popup_width, 2^20)
+        local target_height = math.floor(math.max(120,
+            options.list_height + options.popup_height - 2 - natural_height))
+        if target_height == options.list_height then return end
+        options.list_height = target_height
+        viewport.forced_height = target_height
+        scroll_row.forced_height = target_height
+        list_column:emit_signal("widget::layout_changed")
+        popup_widget:emit_signal("widget::layout_changed")
+    end
     popup = awful.popup {
         screen = s, visible = false, ontop = true, type = "utility",
-        width = options.popup_width, maximum_width = options.popup_width,
-        maximum_height = options.popup_height, minimum_width = options.popup_width,
+        width = options.popup_width, height = options.popup_height,
+        minimum_width = options.popup_width, maximum_width = options.popup_width,
+        minimum_height = options.popup_height, maximum_height = options.popup_height,
         bg = palette.bg, fg = palette.text,
         border_width = 1, border_color = palette.active_border,
         shape = gears.shape.rectangle, restrict_workarea = false,
-        preferred_positions = {"left", "right", "top", "bottom"},
-        preferred_anchors = {"middle", "front", "back"},
-        offset = {x = 8, y = 0}, widget = popup_widget,
+        widget = popup_widget,
     }
     component.popup = popup
-    local current_anchor
     local function position_popup()
-        if not current_anchor then return end
-        local screen_geo = s.geometry
-        local left = s.sidebar.x - popup.width - 8
-        local right = s.sidebar.x + s.sidebar.width + 8
-        local x = left >= screen_geo.x and left
-            or math.min(right, screen_geo.x + screen_geo.width - popup.width)
-        local y = current_anchor.y + current_anchor.height / 2 - popup.height / 2
-        y = math.max(screen_geo.y, math.min(y, screen_geo.y + screen_geo.height - popup.height))
-        popup.x, popup.y = math.floor(x), math.floor(y)
+        if not s.sidebar then return end
+        local screen_geo, side = s.geometry, s.sidebar
+        local left = side.x - popup.width
+        local right = side.x + side.width
+        local fits_left = left >= screen_geo.x
+        local fits_right = right + popup.width <= screen_geo.x + screen_geo.width
+        local x = fits_left and left or (fits_right and right
+            or math.max(screen_geo.x, screen_geo.x + screen_geo.width - popup.width))
+        popup.x, popup.y = math.floor(x), math.floor(side.y)
     end
     popup:connect_signal("property::height", position_popup)
     popup:connect_signal("property::width", position_popup)
@@ -324,35 +434,15 @@ function M.new(options)
     component.item_controls = {}
     component.unread_label = count_text
 
-    local function remove_escape_binding()
-        if not escape_binding then return end
-        -- awful.key returns a list (including Lock/Mod2 variants), which root.keys flattens.
-        local current = root.keys()
-        local remaining = {}
-        local bindings = {}
-        for _, key in ipairs(escape_binding) do bindings[key] = true end
-        for _, key in ipairs(current) do
-            if not bindings[key] then remaining[#remaining + 1] = key end
-        end
-        root.keys(remaining)
-        escape_binding = nil
-    end
-    local function add_escape_binding()
-        if escape_binding then return end
-        escape_binding = awful.key({}, "Escape", function() component.hide() end,
-            {description = "close sidebar news", group = "sidebar"})
-        root.keys(gears.table.join(root.keys(), escape_binding))
-    end
     function component.hide()
-        if not popup.visible then
-            if active_instance == component then active_instance = nil end
-            remove_escape_binding()
-            return
-        end
         popup.visible = false
+        stop_scroll_animation()
+        if scrollbar_dragging then
+            scrollbar_dragging = false
+            options.interaction.stop_grab(scrollbar_owner)
+        end
         if active_instance == component then active_instance = nil end
-        remove_escape_binding()
-        if leave_timer.started then leave_timer:stop() end
+        if open_button then open_button.set_text("Open") end
     end
     function component.open()
         if ui.disposed or not s.valid or not s.sidebar or not s.sidebar.visible then return end
@@ -365,13 +455,10 @@ function M.new(options)
             data.refresh("news")
         end
         component.render(state)
-        local anchor = options.anchor()
-        if not anchor then return end
-        current_anchor = anchor
         popup.visible = true
         position_popup()
         active_instance = component
-        add_escape_binding()
+        if open_button then open_button.set_text("Close") end
     end
     open_button = options.button("Open", component.open, 66, ui)
     component.open_button = open_button
@@ -386,22 +473,10 @@ function M.new(options)
         return M.filtered(current_state and current_state.value and current_state.value.items or {},
             view_unread, view_category)
     end
-    local function on_mouse_enter()
-        if leave_timer.started then leave_timer:stop() end
-    end
-    local function on_mouse_leave()
-        if leave_timer.started then leave_timer:stop() end
-        leave_timer:start()
-    end
-    popup:connect_signal("mouse::enter", on_mouse_enter)
-    popup:connect_signal("mouse::leave", on_mouse_leave)
     popup:connect_signal("button::press", function(_, _, _, button)
-        if button == 4 then component.scroll_by(-100)
-        elseif button == 5 then component.scroll_by(100) end
+        if button == 4 then component.scroll_by(-72, true)
+        elseif button == 5 then component.scroll_by(72, true) end
     end)
-    leave_timer = gears.timer {timeout = 0.55, single_shot = true, callback = function()
-        if popup.visible then component.hide() end
-    end}
     local attached = false
     function component.attach()
         if attached or not s.sidebar then return end
@@ -411,21 +486,14 @@ function M.new(options)
         end)
     end
     ui.connect(s, "property::geometry", function() component.hide() end)
-    local function close_on_focus(c)
-        if popup.visible and c.screen == s then component.hide() end
-    end
-    client.connect_signal("focus", close_on_focus)
-    ui.add(function() client.disconnect_signal("focus", close_on_focus) end)
     local destroyed = false
     function component.destroy()
         if destroyed then return end
         destroyed = true
         component.hide()
-        if leave_timer.started then leave_timer:stop() end
+        if scroll_animation then stop_scroll_animation() end
         if row_lifetime then row_lifetime.destroy(); row_lifetime = nil end
         if filter_lifetime then filter_lifetime.destroy(); filter_lifetime = nil end
-        popup:disconnect_signal("mouse::enter", on_mouse_enter)
-        popup:disconnect_signal("mouse::leave", on_mouse_leave)
         popup:disconnect_signal("property::height", position_popup)
         popup:disconnect_signal("property::width", position_popup)
     end
