@@ -79,6 +79,7 @@ function M.new(options)
     toolbar.spacing = 4
     local filter_rows = wibox.layout.fixed.vertical()
     filter_rows.spacing = 2
+    component.filter_rows = filter_rows
     local filter_lifetime, filter_signature
     local list_column = wibox.layout.fixed.vertical()
     list_column.spacing = 5
@@ -188,20 +189,25 @@ function M.new(options)
             filter_lifetime = options.interaction.lifetime()
             filter_rows:reset()
             component.category_buttons = {}
-            local row
+            local row, row_width
+            local width_limit = math.max(1, options.popup_width - 16)
             local function add_filter(category_id, label)
-                if not row or #row:get_children() >= 4 then
+                local width = category_id == "all" and 52 or math.min(110, math.max(58, #label * 6 + 16))
+                local spacing = row and #row:get_children() > 0 and row.spacing or 0
+                if not row or row_width + spacing + width > width_limit then
                     row = wibox.layout.fixed.horizontal()
                     row.spacing = 3
+                    row_width = 0
                     filter_rows:add(row)
+                    spacing = 0
                 end
-                local width = category_id == "all" and 52 or math.min(110, math.max(58, #label * 6 + 16))
                 local button = options.button(label, function()
                     view_category = category_id
                     component.render(current_state)
                 end, width, filter_lifetime)
                 component.category_buttons[category_id] = button
                 row:add(button)
+                row_width = row_width + spacing + width
             end
             add_filter("all", "All")
             local available = {all = true}

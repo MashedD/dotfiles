@@ -23,6 +23,7 @@ def verify_news(*, lua, wait, pointer, widget_point, press, actions_file, log_te
         initial = lua('local s=screen[1]; local n=s.sidebar_news; return tostring(n~=nil and n.popup==s.sidebar_news_popup and s.sidebar_news_timer.timeout==1800 and n.filtered_items and #n.filtered_items()==8)')
         assert 'true' in initial, initial
         assert 'true' in lua('local s=screen[1]; return s.sidebar_news.unread_label.markup:find("8 unread",1,true)~=nil and s.sidebar_sections.news and s.sidebar_enabled_sections.news')
+        assert 'true' in lua('local r=screen[1].sidebar_news.filter_rows:get_children(); return #r==1 and #r[1]:get_children()==6')
         point = sidebar_news_button_point()
         pointer("mousemove", *point, "click", 1)
         wait('return tostring(screen[1].sidebar_news_popup.visible)', '"true"')
