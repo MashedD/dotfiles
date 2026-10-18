@@ -21,6 +21,12 @@ function M.create(options)
         bar._interaction_state = dragging and "dragging" or (hovered and "hover" or "normal")
         bar:emit_signal("widget::redraw_needed")
     end
+    local module_dir = debug.getinfo(1, "S").source:sub(2):match("(.*/)")
+    local spring = dofile(module_dir .. "scroll-spring.lua").new(function()
+        view:emit_signal("widget::layout_changed")
+        view:emit_signal("widget::redraw_needed")
+    end, interaction.monotonic_time)
+    ui.add(spring.reset)
     function component.set_offset(value)
         if ui.disposed then return end
         offset = math.max(0, math.min(maximum, value))
@@ -28,7 +34,14 @@ function M.create(options)
         view:emit_signal("widget::layout_changed"); view:emit_signal("widget::redraw_needed")
         bar:emit_signal("widget::redraw_needed")
     end
-    function component.scroll_by(delta) component.set_offset(offset + delta) end
+    function component.scroll_by(delta)
+        local requested = offset + delta
+        local bounded = math.max(0, math.min(maximum, requested))
+        if maximum > 0 and math.abs(delta) <= 160 and requested ~= bounded then
+            spring.kick(requested - bounded)
+        else spring.reset() end
+        component.set_offset(bounded)
+    end
     function component.offset() return offset end
     function component.max() return maximum end
     function component.thumb_geometry(width)
@@ -56,7 +69,7 @@ function M.create(options)
         cr:restore()
     end
     view.layout = function(_, _, width)
-        return {wibox.widget.base.place_widget_at(content, 0, -offset, width, content_height)}
+        return {wibox.widget.base.place_widget_at(content, 0, -offset - spring.value(), width, content_height)}
     end
     bar.visible, bar.forced_height = false, 0
     bar.fit = function(_, _, width) return width, bar_height end
@@ -113,12 +126,13 @@ function M.create(options)
             wibox.widget.base.place_widget_at(view, 0, fixed, width, viewport_height),
         }
     end
+    local grab_offset
     local function from_pointer(x)
         local panel = options.panel()
         local track_x = (panel and panel.x or (s.geometry.x + s.geometry.width - options.width)) + 2
         local width = options.width - 2
         local size = select(2, component.thumb_geometry(width))
-        local fraction = math.max(0, math.min(1, (x - track_x - size / 2) / math.max(1, width - size)))
+        local fraction = math.max(0, math.min(1, (x - track_x - (grab_offset or size / 2)) / math.max(1, width - size)))
         component.set_offset(fraction * maximum)
     end
     ui.connect(bar, "mouse::enter", function() hovered = true; update_state() end)
@@ -133,6 +147,11 @@ function M.create(options)
     bar:buttons(gears.table.join(awful.button({}, 1, function()
         if mousegrabber.isrunning() or ui.disposed then return end
         if release_timer then release_timer:stop() end
+        spring.reset()
+        local thumb_x, thumb_size = component.thumb_geometry(options.width - 2)
+        local local_x = mouse.coords().x - bar_panel.x
+        grab_offset = local_x >= thumb_x and local_x <= thumb_x + thumb_size
+            and (local_x - thumb_x) or thumb_size / 2
         options.on_suppress(true); dragging = true; update_state(); watch:start()
         from_pointer(mouse.coords().x)
         local started = interaction.start_grab(component, function(pointer)
@@ -155,7 +174,7 @@ function M.create(options)
     function component.attach(panel)
         ui.connect(panel, "property::visible", function()
             bar_panel.visible = panel.visible and bar.visible
-            if not panel.visible then component.cancel_drag() end
+            if not panel.visible then spring.reset(); component.cancel_drag() end
         end)
     end
     function component.destroy()

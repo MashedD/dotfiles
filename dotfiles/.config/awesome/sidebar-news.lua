@@ -59,6 +59,10 @@ function M.new(options)
         viewport:emit_signal("widget::redraw_needed")
         if scrollbar then scrollbar:emit_signal("widget::redraw_needed") end
     end
+    local module_dir = debug.getinfo(1, "S").source:sub(2):match("(.*/)")
+    local spring = dofile(module_dir .. "scroll-spring.lua").new(
+        redraw_scroll, options.interaction.monotonic_time)
+    ui.add(spring.reset)
     local function scroll_to(value)
         local next_offset = clamp_scroll(value)
         if next_offset == scroll_offset and next_offset == scroll_target then return false end
@@ -106,7 +110,7 @@ function M.new(options)
             local row = measured_rows[index]
             if row.top >= bottom then break end
             placements[#placements + 1] = wibox.widget.base.place_widget_at(
-                row.widget, 0, row.top - scroll_offset, width, row.height)
+                row.widget, 0, row.top - scroll_offset - spring.value(), width, row.height)
         end
         component.visible_row_count = #placements
         return placements
@@ -119,8 +123,14 @@ function M.new(options)
         cr:restore()
     end
     viewport.forced_height = options.list_height
-    function component.scroll_by(delta)
-        return scroll_to(scroll_target + delta)
+    function component.scroll_by(delta, edge_feedback)
+        local requested = scroll_target + delta
+        if edge_feedback and max_scroll() > 0 and requested ~= clamp_scroll(requested) then
+            spring.kick(requested - clamp_scroll(requested))
+        else
+            spring.reset()
+        end
+        return scroll_to(requested)
     end
     component.viewport = viewport
 
@@ -445,6 +455,7 @@ function M.new(options)
 
     function component.hide()
         popup.visible = false
+        spring.reset()
         if scrollbar_dragging then
             scrollbar_dragging = false
             options.interaction.stop_grab(scrollbar_owner)
@@ -482,8 +493,8 @@ function M.new(options)
             view_unread, view_category)
     end
     popup:connect_signal("button::press", function(_, _, _, button)
-        if button == 4 then component.scroll_by(-160)
-        elseif button == 5 then component.scroll_by(160) end
+        if button == 4 then component.scroll_by(-160, true)
+        elseif button == 5 then component.scroll_by(160, true) end
     end)
     local attached = false
     function component.attach()
