@@ -124,6 +124,45 @@ class SidebarSettingsTests(unittest.TestCase):
             settings.parse_sidebar_preferences("version=1\nlongitude=181\n", defaults)
 
 
+class QuickLaunchSettingsTests(unittest.TestCase):
+    def test_default_entries_preserve_current_launcher_set(self):
+        config = settings.default_quick_launch_config(Path("/home/test"))
+        entries = config["entries"]
+        self.assertEqual([entry["label"] for entry in entries], [
+            "Terminal", "Files", "Control Panel", "Finder", "Firefox", "Quake 1", "Quake 2", "Sleep",
+        ])
+        self.assertEqual(entries[2]["argv"], ["/home/test/.local/bin/desktop-control-center"])
+        self.assertEqual(entries[5]["argv"], ["/home/test/Games/quake-rerelease/vkquake.sh"])
+
+    def test_command_tokenization_is_quoted_argv_not_a_shell(self):
+        self.assertEqual(settings.parse_quick_launch_command(
+            'kitty mdn-editor -- "~/Documents/my notes.md"'),
+            ["kitty", "mdn-editor", "--", "~/Documents/my notes.md"])
+        with self.assertRaisesRegex(settings.SettingsError, "quoting"):
+            settings.parse_quick_launch_command('kitty "unterminated')
+
+    def test_config_round_trip_empty_list_and_validation(self):
+        entries = settings.default_quick_launch_entries(Path("/home/test"))
+        entries.append({"label": "Notes", "icon": "accessories-text-editor",
+                        "argv": ["kitty", "mdn-editor", "--", "~/Documents/notes.md"],
+                        "enabled": True})
+        text = settings.serialize_quick_launch_config(entries)
+        parsed = settings.parse_quick_launch_config(text)
+        self.assertEqual(parsed["entries"], entries)
+        self.assertEqual(settings.parse_quick_launch_config('{"version":1,"entries":[]}')["entries"], [])
+        duplicated = [dict(entries[0]), dict(entries[1], label=entries[0]["label"].lower())]
+        with self.assertRaisesRegex(settings.SettingsError, "unique"):
+            settings.serialize_quick_launch_config(duplicated)
+        invalid = [dict(entries[0], enabled=1)]
+        with self.assertRaisesRegex(settings.SettingsError, "boolean"):
+            settings.serialize_quick_launch_config(invalid)
+        with self.assertRaisesRegex(settings.SettingsError, "version"):
+            settings.parse_quick_launch_config('{"version":2,"entries":[]}')
+        too_many = entries * 4
+        with self.assertRaisesRegex(settings.SettingsError, "at most 24"):
+            settings.serialize_quick_launch_config(too_many)
+
+
 class ApplyTests(unittest.TestCase):
     def test_apply_writes_both_files_then_restarts(self):
         with tempfile.TemporaryDirectory() as temp:

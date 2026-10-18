@@ -34,7 +34,7 @@ exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"), namespace)
 module = SimpleNamespace(**namespace)
 module.Gtk.init([])
 window = module.ControlCenter()
-assert window.notebook.get_n_pages() == 4
+assert window.notebook.get_n_pages() == 5
 assert window.sidebar_widgets["news"].get_active()
 assert window.news_config == {"version": 1, "categories": [], "feeds": []}
 window.sidebar_widgets["news"].set_active(False)
@@ -58,6 +58,34 @@ assert not window._save_sidebar_settings()
 window._reload_sidebar_settings()
 assert window.sidebar_preference_widgets["weather_label"].get_text() == "Toruń & region"
 assert len(window.wallpaper_directory_rows) == 2
+assert [row["label"].get_text() for row in window.quick_launch_rows] == [
+    "Terminal", "Files", "Control Panel", "Finder", "Firefox", "Quake 1", "Quake 2", "Sleep"]
+window.notebook.set_current_page(3)
+assert window.apply_button.get_label() == "_Save Quick Launch"
+window._remove_quick_launch_row(None, window.quick_launch_rows[0])
+notes = window.quick_launch_rows[-1]
+notes["label"].set_text("Notes")
+notes["icon"].set_text("accessories-text-editor")
+notes["command"].set_text('kitty mdn-editor -- "~/Documents/notes.md"')
+window._move_quick_launch_row(None, notes, -1)
+assert window._save_quick_launch_settings()
+quick_path = module.QUICK_LAUNCH_CONFIG_PATH
+saved_quick = json.loads(quick_path.read_text(encoding="utf-8"))
+assert saved_quick["entries"][-2] == {
+    "label": "Notes", "icon": "accessories-text-editor",
+    "argv": ["kitty", "mdn-editor", "--", "~/Documents/notes.md"], "enabled": True}
+notes["command"].set_text('kitty "unfinished')
+assert not window._save_quick_launch_settings()
+assert json.loads(quick_path.read_text(encoding="utf-8")) == saved_quick
+window._reload_quick_launch_settings()
+assert any(row["label"].get_text() == "Notes" for row in window.quick_launch_rows)
+window._restore_quick_launch_defaults()
+assert len(window.quick_launch_rows) == 8
+assert window._save_quick_launch_settings()
+assert [entry["label"] for entry in json.loads(quick_path.read_text())["entries"]] == [
+    "Terminal", "Files", "Control Panel", "Finder", "Firefox", "Quake 1", "Quake 2", "Sleep"]
+window.notebook.set_current_page(4)
+assert window.apply_button.get_label() == "_Save News"
 window.notebook.set_current_page(1)
 window._revert()
 window.notebook.set_current_page(2)

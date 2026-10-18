@@ -62,11 +62,14 @@ coordinator adapts component handles back to existing `s.sidebar_*` diagnostics;
 section order, fold state, and visibility are stored together in
 `$XDG_STATE_HOME/awesome/sidebar-sections` (section-state format version 2 adds
 News to existing saved orders without resetting prior visibility/fold choices).
-Quick Launch defaults off; the Control
-Center's Sidebar tab can enable it; use its Save & Restart button or Win+Ctrl+R.
-That tab also configures weather coordinates, sidebar document paths, and the ordered
-wallpaper folders. Mutable preferences live in
-`$XDG_CONFIG_HOME/desktop-control-center/sidebar-preferences`, outside this Stow tree.
+Quick Launch defaults off; the Sidebar tab can enable it. That tab also configures
+weather coordinates, sidebar document paths, and ordered wallpaper folders. Its
+preferences live in `$XDG_CONFIG_HOME/desktop-control-center/sidebar-preferences`.
+The separate Quick Launch tab edits the full launcher list; its JSON settings live at
+`$XDG_CONFIG_HOME/desktop-control-center/quick-launch.json`. Existing launchers are
+initial defaults, while commands are parsed into argv and never sent through a shell.
+The example `kitty mdn-editor -- ~/Documents/notes.md` opens a notes file in MDN Editor.
+Use **Save & Restart Awesome** or Win+Ctrl+R to apply saved changes.
 
 | Component | Constructor inputs | Returned operations/handles |
 | --- | --- | --- |

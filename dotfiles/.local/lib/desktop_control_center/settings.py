@@ -1,9 +1,11 @@
 """Safe, comment-preserving settings support for desktop-control-center."""
 from __future__ import annotations
 
+import json
 import math
 import os
 import re
+import shlex
 import signal
 import stat
 import subprocess
@@ -254,6 +256,105 @@ _INI_KEY = re.compile(r"^(\s*)([A-Za-z0-9_-]+)(\s*=\s*)(.*?)(\s*)$")
 
 class SettingsError(RuntimeError):
     """A settings file or XSETTINGS operation failed."""
+
+
+QUICK_LAUNCH_VERSION = 1
+QUICK_LAUNCH_MAX_ENTRIES = 24
+QUICK_LAUNCH_MAX_ARGUMENTS = 32
+QUICK_LAUNCH_MAX_TEXT = 65536
+
+
+def default_quick_launch_entries(home: Path | None = None) -> list[dict[str, object]]:
+    home = Path(home or Path.home()).expanduser()
+    control_center = str(home / ".local/bin/desktop-control-center")
+    quake_one = str(home / "Games/quake-rerelease/vkquake.sh")
+    quake_two = str(home / "Games/quake2/q2pro.sh")
+    return [
+        {"label": "Terminal", "icon": "utilities-terminal", "argv": ["kitty"], "enabled": True},
+        {"label": "Files", "icon": "system-file-manager", "argv": ["pcmanfm"], "enabled": True},
+        {"label": "Control Panel", "icon": "preferences-system", "argv": [control_center], "enabled": True},
+        {"label": "Finder", "icon": "system-run", "argv": ["xfce4-appfinder"], "enabled": True},
+        {"label": "Firefox", "icon": "web-browser", "argv": ["firefox"], "enabled": True},
+        {"label": "Quake 1", "icon": "applications-games", "argv": [quake_one], "enabled": True},
+        {"label": "Quake 2", "icon": "input-gaming", "argv": [quake_two], "enabled": True},
+        {"label": "Sleep", "icon": "system-suspend", "argv": ["systemctl", "suspend"], "enabled": True},
+    ]
+
+
+def default_quick_launch_config(home: Path | None = None) -> dict[str, object]:
+    return {"version": QUICK_LAUNCH_VERSION, "entries": default_quick_launch_entries(home)}
+
+
+def parse_quick_launch_command(command: str) -> list[str]:
+    if not isinstance(command, str) or not command.strip() or len(command) > 16384:
+        raise SettingsError("Enter a command (maximum 16384 characters)")
+    if any(ord(char) < 32 or ord(char) == 127 for char in command):
+        raise SettingsError("Command contains a control character")
+    try:
+        argv = shlex.split(command, posix=True)
+    except ValueError as exc:
+        raise SettingsError(f"Invalid command quoting: {exc}") from exc
+    if not argv:
+        raise SettingsError("Enter a command")
+    return argv
+
+
+def _validate_quick_launch_entries(entries: object) -> list[dict[str, object]]:
+    if not isinstance(entries, list) or len(entries) > QUICK_LAUNCH_MAX_ENTRIES:
+        raise SettingsError(f"Quick Launch supports at most {QUICK_LAUNCH_MAX_ENTRIES} entries")
+    result: list[dict[str, object]] = []
+    labels: set[str] = set()
+    for index, raw in enumerate(entries, 1):
+        if not isinstance(raw, dict) or set(raw) != {"label", "icon", "argv", "enabled"}:
+            raise SettingsError(f"Quick Launch entry {index} has invalid fields")
+        label, icon, argv, enabled = raw["label"], raw["icon"], raw["argv"], raw["enabled"]
+        if not isinstance(label, str) or not label.strip() or len(label.strip()) > 40:
+            raise SettingsError(f"Quick Launch entry {index} needs a label (maximum 40 characters)")
+        label = label.strip()
+        if any(ord(char) < 32 or ord(char) == 127 for char in label):
+            raise SettingsError(f"Quick Launch entry {index} label contains a control character")
+        key = label.casefold()
+        if key in labels:
+            raise SettingsError(f"Quick Launch labels must be unique: {label}")
+        labels.add(key)
+        if not isinstance(icon, str) or len(icon) > 256 or any(
+                ord(char) < 32 or ord(char) == 127 for char in icon):
+            raise SettingsError(f"Quick Launch entry {index} has an invalid icon name")
+        if not isinstance(argv, list) or not argv or len(argv) > QUICK_LAUNCH_MAX_ARGUMENTS:
+            raise SettingsError(f"Quick Launch entry {index} needs 1–{QUICK_LAUNCH_MAX_ARGUMENTS} command arguments")
+        cleaned_argv: list[str] = []
+        for argument in argv:
+            if not isinstance(argument, str) or not argument or len(argument) > 4096:
+                raise SettingsError(f"Quick Launch entry {index} has an invalid command argument")
+            if any(ord(char) < 32 or ord(char) == 127 for char in argument):
+                raise SettingsError(f"Quick Launch entry {index} command contains a control character")
+            cleaned_argv.append(argument)
+        if not isinstance(enabled, bool):
+            raise SettingsError(f"Quick Launch entry {index} enabled flag must be boolean")
+        result.append({"label": label, "icon": icon.strip(), "argv": cleaned_argv,
+                       "enabled": enabled})
+    return result
+
+
+def parse_quick_launch_config(text: str) -> dict[str, object]:
+    if len(text) > QUICK_LAUNCH_MAX_TEXT:
+        raise SettingsError("Quick Launch configuration file is too large")
+    try:
+        value = json.loads(text)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise SettingsError(f"Invalid Quick Launch JSON: {exc}") from exc
+    if not isinstance(value, dict) or set(value) != {"version", "entries"}:
+        raise SettingsError("Quick Launch configuration has invalid fields")
+    if type(value["version"]) is not int or value["version"] != QUICK_LAUNCH_VERSION:
+        raise SettingsError("Unsupported Quick Launch configuration version")
+    return {"version": QUICK_LAUNCH_VERSION,
+            "entries": _validate_quick_launch_entries(value["entries"])}
+
+
+def serialize_quick_launch_config(entries: object) -> str:
+    validated = _validate_quick_launch_entries(entries)
+    return json.dumps({"version": QUICK_LAUNCH_VERSION, "entries": validated},
+                      ensure_ascii=False, indent=2) + "\n"
 
 
 def _split_comment(raw: str) -> tuple[str, str]:

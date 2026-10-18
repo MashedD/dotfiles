@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import shlex
 import shutil
 import subprocess
 import sys
@@ -28,9 +29,13 @@ from desktop_control_center.settings import (  # noqa: E402
     TOOLBAR_STYLES,
     apply_settings,
     atomic_write,
+    default_quick_launch_config,
     default_sidebar_preferences,
+    parse_quick_launch_command,
+    parse_quick_launch_config,
     parse_sidebar_enabled,
     parse_sidebar_preferences,
+    serialize_quick_launch_config,
     serialize_sidebar_preferences,
     settings_from_files,
     update_sidebar_enabled_text,
@@ -45,6 +50,7 @@ XSETTINGS_PATH = CONFIG_HOME / "xsettingsd/xsettingsd.conf"
 GTK_SETTINGS_PATH = CONFIG_HOME / "gtk-3.0/settings.ini"
 SIDEBAR_SECTIONS_PATH = STATE_HOME / "awesome/sidebar-sections"
 SIDEBAR_PREFERENCES_PATH = CONFIG_HOME / "desktop-control-center/sidebar-preferences"
+QUICK_LAUNCH_CONFIG_PATH = CONFIG_HOME / "desktop-control-center/quick-launch.json"
 NEWS_CONFIG_PATH = desktop_news_config.config_path()
 NEWS_HELPER = HOME / ".local/bin/desktop-news"
 
@@ -126,6 +132,9 @@ class ControlCenter(Gtk.Window):
         self.sidebar_preference_widgets: dict[str, Gtk.Entry] = {}
         self.wallpaper_directory_rows: list[dict[str, object]] = []
         self.sidebar_preferences: dict[str, object] = default_sidebar_preferences(HOME, DATA_HOME)
+        self.quick_launch_rows: list[dict[str, object]] = []
+        self.quick_launch_config: dict[str, object] = default_quick_launch_config(HOME)
+        self.quick_launch_warning: str | None = None
         self.news_category_rows: list[dict[str, object]] = []
         self.news_feed_rows: list[dict[str, object]] = []
         self.news_config: dict[str, object] = {}
@@ -139,6 +148,7 @@ class ControlCenter(Gtk.Window):
         self._build_tools_page()
         self._build_appearance_page()
         self._build_sidebar_page()
+        self._build_quick_launch_page()
         self._build_news_page()
 
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -162,6 +172,8 @@ class ControlCenter(Gtk.Window):
         self._update_action_buttons(self.notebook, None, self.notebook.get_current_page())
         if self.sidebar_preferences_warning:
             self.status.set_text(self.sidebar_preferences_warning)
+        elif self.quick_launch_warning:
+            self.status.set_text(self.quick_launch_warning)
 
     def _add_tab(self, title: str) -> tuple[Gtk.Grid, Gtk.ScrolledWindow]:
         grid = Gtk.Grid(column_spacing=16, row_spacing=9, margin=12)
@@ -546,6 +558,168 @@ class ControlCenter(Gtk.Window):
             return
         self._add_wallpaper_directory_row(selected)
 
+    def _build_quick_launch_page(self) -> None:
+        grid, _ = self._add_tab("Quick Launch")
+        intro = Gtk.Label(label=(
+            "Configure the complete Quick Launch list. Commands are split into arguments and run directly, "
+            "never through a shell; quote arguments containing spaces."
+        ))
+        intro.set_xalign(0)
+        intro.set_line_wrap(True)
+        grid.attach(intro, 0, 0, 2, 1)
+
+        try:
+            self.quick_launch_config = (
+                parse_quick_launch_config(QUICK_LAUNCH_CONFIG_PATH.read_text(encoding="utf-8"))
+                if QUICK_LAUNCH_CONFIG_PATH.exists() else default_quick_launch_config(HOME)
+            )
+            self.quick_launch_warning = None
+        except Exception as exc:
+            self.quick_launch_config = default_quick_launch_config(HOME)
+            self.quick_launch_warning = f"Quick Launch settings could not be read; defaults loaded: {exc}"
+
+        frame = Gtk.Frame(label="Launchers (top to bottom, left to right)")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=7)
+        box.set_border_width(8)
+        self.quick_launch_list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        box.pack_start(self.quick_launch_list, False, False, 0)
+        for entry in self.quick_launch_config["entries"]:
+            self._add_quick_launch_row(entry)
+
+        controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        add = Gtk.Button.new_with_label("Add Launcher")
+        add.connect("clicked", lambda *_: self._add_quick_launch_row())
+        restore = Gtk.Button.new_with_label("Restore Defaults")
+        restore.connect("clicked", self._restore_quick_launch_defaults)
+        controls.pack_start(add, False, False, 0)
+        controls.pack_start(restore, False, False, 0)
+        box.pack_start(controls, False, False, 0)
+        frame.add(box)
+        grid.attach(frame, 0, 1, 2, 1)
+
+        example = Gtk.Label(label=(
+            "Notes example: kitty mdn-editor -- ~/Documents/notes.md. Commands launch without a shell; "
+            "~ is expanded in arguments. Missing executables are reported when a launcher is used."
+        ))
+        example.set_xalign(0)
+        example.set_line_wrap(True)
+        grid.attach(example, 0, 2, 2, 1)
+
+        self.quick_launch_restart_button = Gtk.Button.new_with_label("Save & Restart Awesome")
+        self.quick_launch_restart_button.get_style_context().add_class("suggested-action")
+        self.quick_launch_restart_button.set_tooltip_text(
+            "Save this launcher list and explicitly restart Awesome now."
+        )
+        if shutil.which("awesome-client"):
+            self.quick_launch_restart_button.connect(
+                "clicked", self._save_quick_launch_and_restart)
+        else:
+            self.quick_launch_restart_button.set_sensitive(False)
+            self.quick_launch_restart_button.set_tooltip_text("awesome-client is not installed")
+        grid.attach(self.quick_launch_restart_button, 0, 3, 2, 1)
+
+    def _add_quick_launch_row(self, entry: dict[str, object] | None = None) -> None:
+        entry = entry or {"label": "", "icon": "", "argv": [], "enabled": True}
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        enabled = Gtk.CheckButton()
+        enabled.set_active(bool(entry.get("enabled", True)))
+        enabled.set_tooltip_text("Show this launcher in the sidebar")
+        label_entry = Gtk.Entry()
+        label_entry.set_width_chars(12)
+        label_entry.set_placeholder_text("Label")
+        label_entry.set_text(str(entry.get("label", "")))
+        icon_entry = Gtk.Entry()
+        icon_entry.set_width_chars(11)
+        icon_entry.set_placeholder_text("Icon name")
+        icon_entry.set_text(str(entry.get("icon", "")))
+        command_entry = Gtk.Entry()
+        command_entry.set_hexpand(True)
+        command_entry.set_placeholder_text("Command and arguments")
+        command_entry.set_text(shlex.join(entry.get("argv", [])))
+        record: dict[str, object] = {
+            "widget": row, "enabled": enabled, "label": label_entry,
+            "icon": icon_entry, "command": command_entry,
+        }
+        up = Gtk.Button.new_with_label("↑")
+        down = Gtk.Button.new_with_label("↓")
+        remove = Gtk.Button.new_with_label("Remove")
+        up.set_tooltip_text("Move launcher up")
+        down.set_tooltip_text("Move launcher down")
+        up.connect("clicked", self._move_quick_launch_row, record, -1)
+        down.connect("clicked", self._move_quick_launch_row, record, 1)
+        remove.connect("clicked", self._remove_quick_launch_row, record)
+        for widget in (enabled, label_entry, icon_entry, command_entry, up, down, remove):
+            row.pack_start(widget, widget is command_entry, widget is command_entry, 0)
+        self.quick_launch_rows.append(record)
+        self.quick_launch_list.pack_start(row, False, False, 0)
+        row.show_all()
+
+    def _remove_quick_launch_row(self, _button: Gtk.Button,
+                                 record: dict[str, object]) -> None:
+        self.quick_launch_rows.remove(record)
+        record["widget"].destroy()
+
+    def _move_quick_launch_row(self, _button: Gtk.Button, record: dict[str, object],
+                               direction: int) -> None:
+        index = self.quick_launch_rows.index(record)
+        target = max(0, min(len(self.quick_launch_rows) - 1, index + direction))
+        if target == index:
+            return
+        self.quick_launch_rows.pop(index)
+        self.quick_launch_rows.insert(target, record)
+        self.quick_launch_list.reorder_child(record["widget"], target)
+
+    def _restore_quick_launch_defaults(self, *_args: object) -> None:
+        for record in list(self.quick_launch_rows):
+            self._remove_quick_launch_row(None, record)
+        self.quick_launch_config = default_quick_launch_config(HOME)
+        for entry in self.quick_launch_config["entries"]:
+            self._add_quick_launch_row(entry)
+        self.status.set_text("Built-in Quick Launch defaults restored in the editor; save to persist them.")
+
+    def _collect_quick_launch_config(self) -> dict[str, object]:
+        entries = []
+        for row in self.quick_launch_rows:
+            argv = parse_quick_launch_command(row["command"].get_text())
+            entries.append({
+                "label": row["label"].get_text(),
+                "icon": row["icon"].get_text(),
+                "argv": argv,
+                "enabled": row["enabled"].get_active(),
+            })
+        return parse_quick_launch_config(serialize_quick_launch_config(entries))
+
+    def _save_quick_launch_settings(self) -> bool:
+        try:
+            config = self._collect_quick_launch_config()
+            atomic_write(QUICK_LAUNCH_CONFIG_PATH,
+                         serialize_quick_launch_config(config["entries"]))
+        except Exception as exc:
+            self.status.set_text(f"Could not save Quick Launch settings: {exc}")
+            return False
+        self.quick_launch_config = config
+        self.quick_launch_warning = None
+        self.status.set_text("Quick Launch settings saved. Restart Awesome to apply them.")
+        return True
+
+    def _save_quick_launch_and_restart(self, *_args: object) -> None:
+        if self._save_quick_launch_settings():
+            self._request_awesome_restart("Quick Launch settings saved; Awesome restart requested.")
+
+    def _reload_quick_launch_settings(self) -> None:
+        try:
+            self.quick_launch_config = (
+                parse_quick_launch_config(QUICK_LAUNCH_CONFIG_PATH.read_text(encoding="utf-8"))
+                if QUICK_LAUNCH_CONFIG_PATH.exists() else default_quick_launch_config(HOME)
+            )
+            for record in list(self.quick_launch_rows):
+                self._remove_quick_launch_row(None, record)
+            for entry in self.quick_launch_config["entries"]:
+                self._add_quick_launch_row(entry)
+            self.status.set_text("Quick Launch settings reloaded from disk.")
+        except Exception as exc:
+            self.status.set_text(f"Could not reload Quick Launch settings: {exc}")
+
     def _build_news_page(self) -> None:
         grid, _ = self._add_tab("News")
         intro = Gtk.Label(label=(
@@ -793,12 +967,18 @@ class ControlCenter(Gtk.Window):
 
     def _update_action_buttons(self, _notebook: Gtk.Notebook, _page: Gtk.Widget | None,
                                page_number: int) -> None:
-        if page_number == 3:
+        if page_number == 4:
             self.revert_button.set_label("_Reload")
             self.apply_button.set_label("_Save News")
             self.revert_button.set_sensitive(True)
             self.apply_button.set_sensitive(True)
             self.status.set_text("Edit custom categories and RSS/Atom sources. Feed tests do not save inbox items.")
+        elif page_number == 3:
+            self.revert_button.set_label("_Reload")
+            self.apply_button.set_label("_Save Quick Launch")
+            self.revert_button.set_sensitive(True)
+            self.apply_button.set_sensitive(True)
+            self.status.set_text("Save the Quick Launch list here; restart Awesome to apply it.")
         elif page_number == 2:
             self.revert_button.set_label("_Reload")
             self.apply_button.set_label("_Save Sidebar")
@@ -923,6 +1103,9 @@ class ControlCenter(Gtk.Window):
             self._save_sidebar_settings()
             return
         if page_number == 3:
+            self._save_quick_launch_settings()
+            return
+        if page_number == 4:
             self._save_news_settings()
             return
         if page_number != 1:
@@ -949,6 +1132,9 @@ class ControlCenter(Gtk.Window):
             self._reload_sidebar_settings()
             return
         if page_number == 3:
+            self._reload_quick_launch_settings()
+            return
+        if page_number == 4:
             self._reload_news_settings()
             return
         if page_number != 1:

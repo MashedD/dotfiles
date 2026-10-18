@@ -20,6 +20,7 @@ local scroll_component = dofile(config_dir .. "/sidebar-scroll.lua")
 local launcher = dofile(config_dir .. "/sidebar-launch.lua")
 local keyboard_view = dofile(config_dir .. "/sidebar-keyboard-view.lua")
 local news_component = dofile(config_dir .. "/sidebar-news.lua")
+local quick_launch_entries = dofile(config_dir .. "/sidebar-quick-launch.lua").load()
 local weather_enabled = os.getenv("AWESOME_TEST_MODE") ~= "1" or os.getenv("AWESOME_TEST_WEATHER") == "1"
 local palette = appearance.palette
 local sidebar_gradient = appearance.forest(300)
@@ -365,7 +366,7 @@ local function quick_launch_button(text, icon_name, callback, dismiss_menu, bind
     local contents = wibox.layout.fixed.horizontal()
     contents.spacing = 4
     contents:add(app_icon)
-    contents:add(label(text, "#d7eee8", 9, true, "center"))
+    contents:add(label(gstring.xml_escape(text), "#d7eee8", 9, true, "center"))
     local button = style_button(wibox.widget {
         {contents,
             halign = "center", valign = "center", widget = wibox.container.place},
@@ -843,49 +844,50 @@ function sidebar.create(s, dismiss_menu)
     trash_status:buttons(gears.table.join(awful.button({}, 1, open_trash)))
     if dismiss_menu then trash_status:connect_signal("button::press", dismiss_menu) end
 
-    local home = os.getenv("HOME") or ""
     local keyboard_launches = {}
     local launch_rows = wibox.layout.fixed.vertical()
     launch_rows.spacing = 2
-    local function launch_row(items)
+    s.sidebar_quick_launch_buttons = {}
+    local visible_launches = {}
+    for _, entry in ipairs(quick_launch_entries) do
+        if entry.enabled then visible_launches[#visible_launches + 1] = entry end
+    end
+    s.sidebar_quick_launch_entries = quick_launch_entries
+    s.sidebar_quick_launch_empty = #visible_launches == 0
+    for first = 1, #visible_launches, 3 do
+        local last = math.min(first + 2, #visible_launches)
+        -- Rows are chunked from the filtered sequence of enabled entries.
         local row = wibox.layout.fixed.horizontal()
         row.spacing = 4
-        for _, item in ipairs(items) do
-            local entry = {label = item[1], argv = item[3], requires = item[4]}
-            local button = quick_launch_button(item[1], item[2], function() launcher.run(entry) end,
-                dismiss_menu, function(widget, activate)
+        for index = first, last do
+            local entry = visible_launches[index]
+            local button = quick_launch_button(entry.label, entry.icon,
+                function() launcher.run(entry) end, dismiss_menu, function(widget, activate)
                     bind_sidebar_action(widget, activate, "quick-launch")
                 end)
             ui.tip(button, function() return launcher.tooltip(entry) end)
-            s.sidebar_quick_launch_buttons = s.sidebar_quick_launch_buttons or {}
-            s.sidebar_quick_launch_buttons[item[1]] = {widget = button, entry = entry}
-            keyboard_launches[#keyboard_launches+1] = {id='quick-launch:'..item[1], widget=button,
-                activate=button._sidebar_keyboard_action, exit=true, section='quick-launch'}
+            s.sidebar_quick_launch_buttons[entry.label] = {widget = button, entry = entry}
+            keyboard_launches[#keyboard_launches + 1] = {id = "quick-launch:" .. entry.label,
+                widget = button, activate = button._sidebar_keyboard_action,
+                exit = true, section = "quick-launch"}
             row:add(button)
         end
-        return wibox.widget {
+        launch_rows:add(wibox.widget {
             row, halign = "center", valign = "center", widget = wibox.container.place,
+        })
+    end
+    local quick_launch_body
+    if #visible_launches == 0 then
+        quick_launch_body = wibox.widget {
+            label("No launchers configured", palette.muted, 9, false, "center"),
+            layout = wibox.layout.fixed.vertical,
+        }
+    else
+        quick_launch_body = wibox.widget {
+            launch_rows,
+            layout = wibox.layout.fixed.vertical,
         }
     end
-    launch_rows:add(launch_row({
-        {"Terminal", "utilities-terminal", {"kitty"}},
-        {"Files", "system-file-manager", {"pcmanfm"}},
-        {"Control Panel", "preferences-system", {home .. "/.local/bin/desktop-control-center"},
-            {home .. "/.local/bin/desktop-control-center"}},
-    }))
-    launch_rows:add(launch_row({
-        {"Finder", "system-run", {"xfce4-appfinder"}},
-        {"Firefox", "web-browser", {"firefox"}},
-    }))
-    launch_rows:add(launch_row({
-        {"Quake 1", "applications-games", {home .. "/Games/quake-rerelease/vkquake.sh"}, {home .. "/Games/quake-rerelease/vkquake.sh"}},
-        {"Quake 2", "input-gaming", {home .. "/Games/quake2/q2pro.sh"}, {home .. "/Games/quake2/q2pro.sh"}},
-        {"Sleep", "system-suspend", {"systemctl", "suspend"}},
-    }))
-    local quick_launch_body = wibox.widget {
-        launch_rows,
-        layout = wibox.layout.fixed.vertical,
-    }
     local quick_launch_card = collapsible_card(
         "quick-launch", "QUICK LAUNCH", quick_launch_body)
     s.sidebar_launch = launcher

@@ -60,6 +60,8 @@ python3 tests/test-awesome-session.py --scenario workspace-transfer
 python3 tests/test-awesome-session.py --scenario sidebar-documents
 python3 tests/test-awesome-session.py --scenario sidebar-settings
 python3 tests/test-awesome-session.py --scenario sidebar-news
+python3 tests/test-awesome-session.py --scenario sidebar-personalization
+python3 tests/test-awesome-session.py --scenario sidebar-quick-launch-empty
 python3 tests/test-awesome-session.py --scenario menu-popups
 AWESOME_TEST_VISUAL=1 python3 tests/test-awesome-session.py --scenario titlebars
 AWESOME_TEST_VISUAL=1 python3 tests/test-awesome-session.py --scenario titlebars --composited
@@ -67,10 +69,11 @@ AWESOME_TEST_VISUAL=1 python3 tests/test-awesome-session.py --scenario titlebars
 
 The direct Python command skips the fast suite. `all` is the default;
 `titlebars`, `workspace-transfer`, `sidebar-documents`, `sidebar-settings`,
-`sidebar-news`, and `menu-popups` are focused alternatives, with one selector per
-invocation. `./tests/run.sh --session` runs the workspace-transfer,
-sidebar-document, sidebar-settings, and offline news scenarios separately, then the
-broad session. `--scenario` selects
+`sidebar-news`, `sidebar-personalization`, `sidebar-quick-launch-empty`, and
+`menu-popups` are focused alternatives, with one selector per invocation.
+`./tests/run.sh --session` runs the workspace-transfer, sidebar-document,
+sidebar-settings, offline news, personalization, and empty-launcher scenarios
+separately, then the broad session. `--scenario` selects
 one scenario instead.
 `--help` describes the flags. Invalid arguments fail before launching the private bus
 or display; the shell selector requires `--session` or `--visual`.

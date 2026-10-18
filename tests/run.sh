@@ -2,7 +2,7 @@
 set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 usage() {
-  printf 'Usage: %s [--session|--visual] [--scenario all|titlebars|workspace-transfer|sidebar-documents|sidebar-settings|sidebar-news|sidebar-personalization|menu-popups]\n' "$0"
+  printf 'Usage: %s [--session|--visual] [--scenario all|titlebars|workspace-transfer|sidebar-documents|sidebar-settings|sidebar-news|sidebar-personalization|sidebar-quick-launch-empty|menu-popups]\n' "$0"
   printf 'No mode: fast checks. --session: private runtime. --visual: runtime and XRender visual checks.\n'
   printf '%s\n' '--scenario selects runtime checks (default: all); it requires --session or --visual.'
 }
@@ -18,7 +18,7 @@ while (( $# )); do
         (( $# >= 2 )) || invalid
         scenario=$2; shift
       else scenario=${1#*=}; fi
-      case "$scenario" in all|titlebars|workspace-transfer|sidebar-documents|sidebar-settings|sidebar-news|sidebar-personalization|menu-popups) ;; *) invalid ;; esac ;;
+      case "$scenario" in all|titlebars|workspace-transfer|sidebar-documents|sidebar-settings|sidebar-news|sidebar-personalization|sidebar-quick-launch-empty|menu-popups) ;; *) invalid ;; esac ;;
     *) invalid ;;
   esac
   shift
@@ -46,6 +46,7 @@ run_focused_session_checks() {
     run python3 tests/test-awesome-session.py --scenario sidebar-settings
     run python3 tests/test-awesome-session.py --scenario sidebar-news
     run python3 tests/test-awesome-session.py --scenario sidebar-personalization
+    run python3 tests/test-awesome-session.py --scenario sidebar-quick-launch-empty
   fi
 }
 case "$mode" in

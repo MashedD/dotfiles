@@ -226,7 +226,7 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             calls = self.calls()
             sessions = [c for c in calls if 'tests/test-awesome-session.py' in c]
-            self.assertEqual(len(sessions), {'': 0, '--session': 6, '--visual': 7}[mode])
+            self.assertEqual(len(sessions), {'': 0, '--session': 7, '--visual': 8}[mode])
             if mode == '--visual': self.assertIn('--composited', sessions[-1])
         self.env['FAIL_TOOL'] = 'awesome'
         self.assertEqual(subprocess.run(['/bin/bash', str(runner)], env=self.env,
@@ -245,7 +245,8 @@ class RunnerTests(unittest.TestCase):
         for mode in ('--session', '--visual'):
             for selector in (['--scenario', 'titlebars'], ['--scenario', 'workspace-transfer'],
                              ['--scenario=sidebar-documents'], ['--scenario=sidebar-settings'],
-                             ['--scenario=sidebar-news'], ['--scenario=sidebar-personalization'], ['--scenario=all']):
+                             ['--scenario=sidebar-news'], ['--scenario=sidebar-personalization'],
+                             ['--scenario=sidebar-quick-launch-empty'], ['--scenario=all']):
                 if self.log.exists(): self.log.unlink()
                 result = subprocess.run(['/bin/bash', str(runner), mode, *selector],
                                         env=self.env, capture_output=True, text=True)
@@ -253,7 +254,8 @@ class RunnerTests(unittest.TestCase):
                 sessions = [call for call in self.calls() if 'tests/test-awesome-session.py' in call]
                 selected = selector[1] if selector[0] == '--scenario' else selector[0].split('=', 1)[1]
                 if selected == 'all':
-                    expected = ['workspace-transfer', 'sidebar-documents', 'sidebar-settings', 'sidebar-news', 'sidebar-personalization', 'all']
+                    expected = ['workspace-transfer', 'sidebar-documents', 'sidebar-settings', 'sidebar-news',
+                                'sidebar-personalization', 'sidebar-quick-launch-empty', 'all']
                     if mode == '--visual': expected.append('all')
                 else:
                     expected = [selected] * (1 if mode == '--session' else 2)

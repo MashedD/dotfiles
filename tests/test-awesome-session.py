@@ -6,6 +6,7 @@ Never starts the real session autostart or changes the live display layout.
 import os
 import argparse
 import ctypes
+import json
 import re
 from pathlib import Path
 import shutil
@@ -54,7 +55,7 @@ class SingleScenario(argparse.Action):
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--scenario', choices=('all', 'titlebars', 'workspace-transfer', 'sidebar-documents', 'sidebar-settings', 'sidebar-news', 'sidebar-personalization', 'menu-popups'), action=SingleScenario,
+    parser.add_argument('--scenario', choices=('all', 'titlebars', 'workspace-transfer', 'sidebar-documents', 'sidebar-settings', 'sidebar-news', 'sidebar-personalization', 'sidebar-quick-launch-empty', 'menu-popups'), action=SingleScenario,
                         help='checks to run (default: all)')
     parser.add_argument('--composited', action='store_true', help='use private Picom/XRender')
     parser.add_argument('--inside', action='store_true', help=argparse.SUPPRESS)
@@ -72,7 +73,7 @@ def run_timed(name, check):
 
 def run_focused(scenario, *, prepare, controls, destruction):
     """Return False to continue the unchanged full-session sequence."""
-    if scenario in ('all', 'workspace-transfer', 'sidebar-documents', 'sidebar-settings', 'sidebar-news', 'sidebar-personalization', 'menu-popups'):
+    if scenario in ('all', 'workspace-transfer', 'sidebar-documents', 'sidebar-settings', 'sidebar-news', 'sidebar-personalization', 'sidebar-quick-launch-empty', 'menu-popups'):
         return False
     if scenario != 'titlebars':
         raise ValueError(f'Unknown scenario: {scenario}')
@@ -151,6 +152,10 @@ def main():
         aurora_fixture = ROOT / "dotfiles/.local/share/wallpapers/aurora-cabin.png"
         shutil.copy2(aurora_fixture, testhome / ".local/share/wallpapers/aurora-cabin.png")
         shutil.copy2(aurora_fixture, testhome / "Pictures/Wallpapers/pictures-wallpaper.png")
+        if args.scenario == "sidebar-quick-launch-empty":
+            empty_quick_launch_file = testhome / ".config/desktop-control-center/quick-launch.json"
+            empty_quick_launch_file.parent.mkdir(parents=True, exist_ok=True)
+            empty_quick_launch_file.write_text(json.dumps({"version": 1, "entries": []}))
         if args.scenario == "sidebar-personalization":
             custom_documents = testhome / "Notes"
             custom_documents.mkdir()
@@ -174,6 +179,12 @@ def main():
                 f"todo_path={custom_documents / 'tasks.md'}\n"
                 f"calendar_path={custom_documents / 'events.md'}\n"
                 f"wallpaper_dirs={custom_wallpapers}\n")
+            quick_launch_file = testhome / ".config/desktop-control-center/quick-launch.json"
+            quick_launch_file.write_text(json.dumps({"version": 1, "entries": [
+                {"label": "Notes", "icon": "accessories-text-editor",
+                 "argv": ["kitty", "mdn-editor", "--", "~/Documents/notes.md"], "enabled": True},
+                {"label": "Disabled", "icon": "", "argv": ["false"], "enabled": False},
+            ]}))
         icon_source = ROOT / "dotfiles/.local/share/icons/hicolor/32x32/apps/tux-start.png"
         icon_target = testhome / ".local/share/icons/hicolor/32x32/apps/tux-start.png"
         icon_target.parent.mkdir(parents=True)
@@ -195,6 +206,10 @@ def main():
             executable = bin_dir / name
             executable.write_text(source)
             executable.chmod(0o755)
+        if args.scenario == "sidebar-personalization":
+            fake_kitty = bin_dir / "kitty"
+            fake_kitty.write_text('#!/bin/sh\nprintf "kitty %s\\n" "$*" >> "$TEST_ACTIONS"\n')
+            fake_kitty.chmod(0o755)
         (testhome / ".config").mkdir(exist_ok=True)
         (testhome / ".config/mimeapps.list").write_text(
             "[Default Applications]\ntext/plain=awesome-test-opener.desktop;\n"
@@ -527,10 +542,26 @@ def main():
                 wait('return screen[1].workarea.y', '30')
                 assert 'true' in lua('local p=screen[1].panel; return p.visible and p.height == 30 and p.position == "top"')
                 assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and b.visible and not s.panel_clock_container.visible and s.sidebar_header and s.sidebar_header.forced_height == 26 and s.sidebar_mode == 3 and b.ontop and b:struts().right == 300 and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_trash_status and s.sidebar_trash_icon and s.sidebar_trash_state and s.sidebar_trash_timer.timeout == 30 and s.sidebar_stats_timer.timeout == 1 and s.sidebar_power_timer.timeout == 30 and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_weather_text and s.sidebar_crypto_timer.timeout == 60 and s.sidebar_codex_card.forced_height == nil and s.sidebar_codex_refresh_button and s.sidebar_sections.codex.trailing_widget == s.sidebar_codex_refresh_button and s.sidebar_codex_refresh_button._sidebar_keyboard_action and s.sidebar_codex_timer.timeout == 60 and s.sidebar_audio_header == nil and s.sidebar_wallpaper_preview and s.sidebar_todo_card and #s.sidebar_todo_entries == 5 and s.sidebar_todo_entries[5] == "Fifth item" and s.sidebar_calendar_card and not s.sidebar_date_calendar and s.sidebar_calendar_grid and s.sidebar_calendar_weekday_order == "MoTuWeThFrSaSu" and #s.sidebar_calendar_entries == 7 and s.sidebar_calendar_entries[1].day == "past" and s.sidebar_calendar_entries[2].time == "08:15-09:00" and s.sidebar_calendar_entries[3].text == "visit: Today appointment" and s.sidebar_calendar_entries[6].text == "Third future event" and s.sidebar_todo_timer.timeout == 60 and s.sidebar_calendar_timer.timeout == 60 and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width-300 and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
+                if args.scenario == 'sidebar-quick-launch-empty':
+                    assert 'true' in lua('local s=screen[1]; return s.sidebar_quick_launch_empty and next(s.sidebar_quick_launch_buttons)==nil and s.sidebar_sections["quick-launch"]~=nil')
+                    finish_session(args.scenario)
+                    return 0
                 if args.scenario == 'sidebar-personalization':
                     wait('return tostring(screen[1].sidebar_weather_text.text:find("12°C",1,true)~=nil)', '"true"')
-                    audit = lua('local s=screen[1]; return s.sidebar_sections.weather.title.."|"..tostring(#s.sidebar_todo_entries==5 and s.sidebar_todo_entries[5]=="Fifth item")..":"..tostring(#s.sidebar_calendar_entries==7 and s.sidebar_calendar_entries[3].text=="visit: Today appointment")..":"..tostring(s.sidebar_wallpaper_name.text=="custom-wallpaper.png")')
-                    assert 'TEST CITY &amp; REGION · WEATHER|true:true:true' in audit, audit
+                    audit = lua('local s=screen[1]; local n=s.sidebar_quick_launch_buttons.Notes; return s.sidebar_sections.weather.title.."|"..tostring(#s.sidebar_todo_entries==5 and s.sidebar_todo_entries[5]=="Fifth item")..":"..tostring(#s.sidebar_calendar_entries==7 and s.sidebar_calendar_entries[3].text=="visit: Today appointment")..":"..tostring(s.sidebar_wallpaper_name.text=="custom-wallpaper.png")..":"..tostring(n and #n.entry.argv==4 and n.entry.argv[4]==os.getenv("HOME").."/Documents/notes.md")..":"..tostring(s.sidebar_quick_launch_buttons.Disabled==nil)..":"..tostring(n and table.concat(n.entry.argv,"|"))')
+                    assert 'TEST CITY &amp; REGION · WEATHER|true:true:true:true:true' in audit, audit + logfile.read_text()
+                    notes_point = widget_point('screen[1].sidebar_quick_launch_buttons.Notes.widget')
+                    pointer('mousemove', *notes_point, 'click', 1)
+                    expected_action = 'kitty mdn-editor -- ' + str(testhome / 'Documents/notes.md')
+                    deadline = time.monotonic() + 3
+                    while time.monotonic() < deadline and expected_action not in actions_file.read_text():
+                        time.sleep(0.05)
+                    assert expected_action in actions_file.read_text(), actions_file.read_text()
+                    lua('screen[1].sidebar_quick_launch_buttons.Notes.widget._sidebar_keyboard_action()')
+                    deadline = time.monotonic() + 3
+                    while time.monotonic() < deadline and actions_file.read_text().count(expected_action) < 2:
+                        time.sleep(0.05)
+                    assert actions_file.read_text().count(expected_action) >= 2
                     deadline = time.monotonic() + 3
                     while time.monotonic() < deadline and "latitude=41.403400&longitude=2.174000" not in weather_request.read_text():
                         time.sleep(0.05)
