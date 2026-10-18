@@ -141,17 +141,23 @@ same four display profiles as Win+P, launches ArandR for manual layout edits,
 starts btop or htop in Kitty, launches the AMDGPU TOP GUI and XFCE Task Manager,
 and opens Pavucontrol, NetworkManager, Bluetooth Manager, Power Manager settings,
 or Solaar on demand. The Sidebar tab follows Appearance and has checkboxes for
-section visibility; Quick Launch is hidden by default to save space. Use **Save & Restart Awesome** in
-that tab, or save the choices and press Win+Ctrl+R to apply them. Solaar is not
+section visibility; News settings are managed in the following News tab. Quick
+Launch is hidden by default to save space. Use **Save & Restart Awesome** in the
+Sidebar or News tab, or save choices and press Win+Ctrl+R to apply them. Solaar is not
 started automatically. The Start menu keeps
 its Volume Control entry but no longer duplicates Monitor or Display outputs.
 The sidebar also has a scrollable News inbox (default view: unread) backed only by
-curated RSS/Atom sources. `~/.config/awesome/news-feeds` is a tab-separated
-`category<TAB>label<TAB>URL` manifest; the initial General source is Wykop, and no
-local-news or cinema feeds are configured. Stories open in Firefox and are marked
-read; individual read/unread/remove controls and **Mark all read** are available.
-Inbox state is stored under `$XDG_STATE_HOME/awesome/news.json` (default
-`~/.local/state/awesome/news.json`). No scraping or ranking is used.
+curated RSS/Atom sources. The Control Center's Sidebar tab toggles News visibility;
+its News tab edits category names and multiple feed sources per category, including
+URLs, labels, enabled state, and a bounded feed test. New profiles start with no
+categories or feeds. Existing profiles migrate their four current category filters
+and Wykop General source once. Mutable settings are stored atomically at
+`$XDG_CONFIG_HOME/desktop-news/config.json` (default
+`~/.config/desktop-news/config.json`), outside the Stow-managed Awesome directory;
+`~/.config/awesome/news-feeds` is only a legacy migration input. Stories open in
+Firefox and are marked read; individual read/unread/remove controls and **Mark all
+read** are available. Inbox state is stored under `$XDG_STATE_HOME/awesome/news.json`
+(default `~/.local/state/awesome/news.json`). No scraping or ranking is used.
 Trash and the integrated volume control are in System Status. Explicit HDMI modes prefer 2560×1440/144 Hz; the
 internal display stays enabled until a requested mode succeeds. Mouse: drag
 titlebar to move, double-click to maximize, and drag a maximized titlebar to restore

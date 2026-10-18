@@ -1,4 +1,4 @@
+# Legacy migration input only; the Control Center writes user settings outside this Stow tree.
+# Existing profiles import these RSS/Atom rows once; new profiles start with no sources.
 # category<TAB>label<TAB>RSS-or-Atom-URL
-# Categories: general, bydgoszcz, torun, cinema
-# Add only user-approved HTTP(S) RSS/Atom feeds.
 general	Wykop	https://wykop.pl/rss

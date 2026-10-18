@@ -173,9 +173,11 @@ in the fast tests.
 independent lockers, replaced roots/windows, ancestry errors and cleanup failures.
 
 `test-desktop-news.py` uses offline RSS/Atom fixtures to cover HTML sanitization,
-URL safety, bounded parsing, manifest validation, read-state retention across refresh,
-feed failures, inbox-capacity eviction, concurrent state writes, and dismissal tombstones.
-The live Wykop feed is checked separately during implementation, not by the test suite.
+URL safety, bounded parsing, configurable category/feed validation, one-time legacy
+migration, empty first-run configuration, read-state retention, feed failures,
+inbox-capacity eviction, concurrent state writes, and dismissal tombstones. The
+public Wykop endpoint was checked separately with a bounded request; live network
+checks are not part of the deterministic test suite.
 
 The Lua-only tests validate shared surface contrast over light/dark backgrounds,
 trash semantic colors, response parsing, collector lifecycle, overlapping-request

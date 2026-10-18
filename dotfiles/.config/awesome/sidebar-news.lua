@@ -77,8 +77,9 @@ function M.new(options)
     local title = options.label("NEWS READER", palette.title, 10, true, "center")
     local toolbar = wibox.layout.fixed.horizontal()
     toolbar.spacing = 4
-    local filter_row = wibox.layout.fixed.horizontal()
-    filter_row.spacing = 3
+    local filter_rows = wibox.layout.fixed.vertical()
+    filter_rows.spacing = 2
+    local filter_lifetime, filter_signature
     local list_column = wibox.layout.fixed.vertical()
     list_column.spacing = 5
     list_column:add(popup_status)
@@ -174,9 +175,46 @@ function M.new(options)
         viewport:emit_signal("widget::layout_changed")
         list_column:emit_signal("widget::layout_changed")
     end
-    local function render_filters()
-        for category, button in pairs(component.category_buttons or {}) do
-            button.set_text((category == view_category and "• " or "") .. options.category_names[category])
+    local function render_filters(value)
+        local categories = value and value.categories or {}
+        local signature_parts = {}
+        for _, category in ipairs(categories) do
+            signature_parts[#signature_parts + 1] = category.id .. "\0" .. category.label
+        end
+        local signature = table.concat(signature_parts, "\n")
+        if signature ~= filter_signature then
+            filter_signature = signature
+            if filter_lifetime then filter_lifetime.destroy() end
+            filter_lifetime = options.interaction.lifetime()
+            filter_rows:reset()
+            component.category_buttons = {}
+            local row
+            local function add_filter(category_id, label)
+                if not row or #row:get_children() >= 4 then
+                    row = wibox.layout.fixed.horizontal()
+                    row.spacing = 3
+                    filter_rows:add(row)
+                end
+                local width = category_id == "all" and 52 or math.min(110, math.max(58, #label * 6 + 16))
+                local button = options.button(label, function()
+                    view_category = category_id
+                    component.render(current_state)
+                end, width, filter_lifetime)
+                component.category_buttons[category_id] = button
+                row:add(button)
+            end
+            add_filter("all", "All")
+            local available = {all = true}
+            for _, category in ipairs(categories) do
+                available[category.id] = true
+                add_filter(category.id, category.label)
+            end
+            if not available[view_category] then view_category = "all" end
+        end
+        for category, button in pairs(component.category_buttons) do
+            local label = category == "all" and "All" or (value and value.category_map
+                and value.category_map[category] and value.category_map[category].label or category)
+            button.set_text((category == view_category and "• " or "") .. label)
         end
         component.unread_button.set_text((view_unread and "• " or "") .. "Unread")
         component.all_button.set_text((not view_unread and "• " or "") .. "All")
@@ -215,7 +253,7 @@ function M.new(options)
         if ui.disposed then return end
         current_state = state
         update_summary(state)
-        render_filters()
+        render_filters(state and state.value)
         render_list(state and state.value)
     end
 
@@ -229,15 +267,7 @@ function M.new(options)
     end, 52, ui)
     component.unread_button, component.all_button = unread_button, all_button
     top_actions:add(unread_button); top_actions:add(all_button)
-    local category_buttons = {}
-    for _, category in ipairs({"all", "general", "bydgoszcz", "torun", "cinema"}) do
-        local button = options.button(options.category_names[category], function()
-            view_category = category; component.render(current_state)
-        end, category == "bydgoszcz" and 84 or 72, ui)
-        category_buttons[category] = button
-        filter_row:add(button)
-    end
-    component.category_buttons = category_buttons
+    component.category_buttons = {}
     local right_actions = wibox.layout.fixed.horizontal()
     right_actions.spacing = 4
     right_actions:add(options.button("Mark all read", function() perform_action("mark-all-read") end, 102, ui))
@@ -250,7 +280,7 @@ function M.new(options)
     local popup_widget = wibox.widget {
         {toolbar, forced_height = 30, bg = appearance.gradient("selected", 30),
             widget = wibox.container.background},
-        {filter_row, forced_height = 28, bg = "#17283bf5",
+        {filter_rows, bg = "#17283bf5",
             widget = wibox.container.background},
         {list_column, left = 8, right = 8, top = 8, bottom = 8,
             widget = wibox.container.margin},
@@ -384,6 +414,7 @@ function M.new(options)
         component.hide()
         if leave_timer.started then leave_timer:stop() end
         if row_lifetime then row_lifetime.destroy(); row_lifetime = nil end
+        if filter_lifetime then filter_lifetime.destroy(); filter_lifetime = nil end
         popup:disconnect_signal("mouse::enter", on_mouse_enter)
         popup:disconnect_signal("mouse::leave", on_mouse_leave)
         popup:disconnect_signal("property::height", position_popup)

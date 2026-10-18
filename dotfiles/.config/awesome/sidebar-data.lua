@@ -190,31 +190,43 @@ function M.parse_news(stdout)
     for line in stdout:gmatch("[^\r\n]+") do lines[#lines + 1] = line end
     if #lines == 0 then return nil, "Empty news snapshot" end
     local header = split_fields(lines[1])
-    if #header ~= 4 or header[1] ~= "news-v1" then return nil, "Invalid news snapshot header" end
+    if #header ~= 4 or header[1] ~= "news-v2" then return nil, "Invalid news snapshot header" end
     local revision, source_updated, last_attempt = tonumber(header[2]), tonumber(header[3]), tonumber(header[4])
     if not revision or revision < 0 or not source_updated or source_updated < 0 or not last_attempt then
         return nil, "Invalid news snapshot metadata"
     end
     local result = {revision = revision, source_updated = source_updated, last_attempt = last_attempt,
-        feeds = {}, items = {}, unread = 0}
-    local categories = {general = true, bydgoszcz = true, torun = true, cinema = true}
+        categories = {}, category_map = {}, feeds = {}, items = {}, unread = 0}
     for index = 2, #lines do
         local fields = split_fields(lines[index])
-        if fields[1] == "feed" then
-            if #fields ~= 6 or not categories[fields[3]] then return nil, "Invalid news feed record" end
+        if fields[1] == "category" then
+            local label = #fields == 3 and unquote(fields[3]) or nil
+            if #fields ~= 3 or not fields[2]:match("^[a-z0-9][a-z0-9_-]*$")
+                or fields[2] == "all" or #fields[2] > 32 or not label or label == ""
+                or result.category_map[fields[2]] then
+                return nil, "Invalid news category record"
+            end
+            local category = {id = fields[2], label = label}
+            result.categories[#result.categories + 1] = category
+            result.category_map[category.id] = category
+        elseif fields[1] == "feed" then
+            if #fields ~= 6 or not result.category_map[fields[3]] then return nil, "Invalid news feed record" end
             local label, status = unquote(fields[4]), unquote(fields[5])
             local last_success = tonumber(fields[6])
-            if not fields[2]:match("^[0-9a-f]+$") or not label or not status or not last_success then
+            if not fields[2]:match("^[0-9a-f]+$") or #fields[2] < 16 or #fields[2] > 32
+                or not label or not status or not last_success then
                 return nil, "Invalid news feed metadata"
             end
             result.feeds[#result.feeds + 1] = {id = fields[2], category = fields[3],
                 label = label, error = status, last_success = last_success}
         elseif fields[1] == "item" then
-            if #fields ~= 9 or not categories[fields[3]] then return nil, "Invalid news item record" end
+            if #fields ~= 9 or not fields[3]:match("^[a-z0-9][a-z0-9_-]*$") or #fields[3] > 32 then
+                return nil, "Invalid news item record"
+            end
             local source, title, summary, url = unquote(fields[4]), unquote(fields[7]),
                 unquote(fields[8]), unquote(fields[9])
             local published = tonumber(fields[5])
-            if not fields[2]:match("^[0-9a-f]+$") or not source or not title or not summary
+            if not fields[2]:match("^[0-9a-f]+$") or #fields[2] ~= 32 or not source or not title or not summary
                 or not published or (fields[6] ~= "0" and fields[6] ~= "1") then
                 return nil, "Invalid news item fields"
             end

@@ -14,6 +14,8 @@ from unittest.mock import patch
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "dotfiles/.local/lib"))
+import desktop_news_config as news_config
 HELPER = ROOT / "dotfiles/.local/bin/desktop-news"
 loader = SourceFileLoader("desktop_news", str(HELPER))
 spec = importlib.util.spec_from_loader(loader.name, loader)
@@ -43,18 +45,39 @@ class DesktopNewsTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix="desktop-news-test-")
         self.directory = Path(self.temporary.name)
         self.state_path = self.directory / "state/awesome/news.json"
-        self.feeds_path = self.directory / "config/awesome/news-feeds"
-        self.feeds_path.parent.mkdir(parents=True)
-        self.feeds_path.write_text("general\tFixture\thttps://example.test/rss\n", encoding="utf-8")
-        self.feed = news.load_feeds(self.feeds_path)[0]
+        self.config_path = self.directory / "config/desktop-news/config.json"
+        self.feeds_path = self.config_path
+        self.config_path_patch = patch.object(news_config, "config_path", return_value=self.config_path)
+        self.config_path_patch.start()
+        self.legacy_path = self.directory / "config/awesome/news-feeds"
+        self.profile_path = self.directory / "state/awesome/sidebar-sections"
+        self.legacy_path.parent.mkdir(parents=True)
+        self.legacy_path.write_text("general\tFixture\thttps://example.test/rss\n", encoding="utf-8")
+        self.config = news_config.save_config({
+            "version": 1,
+            "categories": [{"id": "general", "label": "General"}],
+            "feeds": [{"id": "0123456789abcdef", "category": "general", "label": "Fixture",
+                       "url": "https://example.test/rss", "enabled": True}],
+        }, self.config_path)
+        self.feed = news.load_feeds(self.config_path)[0]
 
     def tearDown(self):
+        self.config_path_patch.stop()
         self.temporary.cleanup()
 
     def item(self, item_id, *, read=False, published=100):
         return {"id": item_id, "category": "general", "source": "Fixture",
                 "title": "Story " + item_id, "summary": "Description", "url": "https://example.test/" + item_id,
                 "published": published, "read": read}
+
+    def test_one_shot_feed_test_does_not_touch_inbox_state(self):
+        with patch.object(news, "_fetch_one", return_value=(self.feed, [self.item("d" * 32)], None, None)) as fetch:
+            self.assertEqual(news.test_feed(self.feed["url"]), 1)
+        fetch.assert_called_once()
+        self.assertEqual(fetch.call_args.args[0]["url"], self.feed["url"])
+        self.assertFalse(self.state_path.exists())
+        with self.assertRaisesRegex(ValueError, "valid HTTP"):
+            news.test_feed("file:///etc/passwd")
 
     def test_rss_atom_html_and_unsafe_links(self):
         items = news.parse_feed(RSS, self.feed, now=1_760_000_000)
@@ -90,25 +113,73 @@ class DesktopNewsTests(unittest.TestCase):
         self.assertIsNone(news.valid_http_url("https://user:pass@example.test/rss"))
         self.assertIsNone(news.valid_http_url("javascript:alert(1)"))
 
-    def test_feed_manifest_validation(self):
-        feeds = news.load_feeds(self.feeds_path)
-        self.assertEqual([(f["category"], f["label"], f["url"]) for f in feeds],
-                         [("general", "Fixture", "https://example.test/rss")])
-        self.feeds_path.write_text("news\tBad\tftp://example.test/rss\n", encoding="utf-8")
-        with self.assertRaises(ValueError):
-            news.load_feeds(self.feeds_path)
-        self.feeds_path.write_text("general\tA\thttps://example.test/rss\ngeneral\tB\thttps://example.test/rss\n", encoding="utf-8")
-        with self.assertRaises(ValueError):
-            news.load_feeds(self.feeds_path)
-        self.feeds_path.write_text("general\tA\thttps://EXAMPLE.test:443/rss#one\ngeneral\tB\thttps://example.test/rss#two\n", encoding="utf-8")
-        with self.assertRaises(ValueError):
-            news.load_feeds(self.feeds_path)
+    def test_dynamic_config_validation_and_disabled_sources(self):
+        loaded = news_config.load_config(self.config_path)
+        self.assertEqual(stat.S_IMODE(self.config_path.stat().st_mode), 0o600)
+        self.assertEqual(loaded["categories"], [{"id": "general", "label": "General"}])
+        self.assertEqual(len(news.load_feeds(self.config_path)), 1)
+        disabled = {**loaded, "feeds": [{**loaded["feeds"][0], "enabled": False}]}
+        news_config.save_config(disabled, self.config_path)
+        self.assertEqual(news.load_feeds(self.config_path), [])
+        for invalid in (
+            {**loaded, "categories": [{"id": "Bad ID", "label": "Bad"}]},
+            {**loaded, "categories": [{"id": "all", "label": "Everything"}]},
+            {**loaded, "categories": [{"id": "everything", "label": "Unread"}]},
+            {**loaded, "feeds": [{**loaded["feeds"][0], "url": "ftp://example.test/rss"}]},
+            {**loaded, "feeds": [loaded["feeds"][0], {**loaded["feeds"][0], "id": "fedcba9876543210"}]},
+            {**loaded, "feeds": [{**loaded["feeds"][0], "category": "missing"}]},
+        ):
+            with self.assertRaises(ValueError):
+                news_config.validate_config(invalid)
+        duplicate_urls = {**loaded, "feeds": [
+            loaded["feeds"][0], {**loaded["feeds"][0], "id": "fedcba9876543210",
+                                  "url": "https://EXAMPLE.test:443/rss#duplicate"}]}
+        with self.assertRaisesRegex(ValueError, "Duplicate feed URL"):
+            news_config.validate_config(duplicate_urls)
+
+    def test_existing_profile_migrates_once_and_clean_profile_stays_empty(self):
+        config_path = self.directory / "migration/config.json"
+        legacy_path = self.directory / "migration/awesome/news-feeds"
+        profile_path = self.directory / "migration/state/awesome/sidebar-sections"
+        legacy_path.parent.mkdir(parents=True)
+        profile_path.parent.mkdir(parents=True)
+        legacy_path.write_text("general\tWykop\thttps://wykop.pl/rss\n", encoding="utf-8")
+        profile_path.write_text("order=calendar,todo\nenabled=calendar,todo\n", encoding="utf-8")
+        migrated = news_config.load_config(config_path, legacy_path=legacy_path,
+                                           profile_state_path=profile_path)
+        self.assertEqual([row["id"] for row in migrated["categories"]],
+                         ["general", "bydgoszcz", "torun", "cinema"])
+        self.assertEqual(migrated["feeds"][0]["label"], "Wykop")
+        self.assertTrue(migrated["feeds"][0]["enabled"])
+        legacy_path.write_text("", encoding="utf-8")
+        self.assertEqual(news_config.load_config(config_path, legacy_path=legacy_path,
+                                                 profile_state_path=profile_path), migrated)
+
+        clean_config = self.directory / "clean/config.json"
+        clean_legacy = self.directory / "clean/awesome/news-feeds"
+        clean_profile = self.directory / "clean/state/awesome/sidebar-sections"
+        clean_legacy.parent.mkdir(parents=True)
+        clean_legacy.write_text("general\tWykop\thttps://wykop.pl/rss\n", encoding="utf-8")
+        empty = news_config.load_config(clean_config, legacy_path=clean_legacy,
+                                        profile_state_path=clean_profile)
+        self.assertEqual(empty, {"version": 1, "categories": [], "feeds": []})
+        clean_profile.parent.mkdir(parents=True)
+        clean_profile.write_text("version=2\n", encoding="utf-8")
+        self.assertEqual(news_config.load_config(clean_config, legacy_path=clean_legacy,
+                                                 profile_state_path=clean_profile), empty)
+
+    def test_corrupt_config_is_not_overwritten(self):
+        self.config_path.write_text("{broken", encoding="utf-8")
+        before = self.config_path.read_bytes()
+        with self.assertRaisesRegex(ValueError, "Cannot read News settings safely"):
+            news_config.load_config(self.config_path)
+        self.assertEqual(self.config_path.read_bytes(), before)
 
     def test_refresh_preserves_state_and_dismissals(self):
         story = self.item("a" * 32)
         with patch.object(news, "_fetch_one", return_value=(self.feed, [story], '"etag"', "Wed, 15 Oct 2025 07:00:00 GMT")):
             first = news.refresh(self.state_path, self.feeds_path, now=1000)
-        self.assertTrue(first.startswith("news-v1\t1\t1000\t1000\n"))
+        self.assertTrue(first.startswith("news-v2\t1\t1000\t1000\n"))
         state = json.loads(self.state_path.read_text(encoding="utf-8"))
         self.assertFalse(state["items"][story["id"]]["read"])
         self.assertEqual(stat.S_IMODE(self.state_path.stat().st_mode), 0o600)
@@ -119,7 +190,7 @@ class DesktopNewsTests(unittest.TestCase):
             refreshed = news.refresh(self.state_path, self.feeds_path, now=2000)
         state = json.loads(self.state_path.read_text(encoding="utf-8"))
         self.assertTrue(state["items"][story["id"]]["read"], "refresh must retain the user's read state")
-        self.assertIn("news-v1\t3\t2000\t2000", refreshed)
+        self.assertIn("news-v2\t3\t2000\t2000", refreshed)
 
         unread = news.action(self.state_path, "mark-unread", story["id"])
         self.assertIn("\t0\tStory%20", unread)
@@ -132,6 +203,26 @@ class DesktopNewsTests(unittest.TestCase):
         with patch.object(news, "_fetch_one", return_value=(self.feed, [story], None, None)):
             after_remove = news.refresh(self.state_path, self.feeds_path, now=3000)
         self.assertNotIn(story["id"], after_remove, "dismissed feed entries must not resurrect")
+
+    def test_reassigning_feed_moves_cached_stories_without_dropping_read_state(self):
+        story = self.item("c" * 32, read=True)
+        story["feed_url"] = self.feed["url"]
+        state = news._new_state()
+        state["items"][story["id"]] = story
+        state["feeds"][self.feed["url"]] = {"category": "general", "label": "Fixture"}
+        news._write_unlocked(self.state_path, state)
+        changed = {"version": 1,
+                   "categories": [{"id": "general", "label": "General"},
+                                  {"id": "local", "label": "Local"}],
+                   "feeds": [{**self.feed, "category": "local", "enabled": True}]}
+        news_config.save_config(changed, self.config_path)
+        local_feed = changed["feeds"][0]
+        with patch.object(news, "_fetch_one", return_value=(local_feed, [], '"etag"', None)):
+            news.refresh(self.state_path, self.config_path, now=1500)
+        updated = json.loads(self.state_path.read_text(encoding="utf-8"))["items"][story["id"]]
+        self.assertEqual(updated["category"], "local")
+        self.assertTrue(updated["read"])
+        self.assertEqual(updated["feed_url"], self.feed["url"])
 
     def test_feed_failure_retains_cached_items_and_reports_status(self):
         story = self.item("b" * 32)
@@ -181,11 +272,11 @@ class DesktopNewsTests(unittest.TestCase):
             futures = [executor.submit(news.action, self.state_path, name, item_id)
                        for name, item_id in actions]
             for future in futures:
-                self.assertTrue(future.result().startswith("news-v1\t"))
+                self.assertTrue(future.result().startswith("news-v2\t"))
         parsed = json.loads(self.state_path.read_text(encoding="utf-8"))
         self.assertEqual(parsed["revision"], len(actions))
         self.assertTrue(all(isinstance(item["read"], bool) for item in parsed["items"].values()))
-        self.assertTrue(news.snapshot(self.state_path).startswith("news-v1\t"))
+        self.assertTrue(news.snapshot(self.state_path).startswith("news-v2\t"))
 
     def test_corrupt_state_is_not_overwritten(self):
         self.state_path.parent.mkdir(parents=True)

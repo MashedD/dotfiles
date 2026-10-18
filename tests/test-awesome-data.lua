@@ -184,16 +184,21 @@ assert(not module.parse_codex_sample('C 5h 84%@Sat 13:46 7d 33%@Wed 06:41',170))
 assert(module.parse_crypto_sample('crypto-v1\tfresh\t100\tBTC $1 ETH $2 LTC $3',170).source_updated==100)
 assert(not module.parse_crypto_sample('crypto-v1\tstale\t100\tBTC $1 ETH $2 LTC $3',170))
 local news_snapshot = table.concat({
-    'news-v1\t2\t100\t110',
+    'news-v2\t2\t100\t110',
+    'category\tgeneral\tGeneral',
+    'category\tlocal-news\tLocal%20News',
     'feed\t0123456789abcdef\tgeneral\tWykop%20%26%20friends\t\t100',
     'item\t0123456789abcdef0123456789abcdef\tgeneral\tWykop\t90\t0\tHello%20%26%20World\tLine%201%20%26%20line%202\thttps%3A%2F%2Fexample.test%2Fstory',
+    'item\tfedcba9876543210fedcba9876543210\tremoved-category\tOld%20feed\t80\t1\tArchived\tRetained\t',
 }, '\n') .. '\n'
 local parsed_news = assert(module.parse_news(news_snapshot))
 assert(parsed_news.revision == 2 and parsed_news.unread == 1 and parsed_news.source_updated == 100)
 assert(parsed_news.feeds[1].label == 'Wykop & friends')
+assert(parsed_news.categories[2].id == 'local-news' and parsed_news.categories[2].label == 'Local News')
 assert(parsed_news.items[1].title == 'Hello & World' and parsed_news.items[1].summary == 'Line 1 & line 2')
 assert(parsed_news.items[1].url == 'https://example.test/story' and not parsed_news.items[1].read)
-assert(not module.parse_news('news-v1\\t1\\t1\\t1\\nitem\\tbad\\n'))
+assert(parsed_news.items[2].category == 'removed-category', 'archived stories survive category removal')
+assert(not module.parse_news('news-v2\\t1\\t1\\t1\\nitem\\tbad\\n'))
 local revision_now, revision_done = 50, nil
 local revision_service = module.new {
     now = function() return revision_now end,

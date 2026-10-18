@@ -47,6 +47,7 @@ TOOLBAR_STYLE_IDS = {value: key for key, value in TOOLBAR_STYLES.items()}
 SIDEBAR_SECTIONS = (
     ("calendar", "Calendar"),
     ("todo", "To-do list"),
+    ("news", "News"),
     ("quick-launch", "Quick Launch"),
     ("system-status", "System Status"),
     ("codex", "Codex quotas"),
@@ -62,12 +63,18 @@ DEFAULT_SIDEBAR_ENABLED = frozenset(
 
 
 def parse_sidebar_enabled(text: str) -> set[str]:
-    """Read enabled section IDs; legacy state defaults to a compact sidebar."""
+    """Read enabled section IDs, applying Awesome's one-time News migration."""
     enabled_line: str | None = None
+    version = 0
     for line in text.splitlines():
         key, separator, value = line.partition("=")
         if separator and key.strip() == "enabled":
             enabled_line = value
+        elif separator and key.strip() == "version":
+            try:
+                version = int(value.strip())
+            except ValueError:
+                version = 0
     if enabled_line is None:
         return set(DEFAULT_SIDEBAR_ENABLED)
     enabled: set[str] = set()
@@ -75,6 +82,8 @@ def parse_sidebar_enabled(text: str) -> set[str]:
         section_id = section_id.strip()
         if section_id in SIDEBAR_SECTION_IDS:
             enabled.add(section_id)
+    if version < 2:
+        enabled.add("news")
     return enabled
 
 
@@ -90,6 +99,8 @@ def update_sidebar_enabled_text(text: str, enabled: set[str]) -> str:
     replaced = False
     for existing in text.splitlines(keepends=True):
         key, separator, _ = existing.rstrip("\r\n").partition("=")
+        if separator and key.strip() == "version":
+            continue
         if separator and key.strip() == "enabled":
             if not replaced:
                 output.append(line)
@@ -102,7 +113,7 @@ def update_sidebar_enabled_text(text: str, enabled: set[str]) -> str:
         if insertion == len(output) and output and not output[-1].endswith(("\n", "\r")):
             output[-1] += "\n"
         output.insert(insertion, line)
-    return "".join(output)
+    return "version=2\n" + "".join(output)
 
 
 GTK_INI_KEYS = {

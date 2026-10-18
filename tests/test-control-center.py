@@ -79,16 +79,17 @@ class SidebarSettingsTests(unittest.TestCase):
 
     def test_explicit_sidebar_visibility_including_empty_list(self):
         self.assertEqual(settings.parse_sidebar_enabled("enabled=quick-launch,crypto,unknown\n"),
-                         {"quick-launch", "crypto"})
-        self.assertEqual(settings.parse_sidebar_enabled("enabled=\n"), set())
+                         {"quick-launch", "crypto", "news"})
+        self.assertEqual(settings.parse_sidebar_enabled("enabled=\n"), {"news"})
+        self.assertEqual(settings.parse_sidebar_enabled("version=2\nenabled=\n"), set())
 
     def test_update_preserves_order_and_collapsed_state(self):
         original = "order=calendar,quick-launch,todo\ncrypto\n"
         updated = settings.update_sidebar_enabled_text(original, {"calendar", "quick-launch"})
-        self.assertEqual(updated, "order=calendar,quick-launch,todo\nenabled=calendar,quick-launch\ncrypto\n")
+        self.assertEqual(updated, "version=2\norder=calendar,quick-launch,todo\nenabled=calendar,quick-launch\ncrypto\n")
         replaced = settings.update_sidebar_enabled_text(
             updated + "enabled=crypto\n", {"weather"})
-        self.assertEqual(replaced, "order=calendar,quick-launch,todo\nenabled=weather\ncrypto\n")
+        self.assertEqual(replaced, "version=2\norder=calendar,quick-launch,todo\nenabled=weather\ncrypto\n")
 
     def test_unknown_sidebar_sections_rejected(self):
         with self.assertRaisesRegex(settings.SettingsError, "Unknown sidebar section"):

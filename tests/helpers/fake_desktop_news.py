@@ -44,7 +44,11 @@ state_path.parent.mkdir(parents=True, exist_ok=True)
 state_path.write_text(json.dumps(state), encoding="utf-8")
 feed_url = "https://wykop.pl/rss"
 feed_id = hashlib.sha256(feed_url.encode()).hexdigest()[:16]
-print(f"news-v1\t{state['revision']}\t{state['last_success']}\t{state['last_attempt']}")
+print(f"news-v2\t{state['revision']}\t{state['last_success']}\t{state['last_attempt']}")
+for category_id, label in (("general", "General"), ("bydgoszcz", "Bydgoszcz"),
+                           ("torun", "Toruń"), ("cinema", "Cinema"),
+                           ("community", "Community")):
+    print(f"category\t{category_id}\t{quote(label, safe='')}")
 print(f"feed\t{feed_id}\tgeneral\tWykop%20fixture\t\t{state['last_success']}")
 for item in sorted(state["items"], key=lambda row: row["published"], reverse=True):
     fields = ("item", item["id"], item["category"], quote(item["source"], safe=""),

@@ -22,10 +22,12 @@ disconnect signals and cancel delayed tooltips.
 subscriptions, launch actions, and section reordering. `sidebar-news.lua` builds a
 scrollable, non-modal unread-first RSS/Atom popup anchored to the News section;
 `desktop-news` owns bounded feed fetching, parsing, safe story links, and atomic
-persistent read/dismissal state. Configure only approved feeds in
-`~/.config/awesome/news-feeds`; the initial source is Wykop under General. The
-popup offers category/unread filters, Firefox opening (which marks the story read),
-individual read/unread/remove controls, and Mark all read. `sidebar-data.lua` shares
+persistent read/dismissal state. The Control Center's News tab manages custom
+categories and sources in `~/.config/desktop-news/config.json`; new profiles start
+empty, while existing profiles migrate the Wykop General source and current categories
+once. The Sidebar tab controls News visibility. The popup offers dynamic category/
+unread filters, Firefox opening (which marks the story read), individual
+read/unread/remove controls, and Mark all read. `sidebar-data.lua` shares
 session samples and only notifies on state/value changes. Fast CPU/memory/network
 stats run every second; battery and root-filesystem capacity use a separate 30-second
 collector. Clock, fast-stat, and slow-power widget updates are coalesced by

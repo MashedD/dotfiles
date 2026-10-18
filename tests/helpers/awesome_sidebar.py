@@ -30,6 +30,9 @@ def verify_news(*, lua, wait, pointer, widget_point, press, actions_file, log_te
         if capture: capture("sidebar-news-popup")
 
         stage = "category filters and popup scrolling"
+        assert 'true' in lua('return screen[1].sidebar_news.category_buttons.community ~= nil')
+        lua('local s=screen[1]; s.sidebar_news.category_buttons.community._sidebar_keyboard_action()')
+        assert 'true' in lua('return #screen[1].sidebar_news.filtered_items()==0')
         lua('local s=screen[1]; s.sidebar_news.category_buttons.cinema._sidebar_keyboard_action()')
         assert 'true' in lua('return #screen[1].sidebar_news.filtered_items()==1')
         lua('local s=screen[1]; s.sidebar_news.category_buttons.general._sidebar_keyboard_action()')

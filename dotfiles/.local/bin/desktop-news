@@ -16,12 +16,15 @@ import sys
 import tempfile
 import time
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urljoin, urlsplit, urlunsplit
+from urllib.parse import quote, urljoin
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 import xml.etree.ElementTree as ET
 
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+import desktop_news_config as news_config  # noqa: E402
+
 VERSION = 1
-CATEGORIES = {"general", "bydgoszcz", "torun", "cinema"}
 MAX_FEEDS = 8
 MAX_BYTES = 1_048_576
 MAX_ITEMS_PER_FEED = 40
@@ -33,9 +36,7 @@ USER_AGENT = "desktop-news/1.0 (AwesomeWM RSS reader)"
 
 
 def config_path() -> Path:
-    home = Path(os.environ.get("HOME", str(Path.home())))
-    config_home = Path(os.environ.get("XDG_CONFIG_HOME", home / ".config"))
-    return config_home / "awesome" / "news-feeds"
+    return news_config.config_path()
 
 
 def state_path() -> Path:
@@ -45,31 +46,11 @@ def state_path() -> Path:
 
 
 def valid_http_url(value: str) -> str | None:
-    value = value.strip()
-    if not value or any(ord(char) < 32 for char in value):
-        return None
-    try:
-        parsed = urlsplit(value)
-        if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
-            return None
-        if parsed.username is not None or parsed.password is not None:
-            return None
-        # Accessing .port also validates malformed port numbers.
-        _ = parsed.port
-        return urlunsplit((parsed.scheme.lower(), parsed.netloc, parsed.path or "/", parsed.query, parsed.fragment))
-    except ValueError:
-        return None
+    return news_config.valid_http_url(value)
 
 
 def canonical_url(value: str) -> str:
-    parsed = urlsplit(value)
-    host = (parsed.hostname or "").lower()
-    port = parsed.port
-    default_port = (parsed.scheme == "http" and port == 80) or (parsed.scheme == "https" and port == 443)
-    authority = host if not port or default_port else f"{host}:{port}"
-    if ":" in host and not host.startswith("["):
-        authority = f"[{host}]" + (f":{port}" if port and not default_port else "")
-    return urlunsplit((parsed.scheme.lower(), authority, parsed.path or "/", parsed.query, ""))
+    return news_config.canonical_url(value)
 
 
 class _TextOnly(HTMLParser):
@@ -186,6 +167,7 @@ def parse_feed(xml_bytes: bytes, feed: dict, now: int | None = None) -> list[dic
         items.append({
             "id": item_id,
             "category": feed["category"],
+            "feed_url": feed["url"],
             "source": feed["label"],
             "title": title or "(untitled story)",
             "summary": summary,
@@ -207,36 +189,14 @@ class _SafeRedirect(HTTPRedirectHandler):
 _OPENER = build_opener(_SafeRedirect())
 
 
+def load_config(path: Path | None = None) -> dict:
+    return news_config.load_config(path)
+
+
 def load_feeds(path: Path | None = None) -> list[dict]:
-    path = path or config_path()
-    feeds = []
-    seen = set()
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except FileNotFoundError:
-        return feeds
-    for line_number, raw in enumerate(lines, 1):
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        fields = raw.split("\t")
-        if len(fields) != 3:
-            raise ValueError(f"{path}:{line_number}: expected category<TAB>label<TAB>URL")
-        category, label, url = (field.strip() for field in fields)
-        url = valid_http_url(url) or ""
-        if url:
-            url = canonical_url(url)
-        if category not in CATEGORIES:
-            raise ValueError(f"{path}:{line_number}: unknown category {category!r}")
-        if not label or len(label) > 64 or any(ord(char) < 32 for char in label) or not url:
-            raise ValueError(f"{path}:{line_number}: invalid label or HTTP(S) feed URL")
-        if url in seen:
-            raise ValueError(f"{path}:{line_number}: duplicate feed URL")
-        seen.add(url)
-        feeds.append({"category": category, "label": label, "url": url})
-    if len(feeds) > MAX_FEEDS:
-        raise ValueError(f"At most {MAX_FEEDS} feeds are supported")
-    return feeds
+    """Return enabled sources from the validated user configuration."""
+    config = load_config(path)
+    return [feed for feed in config["feeds"] if feed["enabled"]]
 
 
 def _fetch_one(feed: dict, previous: dict) -> tuple[dict, list[dict], str | None, str | None]:
@@ -328,14 +288,19 @@ def _with_state(path: Path, change, write: bool = False):
         os.close(fd)
 
 
-def _snapshot_lines(state: dict) -> str:
-    last_success = max((int(feed.get("last_success", 0)) for feed in state["feeds"].values()), default=0)
-    lines = [f"news-v1\t{int(state.get('revision', 0))}\t{last_success}\t{int(state.get('last_attempt', 0))}"]
-    for feed_url, metadata in sorted(state["feeds"].items()):
-        feed_key = hashlib.sha256(feed_url.encode("utf-8")).hexdigest()[:16]
+def _snapshot_lines(state: dict, config: dict | None = None) -> str:
+    config = config or load_config()
+    active_feeds = [feed for feed in config["feeds"] if feed["enabled"]]
+    feed_metadata = state["feeds"]
+    last_success = max((int(feed_metadata.get(feed["url"], {}).get("last_success", 0))
+                        for feed in active_feeds), default=0)
+    lines = [f"news-v2\t{int(state.get('revision', 0))}\t{last_success}\t{int(state.get('last_attempt', 0))}"]
+    for category in config["categories"]:
+        lines.append("\t".join(("category", category["id"], quote(category["label"], safe=""))))
+    for feed in active_feeds:
+        metadata = feed_metadata.get(feed["url"], {})
         lines.append("\t".join((
-            "feed", feed_key, metadata.get("category", "general"),
-            quote(metadata.get("label", ""), safe=""),
+            "feed", feed["id"], feed["category"], quote(feed["label"], safe=""),
             quote(metadata.get("error") or metadata.get("warning", ""), safe=""),
             str(int(metadata.get("last_success", 0))),
         )))
@@ -370,9 +335,12 @@ def _prune(state: dict) -> bool:
     return len(state["items"]) > MAX_ITEMS
 
 
-def refresh(path: Path | None = None, feeds_file: Path | None = None, now: int | None = None) -> str:
+def refresh(path: Path | None = None, config_file: Path | None = None, now: int | None = None,
+            *, legacy_feed_file: Path | None = None, profile_state_file: Path | None = None) -> str:
     path, now = path or state_path(), int(time.time()) if now is None else int(now)
-    feeds = load_feeds(feeds_file)
+    config = news_config.load_config(config_file, legacy_path=legacy_feed_file,
+                                     profile_state_path=profile_state_file)
+    feeds = [feed for feed in config["feeds"] if feed["enabled"]]
     # Network is deliberately outside the state lock; actions remain responsive.
     fd, fcntl = _state_lock(path)
     try:
@@ -406,6 +374,10 @@ def refresh(path: Path | None = None, feeds_file: Path | None = None, now: int |
             items, etag, modified, error = results.get(feed["url"], ([], None, None, "Fetch did not complete"))
             metadata = state["feeds"].setdefault(feed["url"], {})
             metadata.update({"category": feed["category"], "label": feed["label"]})
+            for cached in state["items"].values():
+                if cached.get("feed_url") == feed["url"]:
+                    cached["category"] = feed["category"]
+                    cached["source"] = feed["label"]
             if error:
                 metadata["error"] = error
                 continue
@@ -434,18 +406,18 @@ def refresh(path: Path | None = None, feeds_file: Path | None = None, now: int |
         }
         if skipped_new:
             for metadata in state["feeds"].values():
-                if metadata.get("category") in CATEGORIES:
-                    metadata["warning"] = "Inbox full; mark or remove stories to accept new items"
+                metadata["warning"] = "Inbox full; mark or remove stories to accept new items"
         else:
             for metadata in state["feeds"].values():
                 metadata.pop("warning", None)
         return None
 
     state, _ = _with_state(path, merge, write=True)
-    return _snapshot_lines(state)
+    return _snapshot_lines(state, config)
 
 
-def action(path: Path, name: str, item_id: str | None = None) -> str:
+def action(path: Path, name: str, item_id: str | None = None,
+           config_file: Path | None = None) -> str:
     if item_id and not re.fullmatch(r"[0-9a-f]{32}", item_id):
         raise ValueError("Invalid story ID")
 
@@ -467,12 +439,22 @@ def action(path: Path, name: str, item_id: str | None = None) -> str:
         return None
 
     state, _ = _with_state(path, change, write=True)
-    return _snapshot_lines(state)
+    return _snapshot_lines(state, news_config.load_config(config_file))
 
 
-def snapshot(path: Path | None = None) -> str:
+def snapshot(path: Path | None = None, config_file: Path | None = None) -> str:
     state, _ = _with_state(path or state_path(), lambda value: None)
-    return _snapshot_lines(state)
+    return _snapshot_lines(state, news_config.load_config(config_file))
+
+
+def test_feed(url: str) -> int:
+    normalized = valid_http_url(url)
+    if not normalized:
+        raise ValueError("Feed URL must be a valid HTTP(S) URL without credentials")
+    feed = {"id": hashlib.sha256(canonical_url(normalized).encode()).hexdigest()[:16],
+            "category": "test", "label": "Feed test", "url": canonical_url(normalized)}
+    _, items, _, _ = _fetch_one(feed, {})
+    return len(items)
 
 
 def main(argv=None) -> int:
@@ -480,6 +462,8 @@ def main(argv=None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("refresh", help="fetch configured feeds and return the current snapshot")
     commands.add_parser("snapshot", help="return the cached snapshot without network access")
+    test_parser = commands.add_parser("test-feed", help="fetch one bounded RSS/Atom URL without saving inbox state")
+    test_parser.add_argument("url")
     for name in ("mark-read", "mark-unread", "remove"):
         command_parser = commands.add_parser(name)
         command_parser.add_argument("item_id")
@@ -490,6 +474,9 @@ def main(argv=None) -> int:
             output = refresh()
         elif args.command == "snapshot":
             output = snapshot()
+        elif args.command == "test-feed":
+            count = test_feed(args.url)
+            output = f"Feed is valid; parsed {count} stories.\n"
         else:
             output = action(state_path(), args.command, getattr(args, "item_id", None))
         sys.stdout.write(output)

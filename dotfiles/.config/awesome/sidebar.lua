@@ -1074,8 +1074,6 @@ function sidebar.create(s, dismiss_menu)
         label = label, button = make_news_button, helper = (os.getenv("HOME") or "") .. "/.local/bin/desktop-news",
         dismiss = dismiss_menu, popup_width = popup_width, popup_height = popup_height,
         list_height = math.max(60, popup_height - 130),
-        category_names = {all = "All", general = "General", bydgoszcz = "Bydgoszcz",
-            torun = "Toruń", cinema = "Cinema"},
         anchor = function()
             if not panel or not panel.visible or not news_card then return nil end
             local x = math.floor(panel.width / 2)

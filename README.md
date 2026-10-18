@@ -23,12 +23,13 @@ The Start menu's **Control Panel** provides GTK appearance settings, display pro
 ArandR, btop/htop, AMDGPU TOP, Task Manager, Bluetooth and power settings, plus audio/network launchers and a manual Solaar
 launcher. `nm-connection-editor`, `amdgpu_top`, `htop`, `xfce4-taskmanager`,
 `blueman-manager`, `xfce4-power-manager-settings`, and `solaar` remain optional;
-Solaar is never started automatically. The Control Center's Sidebar tab controls
-which sections appear; Quick Launch is hidden by default and can be enabled there.
-Use **Save & Restart Awesome** or save and press Win+Ctrl+R. Trash and volume
-remain in System Status. The sidebar News inbox is unread-first and starts with a
-curated Wykop General RSS feed; configure any additional approved RSS/Atom sources
-in `~/.config/awesome/news-feeds`.
+Solaar is never started automatically. The Control Center's Sidebar tab controls which sections appear, including News;
+Quick Launch is hidden by default. Its News tab manages custom categories and RSS/Atom
+sources, with a bounded per-feed test. New profiles start with an empty news setup;
+existing profiles migrate the Wykop General source and current category filters once.
+Mutable News settings live in `~/.config/desktop-news/config.json`, outside the Stow
+managed Awesome tree. Use **Save & Restart Awesome** or save and press Win+Ctrl+R.
+Trash and volume remain in System Status.
 
 From the repository root:
 

@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import threading
 
 # This package is Stow-linked into the repository; keep runtime bytecode out of it.
 sys.dont_write_bytecode = True
@@ -15,12 +16,13 @@ try:
     import gi
     gi.require_version("Gdk", "3.0")
     gi.require_version("Gtk", "3.0")
-    from gi.repository import Gdk, Gtk
+    from gi.repository import Gdk, GLib, Gtk
 except (ImportError, ValueError) as exc:  # pragma: no cover - depends on system packages
     print(f"desktop-control-center: GTK 3 / PyGObject is required: {exc}", file=sys.stderr)
     raise SystemExit(1)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+import desktop_news_config  # noqa: E402
 from desktop_control_center.settings import (  # noqa: E402
     SIDEBAR_SECTIONS,
     TOOLBAR_STYLES,
@@ -38,6 +40,8 @@ STATE_HOME = Path(os.environ.get("XDG_STATE_HOME", HOME / ".local/state"))
 XSETTINGS_PATH = CONFIG_HOME / "xsettingsd/xsettingsd.conf"
 GTK_SETTINGS_PATH = CONFIG_HOME / "gtk-3.0/settings.ini"
 SIDEBAR_SECTIONS_PATH = STATE_HOME / "awesome/sidebar-sections"
+NEWS_CONFIG_PATH = desktop_news_config.config_path()
+NEWS_HELPER = HOME / ".local/bin/desktop-news"
 
 
 def _data_dirs() -> list[Path]:
@@ -114,6 +118,9 @@ class ControlCenter(Gtk.Window):
         self.settings = _read_initial_settings()
         self.widgets: dict[str, object] = {}
         self.sidebar_widgets: dict[str, Gtk.CheckButton] = {}
+        self.news_category_rows: list[dict[str, object]] = []
+        self.news_feed_rows: list[dict[str, object]] = []
+        self.news_config: dict[str, object] = {}
         self.tool_buttons: dict[str, Gtk.Button] = {}
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -124,6 +131,7 @@ class ControlCenter(Gtk.Window):
         self._build_tools_page()
         self._build_appearance_page()
         self._build_sidebar_page()
+        self._build_news_page()
 
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         actions.set_border_width(12)
@@ -385,9 +393,260 @@ class ControlCenter(Gtk.Window):
         note.set_line_wrap(True)
         grid.attach(note, 0, 3, 2, 1)
 
+    def _build_news_page(self) -> None:
+        grid, _ = self._add_tab("News")
+        intro = Gtk.Label(label=(
+            "Manage RSS/Atom categories and sources. New profiles start empty; existing News settings "
+            "are migrated once. Changes take effect after a News refresh or an explicit Awesome restart."
+        ))
+        intro.set_xalign(0)
+        intro.set_line_wrap(True)
+        grid.attach(intro, 0, 0, 2, 1)
+
+        category_frame = Gtk.Frame(label="Categories")
+        category_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        category_box.set_border_width(8)
+        self.news_category_list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        category_box.pack_start(self.news_category_list, False, False, 0)
+        add_category = Gtk.Button.new_with_label("Add Category")
+        add_category.connect("clicked", self._add_news_category)
+        category_box.pack_start(add_category, False, False, 0)
+        category_frame.add(category_box)
+        grid.attach(category_frame, 0, 1, 2, 1)
+
+        feed_frame = Gtk.Frame(label="Feed sources")
+        feed_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        feed_box.set_border_width(8)
+        self.news_feed_list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        feed_box.pack_start(self.news_feed_list, False, False, 0)
+        self.news_add_feed_button = Gtk.Button.new_with_label("Add Feed")
+        self.news_add_feed_button.connect("clicked", self._add_news_feed)
+        feed_box.pack_start(self.news_add_feed_button, False, False, 0)
+        feed_frame.add(feed_box)
+        grid.attach(feed_frame, 0, 2, 2, 1)
+
+        self.news_restart_button = Gtk.Button.new_with_label("Save & Restart Awesome")
+        self.news_restart_button.get_style_context().add_class("suggested-action")
+        self.news_restart_button.set_tooltip_text(
+            "Save News settings and explicitly restart Awesome now (also available with Win+Ctrl+R)."
+        )
+        if shutil.which("awesome-client"):
+            self.news_restart_button.connect("clicked", self._save_news_and_restart)
+        else:
+            self.news_restart_button.set_sensitive(False)
+            self.news_restart_button.set_tooltip_text("awesome-client is not installed")
+        grid.attach(self.news_restart_button, 0, 3, 2, 1)
+
+        note = Gtk.Label(label=(
+            "Feed tests make one bounded public HTTP(S) request and do not add stories. "
+            "Multiple feeds can share a category; removing a category never clears inbox history."
+        ))
+        note.set_xalign(0)
+        note.set_line_wrap(True)
+        grid.attach(note, 0, 4, 2, 1)
+        self._reload_news_config_data()
+
+    def _news_category_ids(self) -> set[str]:
+        return {str(row["id"]) for row in self.news_category_rows}
+
+    def _add_news_category(self, *_args: object, category_id: str | None = None,
+                           label: str | None = None) -> None:
+        if category_id is None and len(self.news_category_rows) >= desktop_news_config.MAX_CATEGORIES:
+            self.status.set_text(f"At most {desktop_news_config.MAX_CATEGORIES} categories are supported.")
+            return
+        name = label or f"Category {len(self.news_category_rows) + 1}"
+        category_id = category_id or desktop_news_config.new_category_id(name, self._news_category_ids())
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        entry = Gtk.Entry()
+        entry.set_placeholder_text("Category name")
+        entry.set_text(name)
+        entry.set_tooltip_text("Names are customizable; the category ID remains stable when renamed.")
+        remove = Gtk.Button.new_with_label("Remove")
+        record = {"id": category_id, "entry": entry, "widget": row}
+        remove.connect("clicked", self._remove_news_category, record)
+        entry.connect("changed", self._refresh_news_category_combos)
+        row.pack_start(entry, True, True, 0)
+        row.pack_start(remove, False, False, 0)
+        self.news_category_rows.append(record)
+        self.news_category_list.pack_start(row, False, False, 0)
+        row.show_all()
+        self._refresh_news_category_combos()
+
+    def _remove_news_category(self, _button: Gtk.Button, record: dict[str, object]) -> None:
+        category_id = str(record["id"])
+        if any(row["category"].get_active_id() == category_id for row in self.news_feed_rows):
+            self.status.set_text("Reassign or remove this category’s feeds before deleting it.")
+            return
+        self.news_category_rows.remove(record)
+        record["widget"].destroy()
+        self._refresh_news_category_combos()
+
+    def _refresh_news_category_combos(self, *_args: object) -> None:
+        categories = [(str(row["id"]), row["entry"].get_text().strip())
+                      for row in self.news_category_rows]
+        for feed in self.news_feed_rows:
+            combo = feed["category"]
+            selected = combo.get_active_id()
+            combo.remove_all()
+            for category_id, label in categories:
+                combo.append(category_id, label or "(unnamed category)")
+            if selected and any(category_id == selected for category_id, _ in categories):
+                combo.set_active_id(selected)
+            elif categories:
+                combo.set_active_id(categories[0][0])
+            combo.set_sensitive(bool(categories))
+        self.news_add_feed_button.set_sensitive(bool(categories))
+
+    def _add_news_feed(self, *_args: object, feed: dict | None = None) -> None:
+        if feed is None and len(self.news_feed_rows) >= desktop_news_config.MAX_FEEDS:
+            self.status.set_text(f"At most {desktop_news_config.MAX_FEEDS} feeds are supported.")
+            return
+        feed = feed or {"id": desktop_news_config.new_feed_id(), "category": "",
+                        "label": "", "url": "", "enabled": True}
+        container = Gtk.Frame()
+        source_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        source_box.set_border_width(7)
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        enabled = Gtk.CheckButton.new_with_label("Enabled")
+        enabled.set_active(bool(feed.get("enabled", True)))
+        label = Gtk.Entry()
+        label.set_placeholder_text("Source name")
+        label.set_text(str(feed.get("label", "")))
+        category = Gtk.ComboBoxText()
+        category.set_size_request(130, -1)
+        test = Gtk.Button.new_with_label("Test")
+        remove = Gtk.Button.new_with_label("Remove")
+        url = Gtk.Entry()
+        url.set_placeholder_text("https://example.org/feed.xml")
+        url.set_text(str(feed.get("url", "")))
+        test.set_tooltip_text("Fetch and parse this URL once without changing the inbox.")
+        test.connect("clicked", self._test_news_feed, url)
+        record = {"id": str(feed.get("id") or desktop_news_config.new_feed_id()),
+                  "enabled": enabled, "label": label, "category": category, "url": url,
+                  "widget": container}
+        remove.connect("clicked", self._remove_news_feed, record)
+        row.pack_start(enabled, False, False, 0)
+        row.pack_start(label, True, True, 0)
+        row.pack_start(category, False, False, 0)
+        row.pack_start(test, False, False, 0)
+        row.pack_start(remove, False, False, 0)
+        source_box.pack_start(row, False, False, 0)
+        source_box.pack_start(url, False, False, 0)
+        container.add(source_box)
+        self.news_feed_rows.append(record)
+        self.news_feed_list.pack_start(container, False, False, 0)
+        self._refresh_news_category_combos()
+        if feed.get("category"):
+            category.set_active_id(str(feed["category"]))
+        container.show_all()
+
+    def _remove_news_feed(self, _button: Gtk.Button, record: dict[str, object]) -> None:
+        self.news_feed_rows.remove(record)
+        record["widget"].destroy()
+
+    def _test_news_feed(self, button: Gtk.Button, url_entry: Gtk.Entry) -> None:
+        url = url_entry.get_text().strip()
+        normalized = desktop_news_config.valid_http_url(url)
+        if not normalized:
+            self.status.set_text("Enter a valid HTTP(S) feed URL without credentials first.")
+            return
+        executable = NEWS_HELPER if NEWS_HELPER.is_file() else Path(shutil.which("desktop-news") or "")
+        if not executable.is_file():
+            self.status.set_text("desktop-news is not installed.")
+            return
+        button.set_sensitive(False)
+        button.set_label("Testing…")
+
+        def worker() -> None:
+            try:
+                result = subprocess.run([str(executable), "test-feed", normalized],
+                                        stdin=subprocess.DEVNULL, capture_output=True,
+                                        text=True, timeout=12, check=False)
+                message = (result.stdout if result.returncode == 0 else result.stderr).strip()
+                success = result.returncode == 0
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                message, success = str(exc), False
+            GLib.idle_add(self._finish_news_feed_test, button, success, message)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _finish_news_feed_test(self, button: Gtk.Button, success: bool, message: str) -> bool:
+        button.set_label("Test")
+        button.set_sensitive(True)
+        self.status.set_text(message or ("Feed test succeeded." if success else "Feed test failed."))
+        return False
+
+    def _collect_news_config(self) -> dict:
+        categories = [{"id": str(row["id"]), "label": row["entry"].get_text().strip()}
+                      for row in self.news_category_rows]
+        feeds = []
+        for row in self.news_feed_rows:
+            feeds.append({"id": str(row["id"]), "category": row["category"].get_active_id(),
+                          "label": row["label"].get_text().strip(), "url": row["url"].get_text().strip(),
+                          "enabled": row["enabled"].get_active()})
+        return {"version": desktop_news_config.CONFIG_VERSION,
+                "categories": categories, "feeds": feeds}
+
+    def _save_news_settings(self) -> bool:
+        try:
+            self.news_config = desktop_news_config.save_config(
+                self._collect_news_config(), NEWS_CONFIG_PATH)
+        except Exception as exc:
+            self.status.set_text(f"Could not save News settings: {exc}")
+            return False
+        self.status.set_text("News settings saved. They take effect on the next feed refresh or Awesome restart.")
+        return True
+
+    def _reload_news_config_data(self) -> None:
+        self.news_config = desktop_news_config.load_config(NEWS_CONFIG_PATH)
+        for row in self.news_category_rows:
+            row["widget"].destroy()
+        for row in self.news_feed_rows:
+            row["widget"].destroy()
+        self.news_category_rows.clear()
+        self.news_feed_rows.clear()
+        for category in self.news_config["categories"]:
+            self._add_news_category(category_id=category["id"], label=category["label"])
+        for feed in self.news_config["feeds"]:
+            self._add_news_feed(feed=feed)
+        self._refresh_news_category_combos()
+
+    def _reload_news_settings(self) -> None:
+        try:
+            self._reload_news_config_data()
+            self.status.set_text("News settings reloaded from disk.")
+        except Exception as exc:
+            self.status.set_text(f"Could not reload News settings: {exc}")
+
+    def _save_news_and_restart(self, *_args: object) -> None:
+        if self._save_news_settings():
+            self._request_awesome_restart("News settings saved; Awesome restart requested.")
+
+    def _request_awesome_restart(self, success_message: str) -> None:
+        executable = shutil.which("awesome-client")
+        if not executable:
+            self.status.set_text("Settings saved, but awesome-client is not installed.")
+            return
+        try:
+            subprocess.Popen(
+                [executable, "awesome.restart()"], stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except OSError as exc:
+            self.status.set_text(f"Settings saved, but Awesome could not be restarted: {exc}")
+            return
+        self.status.set_text(success_message)
+
     def _update_action_buttons(self, _notebook: Gtk.Notebook, _page: Gtk.Widget | None,
                                page_number: int) -> None:
-        if page_number == 2:
+        if page_number == 3:
+            self.revert_button.set_label("_Reload")
+            self.apply_button.set_label("_Save News")
+            self.revert_button.set_sensitive(True)
+            self.apply_button.set_sensitive(True)
+            self.status.set_text("Edit custom categories and RSS/Atom sources. Feed tests do not save inbox items.")
+        elif page_number == 2:
             self.revert_button.set_label("_Reload")
             self.apply_button.set_label("_Save Sidebar")
             self.revert_button.set_sensitive(True)
@@ -419,22 +678,8 @@ class ControlCenter(Gtk.Window):
         return True
 
     def _save_and_restart_awesome(self, *_args: object) -> None:
-        if not self._save_sidebar_settings():
-            return
-        executable = shutil.which("awesome-client")
-        if not executable:
-            self.status.set_text("Sidebar saved, but awesome-client is not installed.")
-            return
-        try:
-            subprocess.Popen(
-                [executable, "awesome.restart()"], stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                start_new_session=True,
-            )
-        except OSError as exc:
-            self.status.set_text(f"Sidebar saved, but Awesome could not be restarted: {exc}")
-            return
-        self.status.set_text("Sidebar saved; Awesome restart requested.")
+        if self._save_sidebar_settings():
+            self._request_awesome_restart("Sidebar saved; Awesome restart requested.")
 
     def _reload_sidebar_settings(self) -> None:
         try:
@@ -489,6 +734,9 @@ class ControlCenter(Gtk.Window):
         if page_number == 2:
             self._save_sidebar_settings()
             return
+        if page_number == 3:
+            self._save_news_settings()
+            return
         if page_number != 1:
             return
         try:
@@ -511,6 +759,9 @@ class ControlCenter(Gtk.Window):
         page_number = self.notebook.get_current_page()
         if page_number == 2:
             self._reload_sidebar_settings()
+            return
+        if page_number == 3:
+            self._reload_news_settings()
             return
         if page_number != 1:
             return
