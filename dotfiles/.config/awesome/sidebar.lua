@@ -922,8 +922,17 @@ function sidebar.create(s, dismiss_menu)
         codex_5h_widget, codex_7d_widget, codex_resets,
         spacing = compact_spacing, layout = wibox.layout.fixed.vertical,
     }
-    local codex_card = collapsible_card("codex", "CODEX", codex_body)
     local function refresh_codex() data.refresh("codex") end
+    local codex_refresh_button = style_button(wibox.widget {
+        {label("⟳", palette.title, 10, true, "center"),
+            halign = "center", valign = "center", widget = wibox.container.place},
+        forced_width = 22, forced_height = 18,
+        bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
+        widget = wibox.container.background,
+    }, dismiss_menu)
+    bind_sidebar_action(codex_refresh_button, refresh_codex, "codex")
+    ui.tip(codex_refresh_button, "Refresh Codex usage")
+    local codex_card = collapsible_card("codex", "CODEX", codex_body, nil, codex_refresh_button)
     local function render_codex(state)
         -- Quotas are a safety decision: history must never look like current headroom.
         local value = not state.error and not state.stale and state.value or nil
@@ -1378,6 +1387,7 @@ function sidebar.create(s, dismiss_menu)
     if weather_enabled then target('weather','refresh',weather_body,update_weather) end
     target('news','open',news_ui.open_button,news_ui.open,true)
     target('crypto','open',crypto_body,open_trezor_suite,true)
+    target('codex','refresh',codex_refresh_button,refresh_codex)
     target('todo','open',todo_body,open_todo_document,true)
     target('calendar','previous',calendar_ui.previous,calendar_ui.previous._sidebar_keyboard_action)
     target('calendar','next',calendar_ui.next,calendar_ui.next._sidebar_keyboard_action)
@@ -1436,6 +1446,7 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_codex_card, s.sidebar_codex_5h, s.sidebar_codex_7d = codex_card, codex_5h, codex_7d
     s.sidebar_codex_resets = codex_resets
     s.sidebar_codex_refresh = refresh_codex
+    s.sidebar_codex_refresh_button = codex_refresh_button
     s.sidebar_media_text = media_text
     s.sidebar_media_buttons = {previous = media_previous, toggle = media_toggle, next = media_next}
     s.sidebar_root_text = root_text
