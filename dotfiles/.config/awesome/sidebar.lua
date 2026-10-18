@@ -52,9 +52,25 @@ local function open_document(path)
     return io.open(path, "r")
 end
 
+local function command_with_argument(template, placeholder, value)
+    local argv, replaced = {}, false
+    local pattern = placeholder:gsub("([^%w])", "%%%1")
+    for _, argument in ipairs(template) do
+        local rendered, count = argument:gsub(pattern, function() return value end)
+        argv[#argv + 1] = rendered
+        if count > 0 then replaced = true end
+    end
+    if not replaced then argv[#argv + 1] = value end
+    return argv
+end
+
 local function launch_document(path)
-    -- xdg-open runs Terminal=true apps in its caller's terminal; Awesome has no
-    -- TTY, so launch the registered GIO app and let its desktop entry open Kitty.
+    if #preferences.editor_command > 0 then
+        launcher.run({label = "Document editor",
+            argv = command_with_argument(preferences.editor_command, "{file}", path)})
+        return
+    end
+    -- Preserve the system's registered document app when no explicit editor is set.
     local uri = Gio.File.new_for_path(path):get_uri()
     local ok, result = pcall(Gio.AppInfo.launch_default_for_uri, uri, nil)
     if not ok or result ~= true then
@@ -1085,6 +1101,7 @@ function sidebar.create(s, dismiss_menu)
     local news_ui = news_component.new {
         screen = s, ui = ui, data = data, interaction = interaction, appearance = appearance,
         label = label, button = make_news_button, helper = (os.getenv("HOME") or "") .. "/.local/bin/desktop-news",
+        browser_command = preferences.browser_command, launcher = launcher,
         dismiss = dismiss_menu, popup_width = popup_width, popup_height = popup_height,
         list_height = math.max(120, popup_height - 140),
     }

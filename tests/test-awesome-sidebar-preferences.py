@@ -20,7 +20,9 @@ class SidebarPreferenceReaderTests(unittest.TestCase):
             settings.write_text(
                 "version=1\nweather_label=Barcelona, Spain\nlatitude=41.4034\nlongitude=2.174\n"
                 "todo_path=~/Notes/todo.md\ncalendar_path=notes/calendar.md\n"
-                "wallpaper_dirs=~/Pictures/One\nwallpaper_dirs=/mnt/Wallpapers\n",
+                "wallpaper_dirs=~/Pictures/One\nwallpaper_dirs=/mnt/Wallpapers\n"
+                "editor_command=kitty\neditor_command=mdn-editor\neditor_command=--\neditor_command={file}\n"
+                "browser_command=chromium\nbrowser_command=--new-window\nbrowser_command={url}\n",
                 encoding="utf-8",
             )
             script = f'''local p=dofile({str(PREFERENCES)!r}).load()
@@ -30,6 +32,8 @@ assert(p.todo_path == {str(home / "Notes/todo.md")!r})
 assert(p.calendar_path == {str(home / "notes/calendar.md")!r})
 assert(#p.wallpaper_dirs == 2 and p.wallpaper_dirs[1] == {str(home / "Pictures/One")!r}
     and p.wallpaper_dirs[2] == "/mnt/Wallpapers")
+assert(table.concat(p.editor_command, "|") == "kitty|mdn-editor|--|{{file}}")
+assert(table.concat(p.browser_command, "|") == "chromium|--new-window|{{url}}")
 '''
             environment = dict(os.environ, HOME=str(home), XDG_CONFIG_HOME=str(config_home),
                                XDG_DATA_HOME=str(home / ".local/share"))
@@ -39,6 +43,7 @@ assert(#p.wallpaper_dirs == 2 and p.wallpaper_dirs[1] == {str(home / "Pictures/O
             defaults = f'''local p=dofile({str(PREFERENCES)!r}).load()
 assert(p.weather_label == "Bydgoszcz, Poland" and p.latitude == 53.1235 and p.longitude == 17.9871)
 assert(#p.wallpaper_dirs == 0 and p.todo_path == {str(home / "Documents/todo.md")!r})
+assert(#p.editor_command == 0 and table.concat(p.browser_command, "|") == "firefox|--new-tab|{{url}}")
 '''
             subprocess.run(["lua", "-e", defaults], cwd=ROOT, env=environment,
                            check=True, timeout=10)

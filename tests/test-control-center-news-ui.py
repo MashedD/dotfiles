@@ -43,6 +43,8 @@ window.sidebar_preference_widgets["latitude"].set_text("53.0138")
 window.sidebar_preference_widgets["longitude"].set_text("18.5984")
 window.sidebar_preference_widgets["todo_path"].set_text("~/Documents/todo=work.md")
 window.sidebar_preference_widgets["calendar_path"].set_text("~/Notes/calendar.md")
+window.sidebar_preference_widgets["editor_command"].set_text('kitty mdn-editor -- "{file}"')
+window.sidebar_preference_widgets["browser_command"].set_text('chromium --new-window "{url}"')
 window.wallpaper_directory_rows[0]["entry"].set_text("~/Pictures/Custom A")
 window._remove_wallpaper_directory(None, window.wallpaper_directory_rows[1])
 window._add_wallpaper_directory_row("/mnt/Wallpapers")
@@ -53,10 +55,14 @@ preferences = module.parse_sidebar_preferences(
 assert preferences["weather_label"] == "Toruń & region"
 assert preferences["todo_path"] == "~/Documents/todo=work.md"
 assert preferences["wallpaper_dirs"] == ["~/Pictures/Custom A", "/mnt/Wallpapers"]
+assert preferences["editor_command"] == ["kitty", "mdn-editor", "--", "{file}"]
+assert preferences["browser_command"] == ["chromium", "--new-window", "{url}"]
 window.sidebar_preference_widgets["latitude"].set_text("999")
 assert not window._save_sidebar_settings()
 window._reload_sidebar_settings()
 assert window.sidebar_preference_widgets["weather_label"].get_text() == "Toruń & region"
+assert window.sidebar_preference_widgets["editor_command"].get_text() == "kitty mdn-editor -- '{file}'"
+assert window.sidebar_preference_widgets["browser_command"].get_text() == "chromium --new-window '{url}'"
 assert len(window.wallpaper_directory_rows) == 2
 assert [row["label"].get_text() for row in window.quick_launch_rows] == [
     "Terminal", "Files", "Control Panel", "Finder", "Firefox", "Quake 1", "Quake 2", "Sleep"]

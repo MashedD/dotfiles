@@ -63,8 +63,12 @@ section order, fold state, and visibility are stored together in
 `$XDG_STATE_HOME/awesome/sidebar-sections` (section-state format version 2 adds
 News to existing saved orders without resetting prior visibility/fold choices).
 Quick Launch defaults off; the Sidebar tab can enable it. That tab also configures
-weather coordinates, sidebar document paths, and ordered wallpaper folders. Its
-preferences live in `$XDG_CONFIG_HOME/desktop-control-center/sidebar-preferences`.
+weather coordinates, sidebar document paths, ordered wallpaper folders, the
+command for opening those documents, and the News browser command. Editor `{file}`
+and browser `{url}` placeholders are substituted in argv (or the path/URL is
+appended); commands are never run through a shell. A blank editor command preserves
+the system default. Preferences live in
+`$XDG_CONFIG_HOME/desktop-control-center/sidebar-preferences`.
 The separate Quick Launch tab edits the full launcher list; its JSON settings live at
 `$XDG_CONFIG_HOME/desktop-control-center/quick-launch.json`. Existing launchers are
 initial defaults, while commands are parsed into argv and never sent through a shell.

@@ -24,6 +24,7 @@ end
 function M.new(options)
     local s, ui, data = options.screen, options.ui, options.data
     local appearance, palette = options.appearance, options.appearance.palette
+    local browser_command = options.browser_command or {"firefox", "--new-tab", "{url}"}
     local popup, popup_widget, current_state, action_error
     local row_lifetime
     local view_unread, view_category = true, "all"
@@ -231,9 +232,24 @@ function M.new(options)
             component.render(data.state("news"))
             return
         end
-        local ok, result = pcall(awful.spawn, {"firefox", "--new-tab", item.url})
-        if not ok or not result then
-            action_error = "Could not launch Firefox"
+        local argv, replaced = {}, false
+        local pattern = "{url}"
+        pattern = pattern:gsub("([^%w])", "%%%1")
+        for _, argument in ipairs(browser_command) do
+            local rendered, count = argument:gsub(pattern, function() return item.url end)
+            argv[#argv + 1] = rendered
+            if count > 0 then replaced = true end
+        end
+        if not replaced then argv[#argv + 1] = item.url end
+        local launched, result
+        if options.launcher then
+            launched, result = options.launcher.run({label = "News link", argv = argv})
+        else
+            launched, result = pcall(awful.spawn, argv)
+            launched = launched and type(result) == "number"
+        end
+        if not launched or not result then
+            action_error = "Could not launch the configured browser"
             component.render(data.state("news"))
             return
         end
@@ -249,7 +265,7 @@ function M.new(options)
         summary.wrap, summary.valign = "word_char", "top"
         local actions = wibox.layout.fixed.horizontal()
         actions.spacing = 4
-        local open = options.button(item.url and "Open in Firefox" or "No link", function()
+        local open = options.button(item.url and "Open in browser" or "No link", function()
             if item.url then open_story(item) end
         end, 104, row_lifetime)
         local toggle = options.button(item.read and "Mark unread" or "Mark read", function()

@@ -141,12 +141,15 @@ same four display profiles as Win+P, launches ArandR for manual layout edits,
 starts btop or htop in Kitty, launches the AMDGPU TOP GUI and XFCE Task Manager,
 and opens Pavucontrol, NetworkManager, Bluetooth Manager, Power Manager settings,
 or Solaar on demand. The Sidebar tab follows Appearance and configures section
-visibility, weather city and coordinates, to-do/calendar Markdown paths, and one or
-more wallpaper folders. A separate Quick Launch tab manages its complete launcher
-list; News settings are managed in the following News tab. Sidebar preferences are
-stored outside Stow at
+visibility, weather city and coordinates, to-do/calendar Markdown paths, wallpaper
+folders, the document-editor command, and News-browser command. A separate Quick
+Launch tab manages its complete launcher list; News settings are managed in the
+following News tab. Sidebar preferences are stored outside Stow at
 `$XDG_CONFIG_HOME/desktop-control-center/sidebar-preferences` (default
-`~/.config/desktop-control-center/sidebar-preferences`); the launcher list is stored
+`~/.config/desktop-control-center/sidebar-preferences`). Editor commands may use
+`{file}` and browser commands `{url}`; if omitted, the path or URL is appended.
+Both run as argv without a shell; a blank editor command uses the system default.
+The launcher list is stored
 at `$XDG_CONFIG_HOME/desktop-control-center/quick-launch.json`. Existing launchers
 are the initial defaults, but the list can be edited, reordered, enabled/disabled, or
 replaced. Commands are parsed as argv and never run through a shell; for example,
@@ -166,8 +169,9 @@ categories or feeds. Existing profiles migrate their four current category filte
 and Wykop General source once. Mutable settings are stored atomically at
 `$XDG_CONFIG_HOME/desktop-news/config.json` (default
 `~/.config/desktop-news/config.json`), outside the Stow-managed Awesome directory;
-`~/.config/awesome/news-feeds` is only a legacy migration input. Stories open in
-Firefox and are marked read; individual read/unread/remove controls and **Mark all
+`~/.config/awesome/news-feeds` is only a legacy migration input. Stories open with
+the configured browser command and are marked read; individual read/unread/remove
+controls and **Mark all
 read** are available. Inbox state is stored under `$XDG_STATE_HOME/awesome/news.json`
 (default `~/.local/state/awesome/news.json`). No scraping or ranking is used.
 Trash and the integrated volume control are in System Status. Explicit HDMI modes prefer 2560×1440/144 Hz; the

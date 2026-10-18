@@ -152,6 +152,12 @@ def main():
         aurora_fixture = ROOT / "dotfiles/.local/share/wallpapers/aurora-cabin.png"
         shutil.copy2(aurora_fixture, testhome / ".local/share/wallpapers/aurora-cabin.png")
         shutil.copy2(aurora_fixture, testhome / "Pictures/Wallpapers/pictures-wallpaper.png")
+        if args.scenario == "sidebar-news":
+            news_preferences = testhome / ".config/desktop-control-center/sidebar-preferences"
+            news_preferences.parent.mkdir(parents=True, exist_ok=True)
+            news_preferences.write_text(
+                "version=1\nbrowser_command=chromium\n"
+                "browser_command=--new-tab\nbrowser_command={url}\n")
         if args.scenario == "sidebar-quick-launch-empty":
             empty_quick_launch_file = testhome / ".config/desktop-control-center/quick-launch.json"
             empty_quick_launch_file.parent.mkdir(parents=True, exist_ok=True)
@@ -178,7 +184,8 @@ def main():
                 "version=1\nweather_label=Test City & Region\nlatitude=41.4034\nlongitude=2.1740\n"
                 f"todo_path={custom_documents / 'tasks.md'}\n"
                 f"calendar_path={custom_documents / 'events.md'}\n"
-                f"wallpaper_dirs={custom_wallpapers}\n")
+                f"wallpaper_dirs={custom_wallpapers}\n"
+                "editor_command=kitty\neditor_command=mdn-editor\neditor_command=--\neditor_command={file}\n")
             quick_launch_file = testhome / ".config/desktop-control-center/quick-launch.json"
             quick_launch_file.write_text(json.dumps({"version": 1, "entries": [
                 {"label": "Notes", "icon": "accessories-text-editor",
@@ -206,10 +213,14 @@ def main():
             executable = bin_dir / name
             executable.write_text(source)
             executable.chmod(0o755)
-        if args.scenario == "sidebar-personalization":
+        if args.scenario in ("sidebar-personalization", "sidebar-news"):
             fake_kitty = bin_dir / "kitty"
             fake_kitty.write_text('#!/bin/sh\nprintf "kitty %s\\n" "$*" >> "$TEST_ACTIONS"\n')
             fake_kitty.chmod(0o755)
+        if args.scenario == "sidebar-news":
+            fake_chromium = bin_dir / "chromium"
+            fake_chromium.write_text('#!/bin/sh\nprintf "chromium %s\\n" "$*" >> "$TEST_ACTIONS"\n')
+            fake_chromium.chmod(0o755)
         (testhome / ".config").mkdir(exist_ok=True)
         (testhome / ".config/mimeapps.list").write_text(
             "[Default Applications]\ntext/plain=awesome-test-opener.desktop;\n"
@@ -562,6 +573,18 @@ def main():
                     while time.monotonic() < deadline and actions_file.read_text().count(expected_action) < 2:
                         time.sleep(0.05)
                     assert actions_file.read_text().count(expected_action) >= 2
+                    lua('screen[1].sidebar_todo_open()')
+                    todo_action = 'kitty mdn-editor -- ' + str(testhome / 'Notes/tasks.md')
+                    deadline = time.monotonic() + 3
+                    while time.monotonic() < deadline and todo_action not in actions_file.read_text():
+                        time.sleep(0.05)
+                    assert todo_action in actions_file.read_text(), actions_file.read_text()
+                    lua('screen[1].sidebar_calendar_open()')
+                    calendar_action = 'kitty mdn-editor -- ' + str(testhome / 'Notes/events.md')
+                    deadline = time.monotonic() + 3
+                    while time.monotonic() < deadline and calendar_action not in actions_file.read_text():
+                        time.sleep(0.05)
+                    assert calendar_action in actions_file.read_text(), actions_file.read_text()
                     deadline = time.monotonic() + 3
                     while time.monotonic() < deadline and "latitude=41.403400&longitude=2.174000" not in weather_request.read_text():
                         time.sleep(0.05)
@@ -574,7 +597,8 @@ def main():
                 if args.scenario == 'sidebar-news':
                     run_timed('sidebar.news', lambda: awesome_sidebar.verify_news(
                         lua=lua, wait=wait, pointer=pointer, widget_point=widget_point,
-                        press=press, actions_file=actions_file, log_text=logfile.read_text, capture=capture))
+                        press=press, actions_file=actions_file, log_text=logfile.read_text, capture=capture,
+                        expected_browser="chromium --new-tab"))
                     finish_session(args.scenario)
                     return 0
                 if args.scenario == 'sidebar-settings':

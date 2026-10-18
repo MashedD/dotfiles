@@ -103,6 +103,8 @@ class SidebarSettingsTests(unittest.TestCase):
             "todo_path": "/home/test/Documents/todo=work.md",
             "calendar_path": "/home/test/Notes/calendar.md",
             "wallpaper_dirs": ["/data/wallpapers", "/mnt/pictures/Walls"],
+            "editor_command": ["kitty", "mdn-editor", "--", "{file}"],
+            "browser_command": ["chromium", "--new-window", "{url}"],
         })
         serialized = settings.serialize_sidebar_preferences(preferences)
         parsed = settings.parse_sidebar_preferences(serialized, settings.default_sidebar_preferences(
@@ -111,6 +113,8 @@ class SidebarSettingsTests(unittest.TestCase):
         self.assertEqual(parsed["latitude"], 53.0138)
         self.assertEqual(parsed["todo_path"], "/home/test/Documents/todo=work.md")
         self.assertEqual(parsed["wallpaper_dirs"], ["/data/wallpapers", "/mnt/pictures/Walls"])
+        self.assertEqual(parsed["editor_command"], ["kitty", "mdn-editor", "--", "{file}"])
+        self.assertEqual(parsed["browser_command"], ["chromium", "--new-window", "{url}"])
 
     def test_sidebar_preferences_reject_invalid_coordinates_and_control_characters(self):
         defaults = settings.default_sidebar_preferences(Path("/home/test"), Path("/data"))

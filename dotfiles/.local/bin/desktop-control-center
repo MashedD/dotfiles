@@ -432,6 +432,12 @@ class ControlCenter(Gtk.Window):
         self._sidebar_path_row(preferences_grid, row, "Calendar document", "calendar_path",
                                str(self.sidebar_preferences["calendar_path"]), Gtk.FileChooserAction.OPEN)
         row += 1
+        self._sidebar_entry_row(preferences_grid, row, "Editor command (blank = system default)",
+                                "editor_command", shlex.join(self.sidebar_preferences["editor_command"]))
+        row += 1
+        self._sidebar_entry_row(preferences_grid, row, "News browser command",
+                                "browser_command", shlex.join(self.sidebar_preferences["browser_command"]))
+        row += 1
 
         wallpaper_label = Gtk.Label(label="Wallpaper folders")
         wallpaper_label.set_xalign(0)
@@ -447,7 +453,9 @@ class ControlCenter(Gtk.Window):
         row += 1
         help_text = Gtk.Label(label=(
             "Coordinates use latitude/longitude. To-do reads the first five items under ## Sidebar; "
-            "calendar uses the selected Markdown file. Wallpaper folders are searched in order."
+            "calendar uses the selected Markdown file. Editor commands may use {file}; browser commands "
+            "may use {url}. Without those placeholders, the path or URL is appended. Commands run without a shell. "
+            "Wallpaper folders are searched in order."
         ))
         help_text.set_xalign(0)
         help_text.set_line_wrap(True)
@@ -1005,6 +1013,11 @@ class ControlCenter(Gtk.Window):
             "calendar_path": self.sidebar_preference_widgets["calendar_path"].get_text(),
             "wallpaper_dirs": [str(record["entry"].get_text())
                                for record in self.wallpaper_directory_rows],
+            "editor_command": (parse_quick_launch_command(
+                self.sidebar_preference_widgets["editor_command"].get_text())
+                if self.sidebar_preference_widgets["editor_command"].get_text().strip() else []),
+            "browser_command": parse_quick_launch_command(
+                self.sidebar_preference_widgets["browser_command"].get_text()),
         })
 
     def _save_sidebar_settings(self) -> bool:
@@ -1050,7 +1063,8 @@ class ControlCenter(Gtk.Window):
             for section_id, checkbox in self.sidebar_widgets.items():
                 checkbox.set_active(section_id in enabled)
             for key, entry in self.sidebar_preference_widgets.items():
-                entry.set_text(str(preferences[key]))
+                value = preferences[key]
+                entry.set_text(shlex.join(value) if key.endswith("_command") else str(value))
             for record in list(self.wallpaper_directory_rows):
                 self._remove_wallpaper_directory(None, record)
             for directory in preferences["wallpaper_dirs"]:

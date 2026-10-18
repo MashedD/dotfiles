@@ -64,7 +64,8 @@ DEFAULT_SIDEBAR_ENABLED = frozenset(
     section_id for section_id in SIDEBAR_SECTION_IDS if section_id != "quick-launch"
 )
 SIDEBAR_PREFERENCE_KEYS = {
-    "weather_label", "latitude", "longitude", "todo_path", "calendar_path", "wallpaper_dirs",
+    "weather_label", "latitude", "longitude", "todo_path", "calendar_path",
+    "wallpaper_dirs", "editor_command", "browser_command",
 }
 
 
@@ -81,6 +82,8 @@ def default_sidebar_preferences(home: Path | None = None,
         "calendar_path": str(home / "Documents/calendar.md"),
         "wallpaper_dirs": [str(Path(data_home).expanduser() / "wallpapers"),
                            str(home / "Pictures/Wallpapers")],
+        "editor_command": [],
+        "browser_command": ["firefox", "--new-tab", "{url}"],
     }
 
 
@@ -109,6 +112,16 @@ def validate_sidebar_preferences(preferences: dict[str, object]) -> dict[str, ob
             raise SettingsError(f"{key} must be a non-empty path")
         if any(ord(char) < 32 or ord(char) == 127 for char in path):
             raise SettingsError(f"{key} contains a control character")
+    for key in ("editor_command", "browser_command"):
+        command = result[key]
+        if not isinstance(command, list) or len(command) > 32 or (key == "browser_command" and not command):
+            raise SettingsError(f"{key} must contain 1–32 arguments" if key == "browser_command"
+                               else "editor_command supports at most 32 arguments")
+        for argument in command:
+            if not isinstance(argument, str) or not argument or len(argument) > 4096:
+                raise SettingsError(f"{key} contains an invalid argument")
+            if any(ord(char) < 32 or ord(char) == 127 for char in argument):
+                raise SettingsError(f"{key} contains a control character")
     directories = result["wallpaper_dirs"]
     if not isinstance(directories, list) or len(directories) > 32:
         raise SettingsError("Use at most 32 wallpaper folders")
@@ -136,6 +149,8 @@ def parse_sidebar_preferences(text: str, defaults: dict[str, object] | None = No
     preferences = dict(defaults or default_sidebar_preferences())
     preferences["wallpaper_dirs"] = list(preferences.get("wallpaper_dirs", []))
     values: dict[str, str] = {}
+    commands: dict[str, list[str]] = {"editor_command": [], "browser_command": []}
+    has_commands: set[str] = set()
     wallpaper_dirs: list[str] = []
     has_wallpaper_dirs = False
     for line_number, line in enumerate(text.splitlines(), 1):
@@ -148,6 +163,9 @@ def parse_sidebar_preferences(text: str, defaults: dict[str, object] | None = No
         if key == "wallpaper_dirs":
             has_wallpaper_dirs = True
             if value.strip(): wallpaper_dirs.append(value.strip())
+        elif key in commands:
+            has_commands.add(key)
+            if value: commands[key].append(value)
         elif key in values:
             raise SettingsError(f"Duplicate sidebar preference: {key}")
         else:
@@ -159,6 +177,7 @@ def parse_sidebar_preferences(text: str, defaults: dict[str, object] | None = No
             try: preferences[key] = float(values[key])
             except ValueError as exc: raise SettingsError(f"{key} must be a number") from exc
     if has_wallpaper_dirs: preferences["wallpaper_dirs"] = wallpaper_dirs
+    for key in has_commands: preferences[key] = commands[key]
     return validate_sidebar_preferences(preferences)
 
 
@@ -174,6 +193,10 @@ def serialize_sidebar_preferences(preferences: dict[str, object]) -> str:
     ]
     lines.extend(f"wallpaper_dirs={directory}" for directory in values["wallpaper_dirs"])
     if not values["wallpaper_dirs"]: lines.append("wallpaper_dirs=")
+    for key in ("editor_command", "browser_command"):
+        command = values[key]
+        lines.extend(f"{key}={argument}" for argument in command)
+        if not command: lines.append(f"{key}=")
     return "\n".join(lines) + "\n"
 
 

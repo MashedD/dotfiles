@@ -3,7 +3,8 @@
 import time
 
 
-def verify_news(*, lua, wait, pointer, widget_point, press, actions_file, log_text, capture=None):
+def verify_news(*, lua, wait, pointer, widget_point, press, actions_file, log_text,
+                capture=None, expected_browser="firefox --new-tab"):
     """Exercise the offline RSS popup, filters, scrolling, and persistent actions."""
     stage = "news initial state"
     point = None
@@ -82,10 +83,10 @@ def verify_news(*, lua, wait, pointer, widget_point, press, actions_file, log_te
         deadline = __import__("time").monotonic() + 3
         while __import__("time").monotonic() < deadline:
             actions = actions_file.read_text()
-            if "firefox --new-tab https://example.test/story/7" in actions and f"desktop-news mark-read {story_id}" in actions:
+            if f"{expected_browser} https://example.test/story/7" in actions and f"desktop-news mark-read {story_id}" in actions:
                 break
             __import__("time").sleep(0.05)
-        assert "firefox --new-tab https://example.test/story/7" in actions_file.read_text(), actions_file.read_text()
+        assert f"{expected_browser} https://example.test/story/7" in actions_file.read_text(), actions_file.read_text()
         assert f"desktop-news mark-read {story_id}" in actions_file.read_text(), actions_file.read_text()
         press('Escape')
         wait('return tostring(screen[1].sidebar_news_popup.visible)', '"true"')
