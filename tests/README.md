@@ -20,6 +20,7 @@ From any directory, invoke the repository's runner:
 ./tests/run.sh --visual    # also visual sessions without/with private Picom
 ./tests/run.sh --session --scenario titlebars   # fast checks + focused runtime
 ./tests/run.sh --session --scenario menu-popups # verify popup placement and Start menu entries
+./tests/run.sh --session --scenario sidebar-news # offline RSS inbox/popup interactions
 ./tests/run.sh --visual --scenario titlebars    # fast checks + focused visual matrix
 ```
 
@@ -58,16 +59,18 @@ python3 tests/test-awesome-session.py --scenario titlebars
 python3 tests/test-awesome-session.py --scenario workspace-transfer
 python3 tests/test-awesome-session.py --scenario sidebar-documents
 python3 tests/test-awesome-session.py --scenario sidebar-settings
+python3 tests/test-awesome-session.py --scenario sidebar-news
 python3 tests/test-awesome-session.py --scenario menu-popups
 AWESOME_TEST_VISUAL=1 python3 tests/test-awesome-session.py --scenario titlebars
 AWESOME_TEST_VISUAL=1 python3 tests/test-awesome-session.py --scenario titlebars --composited
 ```
 
 The direct Python command skips the fast suite. `all` is the default;
-`titlebars`, `workspace-transfer`, `sidebar-documents`, `sidebar-settings`, and
-`menu-popups` are focused alternatives, with one selector per invocation.
-`./tests/run.sh --session` runs the workspace-transfer, sidebar-document, and
-sidebar-settings scenarios separately, then the broad session. `--scenario` selects
+`titlebars`, `workspace-transfer`, `sidebar-documents`, `sidebar-settings`,
+`sidebar-news`, and `menu-popups` are focused alternatives, with one selector per
+invocation. `./tests/run.sh --session` runs the workspace-transfer,
+sidebar-document, sidebar-settings, and offline news scenarios separately, then the
+broad session. `--scenario` selects
 one scenario instead.
 `--help` describes the flags. Invalid arguments fail before launching the private bus
 or display; the shell selector requires `--session` or `--visual`.
@@ -81,7 +84,10 @@ The workspace-transfer scenario exercises cancellation on release outside and a
 real move to the hovered workspace; failures include the drag stage, target, client/tag,
 grab, button, pointer, and Awesome log. Sidebar-document checks click actual TODO and
 calendar rows and report the click target, current widget counts, launcher actions, and
-Awesome log. These focused paths avoid running the long unrelated integration sequence.
+Awesome log. The sidebar-news scenario uses a local stateful feed stub to exercise
+its unread/category filters, popup placement, wheel scrolling, Firefox mark-read behavior,
+mark-unread, Mark all read, removal, Escape, and outside-click dismissal; it needs no
+network. These focused paths avoid running the long unrelated integration sequence.
 
 Titlebars do not run sidebar interactions, workspaces, persistence/reload, broad fullscreen
 restoration, screen removal, or locking. Brief fullscreen interruptions of titlebar
@@ -89,8 +95,8 @@ presses remain included. Shared fixture files, mocked collectors, startup/shutdo
 checks, optional screenshots, and private process cleanup remain unchanged.
 `helpers/awesome_titlebars.py` holds the extracted checks; full runs retain their
 original order, including the late destruction checks. `test-awesome-titlebar-drag.lua` covers pointer-anchor math, drag threshold, edge
-priority and tiled/fullscreen guards without X11. There are no new production
-settings or runtime dependencies.
+priority and tiled/fullscreen guards without X11. The titlebar-drag work adds no
+production settings or runtime dependencies.
 
 Runs print executed titlebar groups and monotonic elapsed times; focused success is
 explicitly labeled, never reported as complete-suite success. In one sequential local
@@ -165,6 +171,11 @@ pending/stale behavior and final-subscriber cancellation. No real battery reads 
 in the fast tests.
 `test-awesome-lock.py` uses fake process trees and time to cover internal children,
 independent lockers, replaced roots/windows, ancestry errors and cleanup failures.
+
+`test-desktop-news.py` uses offline RSS/Atom fixtures to cover HTML sanitization,
+URL safety, bounded parsing, manifest validation, read-state retention across refresh,
+feed failures, inbox-capacity eviction, concurrent state writes, and dismissal tombstones.
+The live Wykop feed is checked separately during implementation, not by the test suite.
 
 The Lua-only tests validate shared surface contrast over light/dark backgrounds,
 trash semantic colors, response parsing, collector lifecycle, overlapping-request

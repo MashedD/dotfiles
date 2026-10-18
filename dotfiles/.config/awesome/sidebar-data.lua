@@ -34,6 +34,20 @@ function M.new(runtime)
         if old_stale ~= c.state.stale or old_error ~= c.state.error
             or not equal(old_value, c.state.value) then notify(c) end
     end
+    local function accept(c, value, err)
+        local old_stale, old_error, old_value = c.state.stale, c.state.error, c.state.value
+        if value ~= nil then
+            local old_revision = type(old_value) == "table" and tonumber(old_value.revision)
+            local new_revision = type(value) == "table" and tonumber(value.revision)
+            if old_revision and new_revision and new_revision < old_revision then return false end
+            local source_updated = type(value) == "table" and value.source_updated or nil
+            c.state.value, c.state.updated, c.state.error = value, source_updated or runtime.now(), nil
+        else
+            c.state.error = err or "Unavailable"
+        end
+        publish_if_changed(c, old_stale, old_error, old_value)
+        return true
+    end
     function service.define(name, interval, fetch, max_age)
         assert(not collectors[name], "duplicate collector: " .. name)
         collectors[name] = {interval = interval, max_age = max_age,
@@ -52,14 +66,7 @@ function M.new(runtime)
         local function done(value, err)
             if completed or generation ~= c.generation then return end
             completed, c.pending, c.cancel = true, false, nil
-            old_stale, old_error, old_value = c.state.stale, c.state.error, c.state.value
-            if value ~= nil then
-                local source_updated = type(value) == 'table' and value.source_updated or nil
-                c.state.value, c.state.updated, c.state.error = value, source_updated or runtime.now(), nil
-            else
-                c.state.error = err or "Unavailable"
-            end
-            publish_if_changed(c, old_stale, old_error, old_value)
+            accept(c, value, err)
         end
         local ok, cancel = pcall(c.fetch, done)
         if not ok then
@@ -97,6 +104,10 @@ function M.new(runtime)
                 end
             end
         end}
+    end
+    function service.publish(name, value, err)
+        local c = assert(collectors[name], name)
+        return accept(c, value, err)
     end
     function service.state(name)
         local c = assert(collectors[name], name)
@@ -158,6 +169,70 @@ end
 function M.parse_codex_sample(stdout,now) return source_sample(stdout,'codex',M.parse_codex,now) end
 function M.parse_crypto_sample(stdout,now) return source_sample(stdout,'crypto',M.parse_crypto,now) end
 
+local function split_fields(line)
+    local fields, start = {}, 1
+    while true do
+        local separator = line:find("\t", start, true)
+        if not separator then
+            fields[#fields + 1] = line:sub(start)
+            return fields
+        end
+        fields[#fields + 1] = line:sub(start, separator - 1)
+        start = separator + 1
+    end
+end
+local function unquote(value)
+    if value:gsub("%%[%x][%x]", ""):find("%", 1, true) then return nil end
+    return (value:gsub("%%(%x%x)", function(hex) return string.char(tonumber(hex, 16)) end))
+end
+function M.parse_news(stdout)
+    local lines = {}
+    for line in stdout:gmatch("[^\r\n]+") do lines[#lines + 1] = line end
+    if #lines == 0 then return nil, "Empty news snapshot" end
+    local header = split_fields(lines[1])
+    if #header ~= 4 or header[1] ~= "news-v1" then return nil, "Invalid news snapshot header" end
+    local revision, source_updated, last_attempt = tonumber(header[2]), tonumber(header[3]), tonumber(header[4])
+    if not revision or revision < 0 or not source_updated or source_updated < 0 or not last_attempt then
+        return nil, "Invalid news snapshot metadata"
+    end
+    local result = {revision = revision, source_updated = source_updated, last_attempt = last_attempt,
+        feeds = {}, items = {}, unread = 0}
+    local categories = {general = true, bydgoszcz = true, torun = true, cinema = true}
+    for index = 2, #lines do
+        local fields = split_fields(lines[index])
+        if fields[1] == "feed" then
+            if #fields ~= 6 or not categories[fields[3]] then return nil, "Invalid news feed record" end
+            local label, status = unquote(fields[4]), unquote(fields[5])
+            local last_success = tonumber(fields[6])
+            if not fields[2]:match("^[0-9a-f]+$") or not label or not status or not last_success then
+                return nil, "Invalid news feed metadata"
+            end
+            result.feeds[#result.feeds + 1] = {id = fields[2], category = fields[3],
+                label = label, error = status, last_success = last_success}
+        elseif fields[1] == "item" then
+            if #fields ~= 9 or not categories[fields[3]] then return nil, "Invalid news item record" end
+            local source, title, summary, url = unquote(fields[4]), unquote(fields[7]),
+                unquote(fields[8]), unquote(fields[9])
+            local published = tonumber(fields[5])
+            if not fields[2]:match("^[0-9a-f]+$") or not source or not title or not summary
+                or not published or (fields[6] ~= "0" and fields[6] ~= "1") then
+                return nil, "Invalid news item fields"
+            end
+            if url and url ~= "" and not url:match("^https?://[^%s]+$") then
+                return nil, "Invalid news item link"
+            end
+            local item = {id = fields[2], category = fields[3], source = source,
+                published = published, read = fields[6] == "1", title = title, summary = summary,
+                url = url ~= "" and url or nil}
+            result.items[#result.items + 1] = item
+            if not item.read then result.unread = result.unread + 1 end
+        else
+            return nil, "Unknown news snapshot record"
+        end
+    end
+    return result
+end
+
 -- Injectable runtime above permits deterministic lifecycle/failure tests without X11.
 if not awesome then return M end
 local gears = require("gears")
@@ -192,6 +267,14 @@ end, M.SOURCE_MAX_AGE)
 service.define("codex", 60, function(done)
     service.command({home .. "/.local/bin/codex-usage", "--sidebar-data"}, M.parse_codex_sample, done)
 end, M.SOURCE_MAX_AGE)
+service.define("news", 1800, function(done)
+    local helper = home .. "/.local/bin/desktop-news"
+    -- Publish cached stories immediately while the bounded feed refresh runs.
+    service.command({helper, "snapshot"}, M.parse_news, function(value)
+        if value then service.publish("news", value) end
+    end)
+    service.command({helper, "refresh"}, M.parse_news, done)
+end, 3600)
 service.define("volume", 3, function(done)
     service.command({"wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"}, function(stdout)
         local level = tonumber(stdout:match("Volume:%s+([%d.]+)"))

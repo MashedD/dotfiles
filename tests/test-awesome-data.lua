@@ -183,6 +183,30 @@ assert(not module.parse_codex_sample(codex_sample:gsub('C 5h','C* 5h'),170))
 assert(not module.parse_codex_sample('C 5h 84%@Sat 13:46 7d 33%@Wed 06:41',170))
 assert(module.parse_crypto_sample('crypto-v1\tfresh\t100\tBTC $1 ETH $2 LTC $3',170).source_updated==100)
 assert(not module.parse_crypto_sample('crypto-v1\tstale\t100\tBTC $1 ETH $2 LTC $3',170))
+local news_snapshot = table.concat({
+    'news-v1\t2\t100\t110',
+    'feed\t0123456789abcdef\tgeneral\tWykop%20%26%20friends\t\t100',
+    'item\t0123456789abcdef0123456789abcdef\tgeneral\tWykop\t90\t0\tHello%20%26%20World\tLine%201%20%26%20line%202\thttps%3A%2F%2Fexample.test%2Fstory',
+}, '\n') .. '\n'
+local parsed_news = assert(module.parse_news(news_snapshot))
+assert(parsed_news.revision == 2 and parsed_news.unread == 1 and parsed_news.source_updated == 100)
+assert(parsed_news.feeds[1].label == 'Wykop & friends')
+assert(parsed_news.items[1].title == 'Hello & World' and parsed_news.items[1].summary == 'Line 1 & line 2')
+assert(parsed_news.items[1].url == 'https://example.test/story' and not parsed_news.items[1].read)
+assert(not module.parse_news('news-v1\\t1\\t1\\t1\\nitem\\tbad\\n'))
+local revision_now, revision_done = 50, nil
+local revision_service = module.new {
+    now = function() return revision_now end,
+    timer = function(options) options.stop = function() end; return options end,
+}
+revision_service.define('news', 1800, function(done) revision_done = done end, 3600)
+local revision_state
+local revision_handle = revision_service.subscribe('news', function(state) revision_state = state end)
+assert(revision_service.publish('news', {revision=2, source_updated=40, unread=0}))
+revision_done({revision=1, source_updated=30, unread=3})
+assert(revision_state.value.revision == 2 and revision_state.value.unread == 0,
+    'late helper snapshots must not roll back newer read-state actions')
+revision_handle.stop()
 local source_now=170
 local sourced=module.new{now=function() return source_now end,timer=function() return {stop=function() end} end}
 sourced.define('quota',60,function(done) done({remaining=0,source_updated=100}) end)

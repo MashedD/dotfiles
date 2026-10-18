@@ -17,6 +17,7 @@ local calendar_component = dofile(config_dir .. "/sidebar-calendar.lua")
 local scroll_component = dofile(config_dir .. "/sidebar-scroll.lua")
 local launcher = dofile(config_dir .. "/sidebar-launch.lua")
 local keyboard_view = dofile(config_dir .. "/sidebar-keyboard-view.lua")
+local news_component = dofile(config_dir .. "/sidebar-news.lua")
 local weather_enabled = os.getenv("AWESOME_TEST_MODE") ~= "1" or os.getenv("AWESOME_TEST_WEATHER") == "1"
 local palette = appearance.palette
 local sidebar_gradient = appearance.forest(300)
@@ -384,7 +385,7 @@ function sidebar.create(s, dismiss_menu)
     local section_order, sections_by_id = {}, {}
     local panel
     s.sidebar_ui = ui
-    local function bind_sidebar_action(widget, callback, section_id, extra_valid)
+    local function bind_sidebar_action(widget, callback, section_id, extra_valid, group)
         local normal = button_gradient
         local binding = interaction.bind_button(widget, {
             activate = callback,
@@ -398,7 +399,7 @@ function sidebar.create(s, dismiss_menu)
                 widget.bg = pressed and button_pressed_gradient or (hovered and button_hover_gradient or normal)
                 widget.border_color = pressed and palette.neon or (hovered and palette.teal or palette.bevel_light)
             end,
-        }, ui)
+        }, group or ui)
         widget._sidebar_keyboard_action = callback
         widget._sidebar_release_binding = binding
         return binding
@@ -414,17 +415,20 @@ function sidebar.create(s, dismiss_menu)
     local state_root = os.getenv("XDG_STATE_HOME")
         or ((os.getenv("HOME") or ".") .. "/.local/state")
     local section_state_path = state_root .. "/awesome/sidebar-sections"
-    local all_section_ids = {"calendar", "todo", "quick-launch", "system-status", "codex",
+    local all_section_ids = {"calendar", "todo", "news", "quick-launch", "system-status", "codex",
         "crypto", "weather", "now-playing", "wallpaper"}
     local known_section_ids, collapsed_ids, saved_order_ids, saved_order_seen = {}, {}, {}, {}
     for _, id in ipairs(all_section_ids) do known_section_ids[id] = true end
-    local saved_enabled_ids
+    local saved_enabled_ids, saved_state_version
     local saved_sections = read(section_state_path) or ""
     for id in saved_sections:gmatch("[^\r\n]+") do
         id = id:gsub("^%s+", ""):gsub("%s+$", "")
         local order = id:match("^order=(.*)$")
         local enabled = id:match("^enabled=(.*)$")
-        if order then
+        local version = id:match("^version=(%d+)$")
+        if version then
+            saved_state_version = tonumber(version)
+        elseif order then
             for section_id in order:gmatch("[^,]+") do
                 section_id = section_id:gsub("^%s+", ""):gsub("%s+$", "")
                 if known_section_ids[section_id] and not saved_order_seen[section_id] then
@@ -440,6 +444,20 @@ function sidebar.create(s, dismiss_menu)
             end
         elseif known_section_ids[id] then
             collapsed_ids[id] = true
+        end
+    end
+    if saved_enabled_ids and (saved_state_version or 0) < 2 then
+        -- The news section did not exist before version 2, so honor the user's
+        -- saved choices while enabling the newly introduced section once.
+        saved_enabled_ids.news = true
+    end
+    if saved_sections ~= "" and next(saved_order_seen) and (saved_state_version or 0) < 2 and not saved_order_seen.news then
+        for index, id in ipairs(saved_order_ids) do
+            if id == "todo" then
+                table.insert(saved_order_ids, index + 1, "news")
+                saved_order_seen.news = true
+                break
+            end
         end
     end
     local enabled_ids = saved_enabled_ids or {}
@@ -479,6 +497,7 @@ function sidebar.create(s, dismiss_menu)
         local temporary = section_state_path .. ".tmp"
         local file = io.open(temporary, "w")
         if not file then return end
+        file:write("version=2\n")
         file:write("order=", table.concat(saved_order_ids, ","), "\n")
         file:write("enabled=")
         local first_enabled = true
@@ -528,6 +547,7 @@ function sidebar.create(s, dismiss_menu)
             section.collapsed = not section.collapsed
             update()
             save_section_state()
+            if section.on_toggle then section.on_toggle(section.collapsed) end
             if dismiss_menu then dismiss_menu() end
         end
         section.toggle_action = toggle
@@ -1028,9 +1048,55 @@ function sidebar.create(s, dismiss_menu)
     local scroll_ui
     local function set_scroll_offset(offset) scroll_ui.set_offset(offset) end
     local function scroll_by(delta) scroll_ui.scroll_by(delta) end
+    local news_card
+    local function make_news_button(text, callback, width, group)
+        local text_widget = label("", palette.text, 8, true, "center")
+        local function update_text(value)
+            set_markup(text_widget, string.format(
+                "<span foreground='%s' size='8pt' weight='bold'>%s</span>",
+                palette.text, gstring.xml_escape(tostring(value))))
+        end
+        update_text(text)
+        local button = style_button(wibox.widget {
+            {text_widget, left = 4, right = 4, widget = wibox.container.margin},
+            forced_width = width, forced_height = 24,
+            bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
+            widget = wibox.container.background,
+        })
+        bind_sidebar_action(button, callback, "news", nil, group)
+        button.set_text = update_text
+        return button
+    end
+    local popup_width = math.max(180, math.min(520, s.geometry.width - 24))
+    local popup_height = math.max(160, math.min(680, s.geometry.height - 40))
+    local news_ui = news_component.new {
+        screen = s, ui = ui, data = data, interaction = interaction, appearance = appearance,
+        label = label, button = make_news_button, helper = (os.getenv("HOME") or "") .. "/.local/bin/desktop-news",
+        dismiss = dismiss_menu, popup_width = popup_width, popup_height = popup_height,
+        list_height = math.max(60, popup_height - 130),
+        category_names = {all = "All", general = "General", bydgoszcz = "Bydgoszcz",
+            torun = "Toruń", cinema = "Cinema"},
+        anchor = function()
+            if not panel or not panel.visible or not news_card then return nil end
+            local x = math.floor(panel.width / 2)
+            for y = 0, panel.height - 1 do
+                for _, found in ipairs(panel:find_widgets(x, y)) do
+                    if found.widget == news_card then
+                        return {x = panel.x + found.x, y = panel.y + found.y,
+                            width = found.width, height = found.height}
+                    end
+                end
+            end
+            return nil
+        end,
+    }
+    local news_section, news_height
+    news_card, news_height, news_section = collapsible_card("news", "NEWS", news_ui.body)
+    news_section.on_toggle = function(collapsed) if collapsed then news_ui.hide() end end
     local default_content_sections = {
         {id = "calendar", widget = calendar_card},
         {id = "todo", widget = todo_card},
+        {id = "news", widget = news_card},
         {id = "quick-launch", widget = quick_launch_card},
         {id = "system-status", widget = stats_card},
         {id = "codex", widget = codex_card},
@@ -1095,7 +1161,7 @@ function sidebar.create(s, dismiss_menu)
         on_suppress = function(value) suppress_scroll_click = value end,
     }
     ui.add(scroll_ui.destroy)
-    s.sidebar_components = {clock = clock_ui, calendar = calendar_ui, scroll = scroll_ui}
+    s.sidebar_components = {clock = clock_ui, calendar = calendar_ui, news = news_ui, scroll = scroll_ui}
     local scroll_view, scrollbar, sidebar_column, scrollbar_panel =
         scroll_ui.view, scroll_ui.bar, scroll_ui.widget, scroll_ui.bar_panel
     panel = wibox {
@@ -1295,6 +1361,10 @@ function sidebar.create(s, dismiss_menu)
         if delta and mouse.coords().y >= panel.y + header.forced_height then scroll_by(delta) end
     end)
     s.sidebar = panel
+    news_ui.attach()
+    s.sidebar_news, s.sidebar_news_card = news_ui, news_card
+    s.sidebar_news_popup = news_ui.popup
+    s.sidebar_news_hide = news_ui.hide
     local keyboard_targets = {}
     local function target(section,id,widget,activate,exit,key,space,resolve)
         local entries=keyboard_targets[section] or {}
@@ -1318,6 +1388,7 @@ function sidebar.create(s, dismiss_menu)
             change_volume(key=='Left' and 'down' or 'up'); return true
         end,function() change_volume('mute') end)
     if weather_enabled then target('weather','refresh',weather_body,update_weather) end
+    target('news','open',news_ui.open_button,news_ui.open,true)
     target('crypto','open',crypto_body,open_trezor_suite,true)
     target('todo','open',todo_body,open_todo_document,true)
     target('calendar','previous',calendar_ui.previous,calendar_ui.previous._sidebar_keyboard_action)
@@ -1509,6 +1580,7 @@ function sidebar.create(s, dismiss_menu)
     }
     bind("crypto", render_crypto, crypto_body)
     bind("codex", render_codex, codex_body)
+    bind("news", news_ui.render)
     if weather_enabled then
         bind("weather", render_weather, weather_body)
     else
@@ -1524,6 +1596,7 @@ function sidebar.create(s, dismiss_menu)
         s.sidebar_trash_timer:stop()
         s.sidebar_todo_timer:stop()
         s.sidebar_calendar_timer:stop()
+        s.sidebar_news_timer:stop()
         s.sidebar_crypto_timer:stop()
         s.sidebar_codex_timer:stop()
         if s.sidebar_weather_timer then s.sidebar_weather_timer:stop() end

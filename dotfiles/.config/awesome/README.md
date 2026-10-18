@@ -19,7 +19,13 @@ bindings, shared mouse-grab ownership, elapsed-time transitions, and lifetime gr
 disconnect signals and cancel delayed tooltips.
 
 `sidebar.lua` remains the screen-level coordinator: sections, persistence, collector
-subscriptions, launch actions, and section reordering. `sidebar-data.lua` shares
+subscriptions, launch actions, and section reordering. `sidebar-news.lua` builds a
+scrollable, non-modal unread-first RSS/Atom popup anchored to the News section;
+`desktop-news` owns bounded feed fetching, parsing, safe story links, and atomic
+persistent read/dismissal state. Configure only approved feeds in
+`~/.config/awesome/news-feeds`; the initial source is Wykop under General. The
+popup offers category/unread filters, Firefox opening (which marks the story read),
+individual read/unread/remove controls, and Mark all read. `sidebar-data.lua` shares
 session samples and only notifies on state/value changes. Fast CPU/memory/network
 stats run every second; battery and root-filesystem capacity use a separate 30-second
 collector. Clock, fast-stat, and slow-power widget updates are coalesced by
@@ -50,7 +56,9 @@ actions use the shared grab/release handler and an immediate, fading dark-teal
 overlay that preserves native taglist backgrounds. The
 coordinator adapts component handles back to existing `s.sidebar_*` diagnostics;
 section order, fold state, and visibility are stored together in
-`$XDG_STATE_HOME/awesome/sidebar-sections`. Quick Launch defaults off; the Control
+`$XDG_STATE_HOME/awesome/sidebar-sections` (section-state format version 2 adds
+News to existing saved orders without resetting prior visibility/fold choices).
+Quick Launch defaults off; the Control
 Center's Sidebar tab can enable it; use its Save & Restart button or Win+Ctrl+R.
 
 | Component | Constructor inputs | Returned operations/handles |

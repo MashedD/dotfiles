@@ -1,0 +1,4 @@
+# category<TAB>label<TAB>RSS-or-Atom-URL
+# Categories: general, bydgoszcz, torun, cinema
+# Add only user-approved HTTP(S) RSS/Atom feeds.
+general	Wykop	https://wykop.pl/rss

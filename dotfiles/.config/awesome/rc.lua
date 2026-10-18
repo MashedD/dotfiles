@@ -76,12 +76,17 @@ local main_menu
 local function dismiss_start_menu()
     if main_menu and main_menu.wibox.visible then main_menu:hide() end
 end
+local function dismiss_sidebar_news()
+    for s in screen do if s.sidebar_news_hide then s.sidebar_news_hide() end end
+end
 local function activate(c)
+    dismiss_sidebar_news()
     dismiss_start_menu()
     c.minimized = false
     c:emit_signal("request::activate", "user", {raise = true})
 end
 local function maximize(c)
+    dismiss_sidebar_news()
     dismiss_start_menu()
     c.maximized = not c.maximized
     c:raise()
@@ -167,6 +172,7 @@ local function toggle_layout()
     end
 end
 local function lower(c)
+    dismiss_sidebar_news()
     dismiss_start_menu()
     c:lower()
     awful.client.focus.byidx(1)
@@ -533,6 +539,7 @@ local function cancel_sidebar_keyboard()
 end
 local function mouse_action(action)
     return function(...)
+        dismiss_sidebar_news()
         cancel_sidebar_keyboard()
         return action(...)
     end

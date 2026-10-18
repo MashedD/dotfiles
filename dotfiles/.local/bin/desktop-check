@@ -16,7 +16,7 @@ for option do
     *) usage >&2; exit 64 ;;
   esac
 done
-required_commands='awesome awesome-client picom pgrep xrandr xset xss-lock i3lock maim xclip xdotool snixembed dunst dunstify dmenu pcmanfm xsettingsd lxqt-policykit-agent kitty xdg-terminal-exec xfce4-appfinder pavucontrol playerctl desktop-control-center fc-match flock setsid logger dbus-update-activation-environment wpctl brightnessctl jq curl timeout'
+required_commands='awesome awesome-client picom pgrep xrandr xset xss-lock i3lock maim xclip xdotool snixembed dunst dunstify dmenu pcmanfm xsettingsd lxqt-policykit-agent kitty xdg-terminal-exec xfce4-appfinder pavucontrol playerctl desktop-control-center fc-match flock setsid logger dbus-update-activation-environment wpctl brightnessctl jq curl python3 timeout'
 optional_commands='firefox audacious gajim keepassxc xdpyinfo magick arandr nm-connection-editor solaar btop htop amdgpu_top xfce4-taskmanager blueman-manager xfce4-power-manager-settings'
 failures=0
 warnings=0
@@ -92,7 +92,7 @@ check_commands required "$required_commands"
 check_commands optional "$optional_commands"
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
 data_home=${XDG_DATA_HOME:-$HOME/.local/share}
-for config in awesome/rc.lua awesome/panel.lua awesome/autostart picom/picom.conf X11/xinitrc xdg-terminals.list xsettingsd/xsettingsd.conf; do
+for config in awesome/rc.lua awesome/panel.lua awesome/autostart awesome/news-feeds picom/picom.conf X11/xinitrc xdg-terminals.list xsettingsd/xsettingsd.conf; do
   check_file config "$config_home/$config"
 done
 xsettings_config="$config_home/xsettingsd/xsettingsd.conf"
@@ -151,7 +151,7 @@ if command -v fc-match >/dev/null 2>&1; then
   fi
 fi
 bin_root=${DESKTOP_HELPER_ROOT:-$HOME/.local/bin}
-for helper in desktop-lock desktop-display desktop-screenshot desktop-battery-watch desktop-brightness desktop-volume; do
+for helper in desktop-lock desktop-display desktop-screenshot desktop-battery-watch desktop-brightness desktop-volume desktop-news; do
   if [ -x "$bin_root/$helper" ]; then ok "helper $bin_root/$helper"; else fail "helper $bin_root/$helper"; fi
 done
 if "$runtime"; then check_runtime; fi

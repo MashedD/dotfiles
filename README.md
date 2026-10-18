@@ -26,7 +26,9 @@ launcher. `nm-connection-editor`, `amdgpu_top`, `htop`, `xfce4-taskmanager`,
 Solaar is never started automatically. The Control Center's Sidebar tab controls
 which sections appear; Quick Launch is hidden by default and can be enabled there.
 Use **Save & Restart Awesome** or save and press Win+Ctrl+R. Trash and volume
-remain in System Status.
+remain in System Status. The sidebar News inbox is unread-first and starts with a
+curated Wykop General RSS feed; configure any additional approved RSS/Atom sources
+in `~/.config/awesome/news-feeds`.
 
 From the repository root:
 

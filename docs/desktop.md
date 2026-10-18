@@ -145,6 +145,13 @@ section visibility; Quick Launch is hidden by default to save space. Use **Save 
 that tab, or save the choices and press Win+Ctrl+R to apply them. Solaar is not
 started automatically. The Start menu keeps
 its Volume Control entry but no longer duplicates Monitor or Display outputs.
+The sidebar also has a scrollable News inbox (default view: unread) backed only by
+curated RSS/Atom sources. `~/.config/awesome/news-feeds` is a tab-separated
+`category<TAB>label<TAB>URL` manifest; the initial General source is Wykop, and no
+local-news or cinema feeds are configured. Stories open in Firefox and are marked
+read; individual read/unread/remove controls and **Mark all read** are available.
+Inbox state is stored under `$XDG_STATE_HOME/awesome/news.json` (default
+`~/.local/state/awesome/news.json`). No scraping or ranking is used.
 Trash and the integrated volume control are in System Status. Explicit HDMI modes prefer 2560×1440/144 Hz; the
 internal display stays enabled until a requested mode succeeds. Mouse: drag
 titlebar to move, double-click to maximize, and drag a maximized titlebar to restore

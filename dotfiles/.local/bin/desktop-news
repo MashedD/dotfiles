@@ -1,0 +1,503 @@
+#!/usr/bin/env python3
+"""Fetch, normalize, and persist the Awesome sidebar's curated RSS inbox."""
+from __future__ import annotations
+
+import argparse
+import concurrent.futures
+import email.utils
+import hashlib
+from html.parser import HTMLParser
+import html
+import json
+import os
+from pathlib import Path
+import re
+import sys
+import tempfile
+import time
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote, urljoin, urlsplit, urlunsplit
+from urllib.request import HTTPRedirectHandler, Request, build_opener
+import xml.etree.ElementTree as ET
+
+VERSION = 1
+CATEGORIES = {"general", "bydgoszcz", "torun", "cinema"}
+MAX_FEEDS = 8
+MAX_BYTES = 1_048_576
+MAX_ITEMS_PER_FEED = 40
+MAX_ITEMS = 500
+MAX_TITLE = 300
+MAX_SUMMARY = 700
+TIMEOUT = 8
+USER_AGENT = "desktop-news/1.0 (AwesomeWM RSS reader)"
+
+
+def config_path() -> Path:
+    home = Path(os.environ.get("HOME", str(Path.home())))
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME", home / ".config"))
+    return config_home / "awesome" / "news-feeds"
+
+
+def state_path() -> Path:
+    home = Path(os.environ.get("HOME", str(Path.home())))
+    state_home = Path(os.environ.get("XDG_STATE_HOME", home / ".local/state"))
+    return state_home / "awesome" / "news.json"
+
+
+def valid_http_url(value: str) -> str | None:
+    value = value.strip()
+    if not value or any(ord(char) < 32 for char in value):
+        return None
+    try:
+        parsed = urlsplit(value)
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+            return None
+        if parsed.username is not None or parsed.password is not None:
+            return None
+        # Accessing .port also validates malformed port numbers.
+        _ = parsed.port
+        return urlunsplit((parsed.scheme.lower(), parsed.netloc, parsed.path or "/", parsed.query, parsed.fragment))
+    except ValueError:
+        return None
+
+
+def canonical_url(value: str) -> str:
+    parsed = urlsplit(value)
+    host = (parsed.hostname or "").lower()
+    port = parsed.port
+    default_port = (parsed.scheme == "http" and port == 80) or (parsed.scheme == "https" and port == 443)
+    authority = host if not port or default_port else f"{host}:{port}"
+    if ":" in host and not host.startswith("["):
+        authority = f"[{host}]" + (f":{port}" if port and not default_port else "")
+    return urlunsplit((parsed.scheme.lower(), authority, parsed.path or "/", parsed.query, ""))
+
+
+class _TextOnly(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self.skip_depth = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() in {"script", "style"}:
+            self.skip_depth += 1
+        elif tag.lower() in {"br", "p", "div", "li", "tr"} and not self.skip_depth:
+            self.parts.append(" ")
+
+    def handle_endtag(self, tag):
+        if tag.lower() in {"script", "style"} and self.skip_depth:
+            self.skip_depth -= 1
+        elif tag.lower() in {"p", "div", "li", "tr"} and not self.skip_depth:
+            self.parts.append(" ")
+
+    def handle_data(self, data):
+        if not self.skip_depth:
+            self.parts.append(data)
+
+
+def plain_text(value: str, limit: int) -> str:
+    parser = _TextOnly()
+    try:
+        parser.feed(value)
+        parser.close()
+        value = " ".join(parser.parts)
+    except Exception:
+        value = html.unescape(re.sub(r"<[^>]*>", " ", value))
+    value = html.unescape(value)
+    value = " ".join("".join(char for char in value if char in "\t\n\r" or ord(char) >= 32).split())
+    if len(value) > limit:
+        value = value[: limit - 1].rstrip() + "…"
+    return value
+
+
+def _local(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1].lower()
+
+
+def _direct(entry: ET.Element, names: set[str]) -> str | None:
+    for child in list(entry):
+        if _local(child.tag) in names:
+            text = "".join(child.itertext()).strip()
+            if text:
+                return text
+    return None
+
+
+def _published(entry: ET.Element) -> int:
+    from datetime import timezone
+    raw = _direct(entry, {"pubdate", "published", "updated", "date", "issued"})
+    if not raw:
+        return 0
+    try:
+        parsed = email.utils.parsedate_to_datetime(raw)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return int(parsed.timestamp())
+    except (TypeError, ValueError, OverflowError):
+        pass
+    try:
+        from datetime import datetime
+        normalized = raw.replace("Z", "+00:00")
+        parsed = datetime.fromisoformat(normalized)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return int(parsed.timestamp())
+    except (TypeError, ValueError, OverflowError):
+        return 0
+
+
+def _entry_link(entry: ET.Element, base_url: str) -> str | None:
+    for child in list(entry):
+        if _local(child.tag) != "link":
+            continue
+        href = child.attrib.get("href")
+        rel = child.attrib.get("rel", "alternate").lower()
+        candidate = href if href and rel in {"", "alternate"} else (child.text or "").strip()
+        if candidate:
+            return valid_http_url(urljoin(base_url, candidate))
+    return None
+
+
+def parse_feed(xml_bytes: bytes, feed: dict, now: int | None = None) -> list[dict]:
+    """Parse RSS 2 or Atom entries; malformed/unsupported documents raise ValueError."""
+    if not xml_bytes or len(xml_bytes) > MAX_BYTES:
+        raise ValueError("Feed is empty or exceeds the 1 MiB limit")
+    if re.search(br"<!\s*(?:DOCTYPE|ENTITY)\b", xml_bytes, re.IGNORECASE):
+        raise ValueError("DTD/entity declarations are not supported")
+    try:
+        root = ET.fromstring(xml_bytes)
+    except ET.ParseError as error:
+        raise ValueError(f"Invalid XML: {error}") from error
+    entries = [element for element in root.iter() if _local(element.tag) in {"item", "entry"}]
+    if not entries:
+        raise ValueError("No RSS items or Atom entries found")
+    now = int(time.time()) if now is None else int(now)
+    items = []
+    for entry in entries[:MAX_ITEMS_PER_FEED]:
+        raw_title = _direct(entry, {"title"}) or "(untitled story)"
+        title = plain_text(raw_title, MAX_TITLE)
+        link = _entry_link(entry, feed["url"])
+        summary_raw = _direct(entry, {"description", "summary", "content", "encoded"}) or ""
+        summary = plain_text(summary_raw, MAX_SUMMARY)
+        published = _published(entry)
+        guid = _direct(entry, {"guid", "id"}) or (canonical_url(link) if link else f"{title}\0{published}")
+        stable_source = feed["url"]
+        item_id = hashlib.sha256(f"{stable_source}\0{guid}".encode("utf-8")).hexdigest()[:32]
+        items.append({
+            "id": item_id,
+            "category": feed["category"],
+            "source": feed["label"],
+            "title": title or "(untitled story)",
+            "summary": summary,
+            "url": link,
+            "published": published or now,
+            "read": False,
+        })
+    items.sort(key=lambda item: item["published"], reverse=True)
+    return items
+
+
+class _SafeRedirect(HTTPRedirectHandler):
+    def redirect_request(self, request, response, code, message, headers, newurl):
+        if valid_http_url(newurl) is None:
+            raise URLError("Feed redirected to a non-HTTP URL")
+        return super().redirect_request(request, response, code, message, headers, newurl)
+
+
+_OPENER = build_opener(_SafeRedirect())
+
+
+def load_feeds(path: Path | None = None) -> list[dict]:
+    path = path or config_path()
+    feeds = []
+    seen = set()
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return feeds
+    for line_number, raw in enumerate(lines, 1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        fields = raw.split("\t")
+        if len(fields) != 3:
+            raise ValueError(f"{path}:{line_number}: expected category<TAB>label<TAB>URL")
+        category, label, url = (field.strip() for field in fields)
+        url = valid_http_url(url) or ""
+        if url:
+            url = canonical_url(url)
+        if category not in CATEGORIES:
+            raise ValueError(f"{path}:{line_number}: unknown category {category!r}")
+        if not label or len(label) > 64 or any(ord(char) < 32 for char in label) or not url:
+            raise ValueError(f"{path}:{line_number}: invalid label or HTTP(S) feed URL")
+        if url in seen:
+            raise ValueError(f"{path}:{line_number}: duplicate feed URL")
+        seen.add(url)
+        feeds.append({"category": category, "label": label, "url": url})
+    if len(feeds) > MAX_FEEDS:
+        raise ValueError(f"At most {MAX_FEEDS} feeds are supported")
+    return feeds
+
+
+def _fetch_one(feed: dict, previous: dict) -> tuple[dict, list[dict], str | None, str | None]:
+    headers = {"User-Agent": USER_AGENT, "Accept": "application/atom+xml, application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.1"}
+    if previous.get("etag"):
+        headers["If-None-Match"] = previous["etag"]
+    if previous.get("last_modified"):
+        headers["If-Modified-Since"] = previous["last_modified"]
+    request = Request(feed["url"], headers=headers)
+    try:
+        with _OPENER.open(request, timeout=TIMEOUT) as response:
+            length = response.headers.get("Content-Length")
+            if length and int(length) > MAX_BYTES:
+                raise ValueError("Feed exceeds the 1 MiB limit")
+            body = response.read(MAX_BYTES + 1)
+            items = parse_feed(body, feed)
+            return feed, items, response.headers.get("ETag"), response.headers.get("Last-Modified")
+    except HTTPError as error:
+        if error.code == 304:
+            return feed, [], previous.get("etag"), previous.get("last_modified")
+        raise ValueError(f"HTTP {error.code}") from error
+    except (URLError, TimeoutError, OSError, ValueError, ET.ParseError) as error:
+        raise ValueError(str(error)[:240]) from error
+
+
+def _new_state() -> dict:
+    return {"version": VERSION, "revision": 0, "last_attempt": 0, "items": {}, "dismissed": {}, "feeds": {}}
+
+
+def _state_lock(path: Path):
+    import fcntl
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    lock = path.with_suffix(path.suffix + ".lock")
+    fd = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
+    return fd, fcntl
+
+
+def _load_unlocked(path: Path) -> dict:
+    if not path.exists():
+        return _new_state()
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ValueError(f"Cannot read news state safely: {error}") from error
+    if not isinstance(value, dict) or value.get("version") != VERSION:
+        raise ValueError("News state has an unsupported format; preserving it unchanged")
+    if not all(isinstance(value.get(key), dict) for key in ("items", "dismissed", "feeds")):
+        raise ValueError("News state is malformed; preserving it unchanged")
+    value.setdefault("revision", 0)
+    value.setdefault("last_attempt", 0)
+    return value
+
+
+def _write_unlocked(path: Path, value: dict) -> None:
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(prefix=".news.", suffix=".tmp", dir=path.parent)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as output:
+            json.dump(value, output, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+            output.write("\n")
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temp_name, path)
+        dir_fd = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
+    except BaseException:
+        try:
+            os.unlink(temp_name)
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def _with_state(path: Path, change, write: bool = False):
+    fd, fcntl = _state_lock(path)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        state = _load_unlocked(path)
+        result = change(state)
+        if write:
+            state["revision"] = int(state.get("revision", 0)) + 1
+            _write_unlocked(path, state)
+        return state, result
+    finally:
+        os.close(fd)
+
+
+def _snapshot_lines(state: dict) -> str:
+    last_success = max((int(feed.get("last_success", 0)) for feed in state["feeds"].values()), default=0)
+    lines = [f"news-v1\t{int(state.get('revision', 0))}\t{last_success}\t{int(state.get('last_attempt', 0))}"]
+    for feed_url, metadata in sorted(state["feeds"].items()):
+        feed_key = hashlib.sha256(feed_url.encode("utf-8")).hexdigest()[:16]
+        lines.append("\t".join((
+            "feed", feed_key, metadata.get("category", "general"),
+            quote(metadata.get("label", ""), safe=""),
+            quote(metadata.get("error") or metadata.get("warning", ""), safe=""),
+            str(int(metadata.get("last_success", 0))),
+        )))
+    items = sorted(state["items"].values(), key=lambda item: (int(item.get("published", 0)), item.get("id", "")), reverse=True)
+    for item in items:
+        if item.get("removed"):
+            continue
+        fields = (
+            "item", item.get("id", ""), item.get("category", "general"),
+            quote(item.get("source", ""), safe=""), str(int(item.get("published", 0))),
+            "1" if item.get("read") else "0", quote(item.get("title", ""), safe=""),
+            quote(item.get("summary", ""), safe=""), quote(item.get("url") or "", safe=""),
+        )
+        lines.append("\t".join(fields))
+    return "\n".join(lines) + "\n"
+
+
+def _evict_oldest_read(state: dict) -> bool:
+    read_items = sorted(
+        (item for item in state["items"].values() if item.get("read") and not item.get("removed")),
+        key=lambda item: (int(item.get("published", 0)), item.get("id", "")),
+    )
+    if not read_items:
+        return False
+    state["items"].pop(read_items[0]["id"], None)
+    return True
+
+
+def _prune(state: dict) -> bool:
+    while len(state["items"]) > MAX_ITEMS and _evict_oldest_read(state):
+        pass
+    return len(state["items"]) > MAX_ITEMS
+
+
+def refresh(path: Path | None = None, feeds_file: Path | None = None, now: int | None = None) -> str:
+    path, now = path or state_path(), int(time.time()) if now is None else int(now)
+    feeds = load_feeds(feeds_file)
+    # Network is deliberately outside the state lock; actions remain responsive.
+    fd, fcntl = _state_lock(path)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        initial = _load_unlocked(path)
+        previous = dict(initial["feeds"])
+    finally:
+        os.close(fd)
+
+    results = {}
+    if feeds:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(feeds))) as executor:
+            jobs = {executor.submit(_fetch_one, feed, previous.get(feed["url"], {})): feed for feed in feeds}
+            for future in concurrent.futures.as_completed(jobs, timeout=TIMEOUT * ((len(feeds) + 3) // 4) + 3):
+                feed = jobs[future]
+                try:
+                    _, items, etag, modified = future.result()
+                    results[feed["url"]] = (items, etag, modified, None)
+                except Exception as error:
+                    results[feed["url"]] = ([], None, None, str(error)[:240])
+
+    def merge(state):
+        state["last_attempt"] = now
+        active_urls = {feed["url"] for feed in feeds}
+        # Drop metadata for removed feed definitions but preserve their stories.
+        for url in list(state["feeds"]):
+            if url not in active_urls:
+                state["feeds"].pop(url, None)
+        skipped_new = False
+        for feed in feeds:
+            items, etag, modified, error = results.get(feed["url"], ([], None, None, "Fetch did not complete"))
+            metadata = state["feeds"].setdefault(feed["url"], {})
+            metadata.update({"category": feed["category"], "label": feed["label"]})
+            if error:
+                metadata["error"] = error
+                continue
+            metadata["error"] = ""
+            metadata["last_success"] = now
+            metadata["etag"] = etag or metadata.get("etag", "")
+            metadata["last_modified"] = modified or metadata.get("last_modified", "")
+            for incoming in items:
+                item_id = incoming["id"]
+                if item_id in state["dismissed"]:
+                    continue
+                existing = state["items"].get(item_id)
+                if existing:
+                    incoming["read"] = bool(existing.get("read"))
+                    incoming["first_seen"] = int(existing.get("first_seen", now))
+                else:
+                    incoming["first_seen"] = now
+                    if len(state["items"]) >= MAX_ITEMS and not _evict_oldest_read(state):
+                        skipped_new = True
+                        continue
+                state["items"][item_id] = incoming
+        tombstone_cutoff = now - 90 * 24 * 60 * 60
+        state["dismissed"] = {
+            item_id: stamp for item_id, stamp in state["dismissed"].items()
+            if int(stamp) >= tombstone_cutoff
+        }
+        if skipped_new:
+            for metadata in state["feeds"].values():
+                if metadata.get("category") in CATEGORIES:
+                    metadata["warning"] = "Inbox full; mark or remove stories to accept new items"
+        else:
+            for metadata in state["feeds"].values():
+                metadata.pop("warning", None)
+        return None
+
+    state, _ = _with_state(path, merge, write=True)
+    return _snapshot_lines(state)
+
+
+def action(path: Path, name: str, item_id: str | None = None) -> str:
+    if item_id and not re.fullmatch(r"[0-9a-f]{32}", item_id):
+        raise ValueError("Invalid story ID")
+
+    def change(state):
+        if name == "mark-all-read":
+            for item in state["items"].values():
+                if not item.get("removed"):
+                    item["read"] = True
+        elif name in {"mark-read", "mark-unread"}:
+            item = state["items"].get(item_id)
+            if item and not item.get("removed"):
+                item["read"] = name == "mark-read"
+        elif name == "remove":
+            item = state["items"].pop(item_id, None)
+            if item:
+                state["dismissed"][item_id] = int(time.time())
+        else:
+            raise ValueError("Unknown news action")
+        return None
+
+    state, _ = _with_state(path, change, write=True)
+    return _snapshot_lines(state)
+
+
+def snapshot(path: Path | None = None) -> str:
+    state, _ = _with_state(path or state_path(), lambda value: None)
+    return _snapshot_lines(state)
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("refresh", help="fetch configured feeds and return the current snapshot")
+    commands.add_parser("snapshot", help="return the cached snapshot without network access")
+    for name in ("mark-read", "mark-unread", "remove"):
+        command_parser = commands.add_parser(name)
+        command_parser.add_argument("item_id")
+    commands.add_parser("mark-all-read")
+    args = parser.parse_args(argv)
+    try:
+        if args.command == "refresh":
+            output = refresh()
+        elif args.command == "snapshot":
+            output = snapshot()
+        else:
+            output = action(state_path(), args.command, getattr(args, "item_id", None))
+        sys.stdout.write(output)
+        return 0
+    except Exception as error:
+        print(f"desktop-news: {error}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

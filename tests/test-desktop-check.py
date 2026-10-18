@@ -29,7 +29,7 @@ class HealthCheckTests(unittest.TestCase):
                 self.command(name)
         self.command('id')
         for name in ['awesome/rc.lua', 'awesome/panel.lua', 'awesome/autostart',
-                     'picom/picom.conf', 'X11/xinitrc']:
+                     'awesome/news-feeds', 'picom/picom.conf', 'X11/xinitrc']:
             self.file(self.config / name)
         self.file(self.config / 'xsettingsd/xsettingsd.conf',
                   'Net/ThemeName "Adwaita"\nNet/IconThemeName "Breeze"\nGtk/CursorThemeName "Adwaita"\nGtk/ColorScheme "selected_bg_color:#3584e4\\nselected_fg_color:#ffffff"\n')
@@ -39,6 +39,9 @@ class HealthCheckTests(unittest.TestCase):
         self.file(self.data / 'icons/hicolor/32x32/apps/tux-start.png')
         self.file(self.data / 'applications/desktop-control-center.desktop')
         self.file(self.home / '.local/bin/desktop-control-center')
+        news_helper = self.helpers / 'desktop-news'
+        self.file(news_helper, '#!/usr/bin/env python3\n')
+        news_helper.chmod(0o755)
         self.file(self.home / '.local/lib/desktop_control_center/settings.py')
         for name in ['lock', 'display', 'screenshot', 'battery-watch', 'brightness', 'volume']:
             path = self.helpers / f'desktop-{name}'
