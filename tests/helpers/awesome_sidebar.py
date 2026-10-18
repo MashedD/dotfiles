@@ -66,11 +66,12 @@ def verify_news(*, lua, wait, pointer, widget_point, press, actions_file, log_te
         wait('return tostring(screen[1].sidebar_news.scroll_offset()>0)', '"true"')
         lua('screen[1].sidebar_news.scroll_by(-10000)')
         scroll_point = popup_widget_point('screen[1].sidebar_news.viewport')
-        pointer("mousemove", *scroll_point, "click", 5)
-        mid_scroll = float(__import__("re").search(
+        scroll_started = time.monotonic()
+        pointer("mousemove", *scroll_point, "click", 5, delay=0)
+        wheel_offset = float(__import__("re").search(
             r'"([0-9.]+)"', lua('return tostring(screen[1].sidebar_news.scroll_offset())')).group(1))
-        assert 0 < mid_scroll < 72, f"Wheel scroll skipped its eased intermediate position: {mid_scroll}"
-        wait('return tostring(screen[1].sidebar_news.scroll_offset()>=71)', '"true"')
+        assert wheel_offset >= 77, f"Wheel scroll did not respond immediately: {wheel_offset}"
+        assert time.monotonic() - scroll_started < 0.75, "Wheel scroll response took too long"
         pointer("mousemove", *scroll_point, "click", 4)
         lua('screen[1].sidebar_news.scroll_by(-10000)')
 
@@ -112,6 +113,17 @@ def verify_news(*, lua, wait, pointer, widget_point, press, actions_file, log_te
         assert f"desktop-news mark-unread {story_id}" in actions_file.read_text(), actions_file.read_text()
         assert "desktop-news mark-all-read" in actions_file.read_text(), actions_file.read_text()
         assert f"desktop-news remove {story_id}" in actions_file.read_text(), actions_file.read_text()
+
+        stage = "large inbox uses a bounded visible hierarchy"
+        lua('local s=screen[1]; local original=s.sidebar_data.state("news"); '
+            'local value={}; for k,v in pairs(original.value) do value[k]=v end; value.items={}; '
+            'local template=original.value.items[1]; for i=1,1000 do local item={}; '
+            'for k,v in pairs(template) do item[k]=v end; item.id="virtual-"..i; '
+            'value.items[i]=item end; s.sidebar_news.render({value=value,updated=os.time()})')
+        wait('return tostring(screen[1].sidebar_news.visible_row_count>0 and screen[1].sidebar_news.visible_row_count<20)', '"true"')
+        lua('screen[1].sidebar_news.scroll_by(50000)')
+        wait('return tostring(screen[1].sidebar_news.scroll_offset()==50000 and screen[1].sidebar_news.visible_row_count<20)', '"true"')
+        lua('local s=screen[1]; s.sidebar_news.render(s.sidebar_data.state("news"))')
 
         stage = "outside clicks are harmless; X closes"
         pointer("mousemove", 30, 700, "click", 1)

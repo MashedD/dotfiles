@@ -28,9 +28,9 @@ function M.new(options)
     local row_lifetime
     local view_unread, view_category = true, "all"
     local scroll_offset, scroll_target, content_height = 0, 0, 0
+    local content_width, content_dpi
     local viewport_height = options.list_height
-    local scroll_animation, scrollbar_dragging
-    local scroll_start_offset, scroll_started_at = 0, 0
+    local scrollbar_dragging
     local scrollbar_owner = {}
     local component = {ui = ui}
 
@@ -45,6 +45,7 @@ function M.new(options)
 
     local list = wibox.layout.fixed.vertical()
     list.spacing = 5
+    local measured_rows = {}
     local viewport = wibox.widget.base.make_widget()
     local scrollbar
     local function max_scroll()
@@ -58,47 +59,57 @@ function M.new(options)
         viewport:emit_signal("widget::redraw_needed")
         if scrollbar then scrollbar:emit_signal("widget::redraw_needed") end
     end
-    local function stop_scroll_animation()
-        if scroll_animation then scroll_animation:stop(); scroll_animation = nil end
+    local function scroll_to(value)
+        local next_offset = clamp_scroll(value)
+        if next_offset == scroll_offset and next_offset == scroll_target then return false end
+        scroll_offset, scroll_target = next_offset, next_offset
+        redraw_scroll()
+        return true
     end
-    local function scroll_to(value, smooth)
-        scroll_target = clamp_scroll(value)
-        if not smooth then
-            stop_scroll_animation()
-            scroll_offset = scroll_target
-            redraw_scroll()
-            return
+    local function measure_content(context, width)
+        local dpi = context and context.dpi
+        if content_width ~= width or content_dpi ~= dpi then
+            -- Measure once per content/width change, not once per wheel event.
+            measured_rows = {}
+            local top = 0
+            for _, row in ipairs(list:get_children()) do
+                local _, height = wibox.widget.base.fit_widget(viewport, context, row, width, 2^20)
+                measured_rows[#measured_rows + 1] = {widget = row, top = top, height = height}
+                top = top + height + list.spacing
+            end
+            content_width, content_dpi = width, dpi
+            content_height = math.max(0, top - (#measured_rows > 0 and list.spacing or 0))
         end
-        scroll_start_offset = scroll_offset
-        scroll_started_at = options.interaction.monotonic_time()
-        if scroll_animation then return end
-        scroll_animation = gears.timer.start_new(1 / 60, function()
-            if ui.disposed or not popup or not popup.visible then
-                scroll_animation = nil
-                return false
-            end
-            local progress = math.min(1,
-                (options.interaction.monotonic_time() - scroll_started_at) / 0.24)
-            local eased = progress * progress * (3 - 2 * progress)
-            scroll_offset = scroll_start_offset + (scroll_target - scroll_start_offset) * eased
-            if progress >= 1 then
-                scroll_offset = scroll_target
-                scroll_animation = nil
-            end
-            redraw_scroll()
-            return progress < 1
-        end)
+        return content_height
     end
     viewport.fit = function(_, context, width)
-        local _, height = wibox.widget.base.fit_widget(viewport, context, list, width, 2^20)
-        content_height = height
-        return math.max(0, width - 14), math.min(height, options.list_height)
+        local list_width = math.max(0, width - 14)
+        local height = measure_content(context, list_width)
+        return list_width, math.min(height, options.list_height)
     end
     viewport.layout = function(_, context, width, height)
-        local _, measured = wibox.widget.base.fit_widget(viewport, context, list, width, 2^20)
+        local measured = measure_content(context, width)
         content_height, viewport_height = measured, height
         scroll_offset, scroll_target = clamp_scroll(scroll_offset), clamp_scroll(scroll_target)
-        return {wibox.widget.base.place_widget_at(list, 0, -scroll_offset, width, content_height)}
+        -- Virtualize the hierarchy: offscreen stories must not participate in
+        -- drawing, hit testing or hierarchy updates. Binary search the first row.
+        local low, high = 1, #measured_rows
+        while low <= high do
+            local middle = math.floor((low + high) / 2)
+            local row = measured_rows[middle]
+            if row.top + row.height <= scroll_offset then low = middle + 1
+            else high = middle - 1 end
+        end
+        local placements = {}
+        local bottom = scroll_offset + height
+        for index = low, #measured_rows do
+            local row = measured_rows[index]
+            if row.top >= bottom then break end
+            placements[#placements + 1] = wibox.widget.base.place_widget_at(
+                row.widget, 0, row.top - scroll_offset, width, row.height)
+        end
+        component.visible_row_count = #placements
+        return placements
     end
     viewport.draw = function() end
     viewport.before_draw_children = function(_, _, cr, width, height)
@@ -108,10 +119,8 @@ function M.new(options)
         cr:restore()
     end
     viewport.forced_height = options.list_height
-    function component.scroll_by(delta, smooth)
-        local previous = scroll_target
-        scroll_to(scroll_target + delta, smooth == true)
-        return scroll_target ~= previous
+    function component.scroll_by(delta)
+        return scroll_to(scroll_target + delta)
     end
     component.viewport = viewport
 
@@ -143,7 +152,7 @@ function M.new(options)
         local top, thumb_height = thumb_geometry(viewport_height)
         local range = math.max(1, viewport_height - thumb_height)
         if y < top or y > top + thumb_height then
-            component.scroll_by((y < top and -1 or 1) * math.max(80, viewport_height * 0.8), true)
+            component.scroll_by((y < top and -1 or 1) * math.max(80, viewport_height * 0.8))
             return
         end
         local matrix = geometry.hierarchy:get_matrix_from_device()
@@ -155,7 +164,7 @@ function M.new(options)
             if not scrollbar_dragging or ui.disposed or not popup.visible then return false end
             local _, local_y = matrix:transform_point(pointer.x, pointer.y)
             local new_top = math.max(0, math.min(range, local_y - grab_offset))
-            scroll_to((new_top / range) * max_scroll(), false)
+            scroll_to((new_top / range) * max_scroll())
             if pointer.buttons[1] then return true end
             scrollbar_dragging = false
             return false
@@ -271,7 +280,7 @@ function M.new(options)
                 widget = wibox.container.margin})
         end
         scroll_offset, scroll_target = 0, 0
-        stop_scroll_animation()
+        content_width, content_dpi, content_height = nil, nil, 0
         viewport:emit_signal("widget::layout_changed")
         list_column:emit_signal("widget::layout_changed")
         if scrollbar then scrollbar:emit_signal("widget::redraw_needed") end
@@ -436,7 +445,6 @@ function M.new(options)
 
     function component.hide()
         popup.visible = false
-        stop_scroll_animation()
         if scrollbar_dragging then
             scrollbar_dragging = false
             options.interaction.stop_grab(scrollbar_owner)
@@ -474,8 +482,8 @@ function M.new(options)
             view_unread, view_category)
     end
     popup:connect_signal("button::press", function(_, _, _, button)
-        if button == 4 then component.scroll_by(-72, true)
-        elseif button == 5 then component.scroll_by(72, true) end
+        if button == 4 then component.scroll_by(-160)
+        elseif button == 5 then component.scroll_by(160) end
     end)
     local attached = false
     function component.attach()
@@ -491,7 +499,6 @@ function M.new(options)
         if destroyed then return end
         destroyed = true
         component.hide()
-        if scroll_animation then stop_scroll_animation() end
         if row_lifetime then row_lifetime.destroy(); row_lifetime = nil end
         if filter_lifetime then filter_lifetime.destroy(); filter_lifetime = nil end
         popup:disconnect_signal("property::height", position_popup)

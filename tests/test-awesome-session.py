@@ -241,9 +241,10 @@ def main():
                     prefix = 'local h=package.loaded.__awesome_test_ui; if not h then h=dofile(os.getenv("AWESOME_TEST_HELPERS").."/awesome-ui.lua"); package.loaded.__awesome_test_ui=h end; '
                     return lua(prefix + expression)
 
-                def pointer(*args):
+                def pointer(*args, delay=0.08):
                     subprocess.run(["xdotool", *map(str, args)], env=env, check=True, timeout=3)
-                    time.sleep(0.08)
+                    if delay > 0:
+                        time.sleep(delay)
 
                 def x11_state(expression):
                     window = re.search(r'\d+', lua('return tostring(' + expression + '.window)')).group(0)

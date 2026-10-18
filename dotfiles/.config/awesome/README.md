@@ -21,7 +21,7 @@ disconnect signals and cancel delayed tooltips.
 `sidebar.lua` remains the screen-level coordinator: sections, persistence, collector
 subscriptions, launch actions, and section reordering. `sidebar-news.lua` builds a
 scrollable, non-modal unread-first RSS/Atom popup beside the sidebar at full
-available screen height, with a draggable scrollbar and eased wheel scrolling;
+available screen height, with a draggable scrollbar and responsive wheel scrolling;
 `desktop-news` owns bounded feed fetching, parsing, safe story links, and atomic
 persistent read/dismissal state. The Control Center's News tab manages custom
 categories and sources in `~/.config/desktop-news/config.json`; new profiles start
