@@ -64,6 +64,9 @@ section order, fold state, and visibility are stored together in
 News to existing saved orders without resetting prior visibility/fold choices).
 Quick Launch defaults off; the Control
 Center's Sidebar tab can enable it; use its Save & Restart button or Win+Ctrl+R.
+That tab also configures weather coordinates, sidebar document paths, and the ordered
+wallpaper folders. Mutable preferences live in
+`$XDG_CONFIG_HOME/desktop-control-center/sidebar-preferences`, outside this Stow tree.
 
 | Component | Constructor inputs | Returned operations/handles |
 | --- | --- | --- |

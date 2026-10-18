@@ -54,7 +54,7 @@ class SingleScenario(argparse.Action):
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--scenario', choices=('all', 'titlebars', 'workspace-transfer', 'sidebar-documents', 'sidebar-settings', 'sidebar-news', 'menu-popups'), action=SingleScenario,
+    parser.add_argument('--scenario', choices=('all', 'titlebars', 'workspace-transfer', 'sidebar-documents', 'sidebar-settings', 'sidebar-news', 'sidebar-personalization', 'menu-popups'), action=SingleScenario,
                         help='checks to run (default: all)')
     parser.add_argument('--composited', action='store_true', help='use private Picom/XRender')
     parser.add_argument('--inside', action='store_true', help=argparse.SUPPRESS)
@@ -72,7 +72,7 @@ def run_timed(name, check):
 
 def run_focused(scenario, *, prepare, controls, destruction):
     """Return False to continue the unchanged full-session sequence."""
-    if scenario in ('all', 'workspace-transfer', 'sidebar-documents', 'sidebar-settings', 'sidebar-news', 'menu-popups'):
+    if scenario in ('all', 'workspace-transfer', 'sidebar-documents', 'sidebar-settings', 'sidebar-news', 'sidebar-personalization', 'menu-popups'):
         return False
     if scenario != 'titlebars':
         raise ValueError(f'Unknown scenario: {scenario}')
@@ -151,17 +151,42 @@ def main():
         aurora_fixture = ROOT / "dotfiles/.local/share/wallpapers/aurora-cabin.png"
         shutil.copy2(aurora_fixture, testhome / ".local/share/wallpapers/aurora-cabin.png")
         shutil.copy2(aurora_fixture, testhome / "Pictures/Wallpapers/pictures-wallpaper.png")
+        if args.scenario == "sidebar-personalization":
+            custom_documents = testhome / "Notes"
+            custom_documents.mkdir()
+            (custom_documents / "tasks.md").write_text(
+                "## Sidebar\n- First item\n- Second item\n- Third item\n- Fourth item\n- Fifth item\n")
+            (custom_documents / "events.md").write_text(
+                f"{today - timedelta(days=1)} 17:30 Yesterday event\n"
+                f"{today} 08:15-09:00 Today event\n"
+                f"{today} visit: 12:30, Today appointment\n"
+                f"{today + timedelta(days=1)} 07:30 First future event\n"
+                f"{today + timedelta(days=1)} 12:00 Second future event\n"
+                f"{today + timedelta(days=2)} 19:00 Third future event\n"
+                f"{today + timedelta(days=3)} 09:00 Omit fourth future event\n")
+            custom_wallpapers = testhome / "Wallpapers/Custom"
+            custom_wallpapers.mkdir(parents=True)
+            shutil.copy2(aurora_fixture, custom_wallpapers / "custom-wallpaper.png")
+            preference_file = testhome / ".config/desktop-control-center/sidebar-preferences"
+            preference_file.parent.mkdir(parents=True, exist_ok=True)
+            preference_file.write_text(
+                "version=1\nweather_label=Test City & Region\nlatitude=41.4034\nlongitude=2.1740\n"
+                f"todo_path={custom_documents / 'tasks.md'}\n"
+                f"calendar_path={custom_documents / 'events.md'}\n"
+                f"wallpaper_dirs={custom_wallpapers}\n")
         icon_source = ROOT / "dotfiles/.local/share/icons/hicolor/32x32/apps/tux-start.png"
         icon_target = testhome / ".local/share/icons/hicolor/32x32/apps/tux-start.png"
         icon_target.parent.mkdir(parents=True)
         shutil.copy2(icon_source, icon_target)
         weather_response = directory / "weather.json"
         weather_response.write_text('{"current":{"temperature_2m":12,"apparent_temperature":10,"weather_code":3,"wind_speed_10m":9}}\n')
+        weather_request = directory / "weather-requests"
+        weather_request.touch()
         bin_dir = directory / "bin"
         bin_dir.mkdir()
         for name, source in {
             "wpctl": '#!/bin/sh\necho "Volume: 0.42"\n',
-            "curl": '#!/bin/sh\nwhile IFS= read -r line; do printf "%s\\n" "$line"; done < "$TEST_WEATHER_RESPONSE"\n',
+            "curl": '#!/bin/sh\nprintf "%s\\n" "$*" >> "$TEST_WEATHER_REQUEST"\nwhile IFS= read -r line; do printf "%s\\n" "$line"; done < "$TEST_WEATHER_RESPONSE"\n',
             "pavucontrol": '#!/bin/sh\necho mixer >> "$TEST_ACTIONS"\n',
             "playerctl": '#!/bin/sh\nprintf "playerctl %s\\n" "$*" >> "$TEST_ACTIONS"\n',
             "xdg-open": '#!/bin/sh\nprintf "open %s\\n" "$*" >> "$TEST_ACTIONS"\n',
@@ -202,7 +227,7 @@ def main():
         section_state_file.write_text(
             legacy_sidebar_state if args.scenario == "sidebar-settings"
             else f"crypto\nenabled={all_sidebar_sections}\n")
-        env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}", TEST_ACTIONS=str(actions_file), TEST_WEATHER_RESPONSE=str(weather_response), TEST_NEWS_STATE=str(news_state), AWESOME_TEST_MODE="1", AWESOME_TEST_WEATHER="1", NO_AT_BRIDGE="1", GIO_USE_VFS="local",
+        env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}", TEST_ACTIONS=str(actions_file), TEST_WEATHER_RESPONSE=str(weather_response), TEST_WEATHER_REQUEST=str(weather_request), TEST_NEWS_STATE=str(news_state), AWESOME_TEST_MODE="1", AWESOME_TEST_WEATHER="1", NO_AT_BRIDGE="1", GIO_USE_VFS="local",
                    HOME=str(testhome), XDG_CONFIG_HOME=str(testhome / ".config"),
                    XDG_DATA_HOME=str(testhome / ".local/share"),
                    XDG_STATE_HOME=str(testhome / ".local/state"), XDG_RUNTIME_DIR=str(directory),
@@ -502,6 +527,16 @@ def main():
                 wait('return screen[1].workarea.y', '30')
                 assert 'true' in lua('local p=screen[1].panel; return p.visible and p.height == 30 and p.position == "top"')
                 assert 'true' in lua('local s=screen[1]; local b=s.sidebar; return b and b.visible and not s.panel_clock_container.visible and s.sidebar_header and s.sidebar_header.forced_height == 26 and s.sidebar_mode == 3 and b.ontop and b:struts().right == 300 and b.width == 300 and b.border_width == 0 and s.sidebar_cpu and s.sidebar_battery and s.sidebar_volume and s.sidebar_trash_status and s.sidebar_trash_icon and s.sidebar_trash_state and s.sidebar_trash_timer.timeout == 30 and s.sidebar_stats_timer.timeout == 1 and s.sidebar_power_timer.timeout == 30 and s.sidebar_media_text and s.sidebar_root_text and s.sidebar_weather_text and s.sidebar_crypto_timer.timeout == 60 and s.sidebar_codex_card.forced_height == nil and s.sidebar_codex_refresh_button and s.sidebar_sections.codex.trailing_widget == s.sidebar_codex_refresh_button and s.sidebar_codex_refresh_button._sidebar_keyboard_action and s.sidebar_codex_timer.timeout == 60 and s.sidebar_audio_header == nil and s.sidebar_wallpaper_preview and s.sidebar_todo_card and #s.sidebar_todo_entries == 5 and s.sidebar_todo_entries[5] == "Fifth item" and s.sidebar_calendar_card and not s.sidebar_date_calendar and s.sidebar_calendar_grid and s.sidebar_calendar_weekday_order == "MoTuWeThFrSaSu" and #s.sidebar_calendar_entries == 7 and s.sidebar_calendar_entries[1].day == "past" and s.sidebar_calendar_entries[2].time == "08:15-09:00" and s.sidebar_calendar_entries[3].text == "visit: Today appointment" and s.sidebar_calendar_entries[6].text == "Third future event" and s.sidebar_todo_timer.timeout == 60 and s.sidebar_calendar_timer.timeout == 60 and s.panel_cpu == nil and s.panel_battery == nil and s.panel_volume == nil and s.workarea.width == s.geometry.width-300 and b.x+b.width == s.geometry.x+s.geometry.width and b.y == s.geometry.y+30 and b.height == s.geometry.height-30')
+                if args.scenario == 'sidebar-personalization':
+                    wait('return tostring(screen[1].sidebar_weather_text.text:find("12°C",1,true)~=nil)', '"true"')
+                    audit = lua('local s=screen[1]; return s.sidebar_sections.weather.title.."|"..tostring(#s.sidebar_todo_entries==5 and s.sidebar_todo_entries[5]=="Fifth item")..":"..tostring(#s.sidebar_calendar_entries==7 and s.sidebar_calendar_entries[3].text=="visit: Today appointment")..":"..tostring(s.sidebar_wallpaper_name.text=="custom-wallpaper.png")')
+                    assert 'TEST CITY &amp; REGION · WEATHER|true:true:true' in audit, audit
+                    deadline = time.monotonic() + 3
+                    while time.monotonic() < deadline and "latitude=41.403400&longitude=2.174000" not in weather_request.read_text():
+                        time.sleep(0.05)
+                    assert "latitude=41.403400&longitude=2.174000" in weather_request.read_text()
+                    finish_session(args.scenario)
+                    return 0
                 wait('return tostring(not screen[1].sidebar_data.collectors.codex.pending)', '"true"')
                 lua('_G.__codex_requests=screen[1].sidebar_data.collectors.codex.requests; screen[1].sidebar_codex_refresh_button._sidebar_keyboard_action()')
                 wait('return tostring(screen[1].sidebar_data.collectors.codex.requests==__codex_requests+1)', '"true"')

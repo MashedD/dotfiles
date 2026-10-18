@@ -117,6 +117,13 @@ function M.new(runtime)
     return service
 end
 
+function M.weather_url(latitude, longitude)
+    return string.format(
+        "https://api.open-meteo.com/v1/forecast?latitude=%.6f&longitude=%.6f"
+        .. "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=auto",
+        tonumber(latitude) or 53.1235, tonumber(longitude) or 17.9871)
+end
+
 function M.parse_weather(stdout)
     local current = stdout:match('"current"%s*:%s*{([^}]+)}')
     local function field(name)
@@ -267,10 +274,16 @@ function service.command(argv, parse, done)
     if not ok or type(pid) ~= "number" then done(nil, tostring(pid or "Could not start command")) end
 end
 local home = assert(os.getenv("HOME"))
+local weather_location = {latitude = 53.1235, longitude = 17.9871}
+function service.configure(preferences)
+    if type(preferences) == "table"
+        and type(preferences.latitude) == "number" and type(preferences.longitude) == "number" then
+        weather_location = {latitude = preferences.latitude, longitude = preferences.longitude}
+    end
+end
 service.define("weather", 1800, function(done)
-    service.command({"curl", "--fail", "--silent", "--show-error", "--max-time", "12",
-        "https://api.open-meteo.com/v1/forecast?latitude=53.1235&longitude=17.9871"
-        .. "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=Europe%2FWarsaw"},
+    local url = M.weather_url(weather_location.latitude, weather_location.longitude)
+    service.command({"curl", "--fail", "--silent", "--show-error", "--max-time", "12", url},
         M.parse_weather, done)
 end)
 service.define("crypto", 60, function(done)

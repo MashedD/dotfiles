@@ -1,6 +1,7 @@
 """Safe, comment-preserving settings support for desktop-control-center."""
 from __future__ import annotations
 
+import math
 import os
 import re
 import signal
@@ -60,6 +61,118 @@ SIDEBAR_SECTION_IDS = tuple(section_id for section_id, _ in SIDEBAR_SECTIONS)
 DEFAULT_SIDEBAR_ENABLED = frozenset(
     section_id for section_id in SIDEBAR_SECTION_IDS if section_id != "quick-launch"
 )
+SIDEBAR_PREFERENCE_KEYS = {
+    "weather_label", "latitude", "longitude", "todo_path", "calendar_path", "wallpaper_dirs",
+}
+
+
+def default_sidebar_preferences(home: Path | None = None,
+                               data_home: Path | None = None) -> dict[str, object]:
+    home = Path(home or Path.home()).expanduser()
+    if data_home is None:
+        data_home = Path(os.environ.get("XDG_DATA_HOME", home / ".local/share"))
+    return {
+        "weather_label": "Bydgoszcz, Poland",
+        "latitude": 53.1235,
+        "longitude": 17.9871,
+        "todo_path": str(home / "Documents/todo.md"),
+        "calendar_path": str(home / "Documents/calendar.md"),
+        "wallpaper_dirs": [str(Path(data_home).expanduser() / "wallpapers"),
+                           str(home / "Pictures/Wallpapers")],
+    }
+
+
+def validate_sidebar_preferences(preferences: dict[str, object]) -> dict[str, object]:
+    unknown = set(preferences) - SIDEBAR_PREFERENCE_KEYS
+    missing = SIDEBAR_PREFERENCE_KEYS - set(preferences)
+    if unknown or missing:
+        raise SettingsError("Sidebar preferences have invalid fields")
+    result = dict(preferences)
+    label = result["weather_label"]
+    if not isinstance(label, str) or not label.strip() or len(label) > 100:
+        raise SettingsError("Weather location must be 1–100 characters")
+    if any(ord(char) < 32 or ord(char) == 127 for char in label):
+        raise SettingsError("Weather location contains a control character")
+    for key, low, high in (("latitude", -90, 90), ("longitude", -180, 180)):
+        try:
+            value = float(result[key])
+        except (TypeError, ValueError) as exc:
+            raise SettingsError(f"{key} must be a number") from exc
+        if not math.isfinite(value) or not low <= value <= high:
+            raise SettingsError(f"{key} must be between {low} and {high}")
+        result[key] = value
+    for key in ("todo_path", "calendar_path"):
+        path = result[key]
+        if not isinstance(path, str) or not path.strip() or len(path) > 4096:
+            raise SettingsError(f"{key} must be a non-empty path")
+        if any(ord(char) < 32 or ord(char) == 127 for char in path):
+            raise SettingsError(f"{key} contains a control character")
+    directories = result["wallpaper_dirs"]
+    if not isinstance(directories, list) or len(directories) > 32:
+        raise SettingsError("Use at most 32 wallpaper folders")
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for directory in directories:
+        if not isinstance(directory, str) or not directory.strip() or len(directory) > 4096:
+            raise SettingsError("Wallpaper folders must be non-empty paths")
+        if any(ord(char) < 32 or ord(char) == 127 for char in directory):
+            raise SettingsError("Wallpaper folder path contains a control character")
+        normalized = directory.strip()
+        if normalized not in seen:
+            cleaned.append(normalized)
+            seen.add(normalized)
+    result["weather_label"] = label.strip()
+    result["todo_path"] = str(result["todo_path"]).strip()
+    result["calendar_path"] = str(result["calendar_path"]).strip()
+    result["wallpaper_dirs"] = cleaned
+    return result
+
+
+def parse_sidebar_preferences(text: str, defaults: dict[str, object] | None = None) -> dict[str, object]:
+    if len(text) > 65536:
+        raise SettingsError("Sidebar preferences file is too large")
+    preferences = dict(defaults or default_sidebar_preferences())
+    preferences["wallpaper_dirs"] = list(preferences.get("wallpaper_dirs", []))
+    values: dict[str, str] = {}
+    wallpaper_dirs: list[str] = []
+    has_wallpaper_dirs = False
+    for line_number, line in enumerate(text.splitlines(), 1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or stripped == "version=1":
+            continue
+        key, separator, value = line.partition("=")
+        if not separator or key not in SIDEBAR_PREFERENCE_KEYS:
+            raise SettingsError(f"Invalid sidebar preference on line {line_number}")
+        if key == "wallpaper_dirs":
+            has_wallpaper_dirs = True
+            if value.strip(): wallpaper_dirs.append(value.strip())
+        elif key in values:
+            raise SettingsError(f"Duplicate sidebar preference: {key}")
+        else:
+            values[key] = value
+    for key in ("weather_label", "todo_path", "calendar_path"):
+        if key in values: preferences[key] = values[key]
+    for key in ("latitude", "longitude"):
+        if key in values:
+            try: preferences[key] = float(values[key])
+            except ValueError as exc: raise SettingsError(f"{key} must be a number") from exc
+    if has_wallpaper_dirs: preferences["wallpaper_dirs"] = wallpaper_dirs
+    return validate_sidebar_preferences(preferences)
+
+
+def serialize_sidebar_preferences(preferences: dict[str, object]) -> str:
+    values = validate_sidebar_preferences(preferences)
+    lines = [
+        "version=1",
+        f"weather_label={values['weather_label']}",
+        f"latitude={values['latitude']:.6f}",
+        f"longitude={values['longitude']:.6f}",
+        f"todo_path={values['todo_path']}",
+        f"calendar_path={values['calendar_path']}",
+    ]
+    lines.extend(f"wallpaper_dirs={directory}" for directory in values["wallpaper_dirs"])
+    if not values["wallpaper_dirs"]: lines.append("wallpaper_dirs=")
+    return "\n".join(lines) + "\n"
 
 
 def parse_sidebar_enabled(text: str) -> set[str]:

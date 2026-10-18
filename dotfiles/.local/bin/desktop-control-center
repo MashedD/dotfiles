@@ -28,9 +28,13 @@ from desktop_control_center.settings import (  # noqa: E402
     TOOLBAR_STYLES,
     apply_settings,
     atomic_write,
+    default_sidebar_preferences,
     parse_sidebar_enabled,
+    parse_sidebar_preferences,
+    serialize_sidebar_preferences,
     settings_from_files,
     update_sidebar_enabled_text,
+    validate_sidebar_preferences,
 )
 
 HOME = Path.home()
@@ -40,6 +44,7 @@ STATE_HOME = Path(os.environ.get("XDG_STATE_HOME", HOME / ".local/state"))
 XSETTINGS_PATH = CONFIG_HOME / "xsettingsd/xsettingsd.conf"
 GTK_SETTINGS_PATH = CONFIG_HOME / "gtk-3.0/settings.ini"
 SIDEBAR_SECTIONS_PATH = STATE_HOME / "awesome/sidebar-sections"
+SIDEBAR_PREFERENCES_PATH = CONFIG_HOME / "desktop-control-center/sidebar-preferences"
 NEWS_CONFIG_PATH = desktop_news_config.config_path()
 NEWS_HELPER = HOME / ".local/bin/desktop-news"
 
@@ -118,6 +123,9 @@ class ControlCenter(Gtk.Window):
         self.settings = _read_initial_settings()
         self.widgets: dict[str, object] = {}
         self.sidebar_widgets: dict[str, Gtk.CheckButton] = {}
+        self.sidebar_preference_widgets: dict[str, Gtk.Entry] = {}
+        self.wallpaper_directory_rows: list[dict[str, object]] = []
+        self.sidebar_preferences: dict[str, object] = default_sidebar_preferences(HOME, DATA_HOME)
         self.news_category_rows: list[dict[str, object]] = []
         self.news_feed_rows: list[dict[str, object]] = []
         self.news_config: dict[str, object] = {}
@@ -152,6 +160,8 @@ class ControlCenter(Gtk.Window):
         outer.pack_end(actions, False, False, 0)
         self.notebook.connect("switch-page", self._update_action_buttons)
         self._update_action_buttons(self.notebook, None, self.notebook.get_current_page())
+        if self.sidebar_preferences_warning:
+            self.status.set_text(self.sidebar_preferences_warning)
 
     def _add_tab(self, title: str) -> tuple[Gtk.Grid, Gtk.ScrolledWindow]:
         grid = Gtk.Grid(column_spacing=16, row_spacing=9, margin=12)
@@ -352,7 +362,7 @@ class ControlCenter(Gtk.Window):
 
     def _build_sidebar_page(self) -> None:
         grid, _ = self._add_tab("Sidebar")
-        intro = Gtk.Label(label="Choose which sections appear in the Awesome sidebar.")
+        intro = Gtk.Label(label="Configure sidebar visibility, weather, documents and wallpaper sources.")
         intro.set_xalign(0)
         intro.set_line_wrap(True)
         grid.attach(intro, 0, 0, 2, 1)
@@ -363,8 +373,17 @@ class ControlCenter(Gtk.Window):
         try:
             text = SIDEBAR_SECTIONS_PATH.read_text(encoding="utf-8") if SIDEBAR_SECTIONS_PATH.exists() else ""
             enabled = parse_sidebar_enabled(text)
-        except OSError as exc:
-            raise RuntimeError(f"Could not read sidebar settings: {exc}") from exc
+        except (OSError, RuntimeError) as exc:
+            raise RuntimeError(f"Could not read sidebar section state: {exc}") from exc
+        try:
+            saved_preferences = (SIDEBAR_PREFERENCES_PATH.read_text(encoding="utf-8")
+                                 if SIDEBAR_PREFERENCES_PATH.exists() else "")
+            self.sidebar_preferences = parse_sidebar_preferences(
+                saved_preferences, default_sidebar_preferences(HOME, DATA_HOME))
+            self.sidebar_preferences_warning = None
+        except (OSError, RuntimeError, UnicodeError) as exc:
+            self.sidebar_preferences_warning = f"Sidebar preferences could not be read; defaults loaded: {exc}"
+            self.sidebar_preferences = default_sidebar_preferences(HOME, DATA_HOME)
         for section_id, label in SIDEBAR_SECTIONS:
             checkbox = Gtk.CheckButton.new_with_label(label)
             checkbox.set_active(section_id in enabled)
@@ -373,25 +392,159 @@ class ControlCenter(Gtk.Window):
         frame.add(options)
         grid.attach(frame, 0, 1, 2, 1)
 
+        preferences_frame = Gtk.Frame(label="Sidebar content")
+        preferences_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        preferences_box.set_border_width(10)
+        preferences_grid = Gtk.Grid(column_spacing=12, row_spacing=7)
+        preferences_box.pack_start(preferences_grid, False, False, 0)
+        row = 0
+        self._sidebar_entry_row(preferences_grid, row, "Weather location",
+                                "weather_label", str(self.sidebar_preferences["weather_label"]))
+        row += 1
+        coordinate_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        for key, title in (("latitude", "Latitude"), ("longitude", "Longitude")):
+            coordinate_box.pack_start(Gtk.Label(label=title), False, False, 0)
+            entry = Gtk.Entry()
+            entry.set_width_chars(12)
+            entry.set_text(str(self.sidebar_preferences[key]))
+            self.sidebar_preference_widgets[key] = entry
+            coordinate_box.pack_start(entry, False, False, 0)
+        coordinate_label = Gtk.Label(label="Coordinates")
+        coordinate_label.set_xalign(0)
+        preferences_grid.attach(coordinate_label, 0, row, 1, 1)
+        preferences_grid.attach(coordinate_box, 1, row, 1, 1)
+        row += 1
+        self._sidebar_path_row(preferences_grid, row, "To-do document", "todo_path",
+                               str(self.sidebar_preferences["todo_path"]), Gtk.FileChooserAction.OPEN)
+        row += 1
+        self._sidebar_path_row(preferences_grid, row, "Calendar document", "calendar_path",
+                               str(self.sidebar_preferences["calendar_path"]), Gtk.FileChooserAction.OPEN)
+        row += 1
+
+        wallpaper_label = Gtk.Label(label="Wallpaper folders")
+        wallpaper_label.set_xalign(0)
+        wallpaper_label.set_valign(Gtk.Align.START)
+        preferences_grid.attach(wallpaper_label, 0, row, 1, 1)
+        self.wallpaper_directory_list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        self.wallpaper_directory_add_button = Gtk.Button.new_with_label("Add Folder…")
+        self.wallpaper_directory_add_button.connect("clicked", self._choose_wallpaper_directory)
+        self.wallpaper_directory_list.pack_start(self.wallpaper_directory_add_button, False, False, 0)
+        for directory in self.sidebar_preferences["wallpaper_dirs"]:
+            self._add_wallpaper_directory_row(str(directory))
+        preferences_grid.attach(self.wallpaper_directory_list, 1, row, 1, 1)
+        row += 1
+        help_text = Gtk.Label(label=(
+            "Coordinates use latitude/longitude. To-do reads the first five items under ## Sidebar; "
+            "calendar uses the selected Markdown file. Wallpaper folders are searched in order."
+        ))
+        help_text.set_xalign(0)
+        help_text.set_line_wrap(True)
+        preferences_box.pack_start(help_text, False, False, 0)
+        preferences_frame.add(preferences_box)
+        grid.attach(preferences_frame, 0, 2, 2, 1)
+
         self.sidebar_restart_button = Gtk.Button.new_with_label("Save & Restart Awesome")
         self.sidebar_restart_button.get_style_context().add_class("suggested-action")
         self.sidebar_restart_button.set_tooltip_text(
-            "Save these choices and restart Awesome now (also available with Win+Ctrl+R)."
+            "Save sidebar settings and explicitly restart Awesome now (also available with Win+Ctrl+R)."
         )
         if shutil.which("awesome-client"):
             self.sidebar_restart_button.connect("clicked", self._save_and_restart_awesome)
         else:
             self.sidebar_restart_button.set_sensitive(False)
             self.sidebar_restart_button.set_tooltip_text("awesome-client is not installed")
-        grid.attach(self.sidebar_restart_button, 0, 2, 2, 1)
+        grid.attach(self.sidebar_restart_button, 0, 3, 2, 1)
 
         note = Gtk.Label(label=(
-            "Quick Launch starts hidden to save space. Trash is shown in System Status. "
-            "Use Save Sidebar to apply later, or save and restart now."
+            "Quick Launch starts hidden. Use Save Sidebar to save choices for the next restart, "
+            "or Save & Restart Awesome to apply them now."
         ))
         note.set_xalign(0)
         note.set_line_wrap(True)
-        grid.attach(note, 0, 3, 2, 1)
+        grid.attach(note, 0, 4, 2, 1)
+
+    def _sidebar_entry_row(self, grid: Gtk.Grid, row: int, title: str,
+                           key: str, value: str) -> None:
+        label = Gtk.Label(label=title)
+        label.set_xalign(0)
+        entry = Gtk.Entry()
+        entry.set_text(value)
+        self.sidebar_preference_widgets[key] = entry
+        grid.attach(label, 0, row, 1, 1)
+        grid.attach(entry, 1, row, 1, 1)
+
+    def _sidebar_path_row(self, grid: Gtk.Grid, row: int, title: str,
+                          key: str, value: str, action: Gtk.FileChooserAction) -> None:
+        label = Gtk.Label(label=title)
+        label.set_xalign(0)
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        entry = Gtk.Entry()
+        entry.set_text(value)
+        entry.set_placeholder_text("Absolute path or ~/…")
+        entry.set_hexpand(True)
+        browse = Gtk.Button.new_with_label("Browse…")
+        browse.connect("clicked", self._choose_sidebar_path, entry, action)
+        box.pack_start(entry, True, True, 0)
+        box.pack_start(browse, False, False, 0)
+        self.sidebar_preference_widgets[key] = entry
+        grid.attach(label, 0, row, 1, 1)
+        grid.attach(box, 1, row, 1, 1)
+
+    def _choose_path(self, title: str, action: Gtk.FileChooserAction,
+                     current: str = "") -> str | None:
+        dialog = Gtk.FileChooserDialog(
+            title=title, parent=self, action=action,
+            buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                     Gtk.STOCK_OPEN, Gtk.ResponseType.ACCEPT),
+        )
+        path = Path(current).expanduser() if current else None
+        if path and path.exists():
+            if path.is_dir(): dialog.set_current_folder(str(path))
+            else: dialog.set_filename(str(path))
+        elif path and path.parent.is_dir():
+            dialog.set_current_folder(str(path.parent))
+        result = dialog.get_filename() if dialog.run() == Gtk.ResponseType.ACCEPT else None
+        dialog.destroy()
+        return result
+
+    def _choose_sidebar_path(self, _button: Gtk.Button, entry: Gtk.Entry,
+                             action: Gtk.FileChooserAction) -> None:
+        title = "Select sidebar document" if action == Gtk.FileChooserAction.OPEN else "Select wallpaper folder"
+        selected = self._choose_path(title, action, entry.get_text())
+        if selected: entry.set_text(selected)
+
+    def _add_wallpaper_directory_row(self, path: str) -> None:
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        entry = Gtk.Entry()
+        entry.set_text(path)
+        entry.set_placeholder_text("Absolute path or ~/…")
+        entry.set_hexpand(True)
+        browse = Gtk.Button.new_with_label("Browse…")
+        browse.connect("clicked", self._choose_sidebar_path, entry, Gtk.FileChooserAction.SELECT_FOLDER)
+        remove = Gtk.Button.new_with_label("Remove")
+        record = {"widget": row, "entry": entry}
+        remove.connect("clicked", self._remove_wallpaper_directory, record)
+        row.pack_start(entry, True, True, 0)
+        row.pack_start(browse, False, False, 0)
+        row.pack_start(remove, False, False, 0)
+        self.wallpaper_directory_rows.append(record)
+        self.wallpaper_directory_list.pack_start(row, False, False, 0)
+        self.wallpaper_directory_list.reorder_child(self.wallpaper_directory_add_button, -1)
+        row.show_all()
+
+    def _remove_wallpaper_directory(self, _button: Gtk.Button,
+                                    record: dict[str, object]) -> None:
+        self.wallpaper_directory_rows.remove(record)
+        record["widget"].destroy()
+
+    def _choose_wallpaper_directory(self, *_args: object) -> None:
+        selected = self._choose_path("Add wallpaper folder", Gtk.FileChooserAction.SELECT_FOLDER)
+        if not selected: return
+        if any(str(record["entry"].get_text()).strip() == selected
+               for record in self.wallpaper_directory_rows):
+            self.status.set_text("That wallpaper folder is already in the list.")
+            return
+        self._add_wallpaper_directory_row(selected)
 
     def _build_news_page(self) -> None:
         grid, _ = self._add_tab("News")
@@ -651,7 +804,7 @@ class ControlCenter(Gtk.Window):
             self.apply_button.set_label("_Save Sidebar")
             self.revert_button.set_sensitive(True)
             self.apply_button.set_sensitive(True)
-            self.status.set_text("Save sidebar visibility here; restart Awesome with the button or Win+Ctrl+R.")
+            self.status.set_text("Save sidebar settings here; restart Awesome with the button or Win+Ctrl+R.")
         elif page_number == 1:
             self.revert_button.set_label("_Revert")
             self.apply_button.set_label("_Apply")
@@ -663,18 +816,42 @@ class ControlCenter(Gtk.Window):
             self.apply_button.set_sensitive(False)
             self.status.set_text("Choose a tool or select a settings tab.")
 
+    def _collect_sidebar_preferences(self) -> dict[str, object]:
+        return validate_sidebar_preferences({
+            "weather_label": self.sidebar_preference_widgets["weather_label"].get_text(),
+            "latitude": self.sidebar_preference_widgets["latitude"].get_text(),
+            "longitude": self.sidebar_preference_widgets["longitude"].get_text(),
+            "todo_path": self.sidebar_preference_widgets["todo_path"].get_text(),
+            "calendar_path": self.sidebar_preference_widgets["calendar_path"].get_text(),
+            "wallpaper_dirs": [str(record["entry"].get_text())
+                               for record in self.wallpaper_directory_rows],
+        })
+
     def _save_sidebar_settings(self) -> bool:
         enabled = {section_id for section_id, checkbox in self.sidebar_widgets.items()
                    if checkbox.get_active()}
         try:
-            previous = (SIDEBAR_SECTIONS_PATH.read_text(encoding="utf-8")
-                        if SIDEBAR_SECTIONS_PATH.exists() else "")
-            updated = update_sidebar_enabled_text(previous, enabled)
-            atomic_write(SIDEBAR_SECTIONS_PATH, updated)
+            previous_sections = (SIDEBAR_SECTIONS_PATH.read_text(encoding="utf-8")
+                                 if SIDEBAR_SECTIONS_PATH.exists() else "")
+            previous_preferences = (SIDEBAR_PREFERENCES_PATH.read_text(encoding="utf-8")
+                                    if SIDEBAR_PREFERENCES_PATH.exists() else None)
+            updated_sections = update_sidebar_enabled_text(previous_sections, enabled)
+            preferences = self._collect_sidebar_preferences()
+            updated_preferences = serialize_sidebar_preferences(preferences)
+            atomic_write(SIDEBAR_SECTIONS_PATH, updated_sections)
+            try:
+                atomic_write(SIDEBAR_PREFERENCES_PATH, updated_preferences)
+            except Exception:
+                if previous_sections:
+                    atomic_write(SIDEBAR_SECTIONS_PATH, previous_sections)
+                else:
+                    SIDEBAR_SECTIONS_PATH.resolve().unlink(missing_ok=True)
+                raise
         except Exception as exc:
             self.status.set_text(f"Could not save sidebar settings: {exc}")
             return False
-        self.status.set_text("Sidebar visibility saved. Restart Awesome to apply it.")
+        self.sidebar_preferences = preferences
+        self.status.set_text("Sidebar settings saved. Restart Awesome to apply them.")
         return True
 
     def _save_and_restart_awesome(self, *_args: object) -> None:
@@ -685,11 +862,22 @@ class ControlCenter(Gtk.Window):
         try:
             text = (SIDEBAR_SECTIONS_PATH.read_text(encoding="utf-8")
                     if SIDEBAR_SECTIONS_PATH.exists() else "")
+            preference_text = (SIDEBAR_PREFERENCES_PATH.read_text(encoding="utf-8")
+                               if SIDEBAR_PREFERENCES_PATH.exists() else "")
             enabled = parse_sidebar_enabled(text)
+            preferences = parse_sidebar_preferences(
+                preference_text, default_sidebar_preferences(HOME, DATA_HOME))
             for section_id, checkbox in self.sidebar_widgets.items():
                 checkbox.set_active(section_id in enabled)
-            self.status.set_text("Sidebar choices reloaded from saved settings.")
-        except OSError as exc:
+            for key, entry in self.sidebar_preference_widgets.items():
+                entry.set_text(str(preferences[key]))
+            for record in list(self.wallpaper_directory_rows):
+                self._remove_wallpaper_directory(None, record)
+            for directory in preferences["wallpaper_dirs"]:
+                self._add_wallpaper_directory_row(str(directory))
+            self.sidebar_preferences = preferences
+            self.status.set_text("Sidebar settings reloaded from disk.")
+        except (OSError, RuntimeError, UnicodeError) as exc:
             self.status.set_text(f"Could not reload sidebar settings: {exc}")
 
     def _show_display_profiles(self, button: Gtk.Button, executable: str) -> None:

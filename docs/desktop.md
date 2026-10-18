@@ -140,10 +140,14 @@ xsettingsd; failed restarts roll the files back. Its Tools tab also offers the
 same four display profiles as Win+P, launches ArandR for manual layout edits,
 starts btop or htop in Kitty, launches the AMDGPU TOP GUI and XFCE Task Manager,
 and opens Pavucontrol, NetworkManager, Bluetooth Manager, Power Manager settings,
-or Solaar on demand. The Sidebar tab follows Appearance and has checkboxes for
-section visibility; News settings are managed in the following News tab. Quick
-Launch is hidden by default to save space. Use **Save & Restart Awesome** in the
-Sidebar or News tab, or save choices and press Win+Ctrl+R to apply them. Solaar is not
+or Solaar on demand. The Sidebar tab follows Appearance and configures section
+visibility, weather city and coordinates, to-do/calendar Markdown paths, and one or
+more wallpaper folders; News settings are managed in the following News tab. These
+sidebar preferences are stored outside Stow at
+`$XDG_CONFIG_HOME/desktop-control-center/sidebar-preferences` (default
+`~/.config/desktop-control-center/sidebar-preferences`). Quick Launch is hidden by
+default to save space. Use **Save & Restart Awesome** in the Sidebar or News tab,
+or save choices and press Win+Ctrl+R to apply them. Solaar is not
 started automatically. The Start menu keeps
 its Volume Control entry but no longer duplicates Monitor or Display outputs.
 The sidebar also has a scrollable News inbox (default view: unread) backed only by

@@ -38,7 +38,29 @@ assert window.notebook.get_n_pages() == 4
 assert window.sidebar_widgets["news"].get_active()
 assert window.news_config == {"version": 1, "categories": [], "feeds": []}
 window.sidebar_widgets["news"].set_active(False)
+window.sidebar_preference_widgets["weather_label"].set_text("Toruń & region")
+window.sidebar_preference_widgets["latitude"].set_text("53.0138")
+window.sidebar_preference_widgets["longitude"].set_text("18.5984")
+window.sidebar_preference_widgets["todo_path"].set_text("~/Documents/todo=work.md")
+window.sidebar_preference_widgets["calendar_path"].set_text("~/Notes/calendar.md")
+window.wallpaper_directory_rows[0]["entry"].set_text("~/Pictures/Custom A")
+window._remove_wallpaper_directory(None, window.wallpaper_directory_rows[1])
+window._add_wallpaper_directory_row("/mnt/Wallpapers")
 assert window._save_sidebar_settings()
+preferences = module.parse_sidebar_preferences(
+    module.SIDEBAR_PREFERENCES_PATH.read_text(encoding="utf-8"),
+    module.default_sidebar_preferences(module.HOME, module.DATA_HOME))
+assert preferences["weather_label"] == "Toruń & region"
+assert preferences["todo_path"] == "~/Documents/todo=work.md"
+assert preferences["wallpaper_dirs"] == ["~/Pictures/Custom A", "/mnt/Wallpapers"]
+window.sidebar_preference_widgets["latitude"].set_text("999")
+assert not window._save_sidebar_settings()
+window._reload_sidebar_settings()
+assert window.sidebar_preference_widgets["weather_label"].get_text() == "Toruń & region"
+assert len(window.wallpaper_directory_rows) == 2
+window.notebook.set_current_page(1)
+window._revert()
+window.notebook.set_current_page(2)
 state = module.SIDEBAR_SECTIONS_PATH.read_text(encoding="utf-8")
 assert state.startswith("version=2\n") and "news" not in state.split("enabled=", 1)[1].splitlines()[0]
 window._reload_sidebar_settings()

@@ -1,5 +1,9 @@
 -- Deterministic, X11-free tests: lua tests/test-awesome-data.lua
 local module = dofile("dotfiles/.config/awesome/sidebar-data.lua")
+local weather_url = module.weather_url(41.4034, 2.1740)
+assert(weather_url:find("latitude=41.403400", 1, true)
+    and weather_url:find("longitude=2.174000", 1, true)
+    and weather_url:find("timezone=auto", 1, true), "weather request uses configured coordinates")
 local now, timers, callbacks = 100, {}, {}
 local service = module.new {now = function() return now end, timer = function(options)
     options.stop = function(self) self.stopped = true end

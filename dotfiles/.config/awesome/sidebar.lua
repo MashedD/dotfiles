@@ -9,7 +9,9 @@ local menubar = require("menubar")
 local sidebar = {}
 local config_dir = awesome.conffile:match("^(.*)/") or "."
 local appearance = dofile(config_dir .. "/appearance.lua")
+local preferences = dofile(config_dir .. "/sidebar-preferences.lua").load()
 local data = dofile(config_dir .. "/sidebar-data.lua")
+data.configure(preferences)
 local interaction = dofile(config_dir .. "/interaction.lua")
 local clock_component = dofile(config_dir .. "/sidebar-clock.lua")
 local refresh_component = dofile(config_dir .. "/sidebar-refresh.lua")
@@ -45,8 +47,8 @@ local function read(path)
     return value
 end
 
-local function open_document(filename)
-    return io.open((os.getenv("HOME") or "") .. "/Documents/" .. filename, "r")
+local function open_document(path)
+    return io.open(path, "r")
 end
 
 local function launch_document(path)
@@ -60,7 +62,7 @@ local function launch_document(path)
 end
 
 local function read_sidebar_todo()
-    local file = open_document("todo.md")
+    local file = open_document(preferences.todo_path)
     if not file then return {} end
     local in_section, items = false, {}
     for line in file:lines() do
@@ -235,12 +237,7 @@ local function filesystem_stats()
     return total, free
 end
 
-local function wallpaper_paths()
-    local home = os.getenv("HOME") or "."
-    local roots = {
-        (os.getenv("XDG_DATA_HOME") or (home .. "/.local/share")) .. "/wallpapers",
-        home .. "/Pictures/Wallpapers",
-    }
+local function wallpaper_paths(roots)
     local image_extensions = {png = true, jpg = true, jpeg = true, webp = true, bmp = true, gif = true}
     local paths, seen = {}, {}
     for _, root in ipairs(roots) do
@@ -610,7 +607,7 @@ function sidebar.create(s, dismiss_menu)
         border_width = 1, border_color = "#6bb5ca",
         widget = wibox.container.background,
     }
-    local wallpapers = wallpaper_paths()
+    local wallpapers = wallpaper_paths(preferences.wallpaper_dirs)
     local wallpaper_state = (os.getenv("XDG_STATE_HOME") or os.getenv("HOME") .. "/.local/state")
         .. "/awesome/wallpaper"
     local selected_wallpaper = read(wallpaper_state)
@@ -689,7 +686,7 @@ function sidebar.create(s, dismiss_menu)
         forced_width = 32, forced_height = 36, widget = wibox.container.place,
     }
     local weather_main = label("Weather loading…", palette.text, 14, true, "center")
-    local weather_detail = label("Bydgoszcz, Poland", palette.muted, 10, false, "center")
+    local weather_detail = label(gstring.xml_escape(preferences.weather_label), palette.muted, 10, false, "center")
     weather_main.forced_width, weather_detail.forced_width = 190, 190
     local weather_text_stack = wibox.widget {
         weather_main, weather_detail, spacing = compact_spacing,
@@ -743,7 +740,8 @@ function sidebar.create(s, dismiss_menu)
     weather_body:buttons(gears.table.join(awful.button({}, 1, function()
         if weather_enabled then update_weather() end
     end)))
-    local weather_card = collapsible_card("weather", "BYDGOSZCZ · WEATHER", weather_body)
+    local weather_card = collapsible_card("weather",
+        gstring.xml_escape(string.upper(preferences.weather_label)) .. " · WEATHER", weather_body)
 
     local function find_trezor_appimage()
         local root = (os.getenv("HOME") or "") .. "/Programs"
@@ -1000,7 +998,8 @@ function sidebar.create(s, dismiss_menu)
         todo_list:reset()
         todo_entries = read_sidebar_todo()
         if #todo_entries == 0 then
-            local row = label("No items in ~/Documents/todo.md · ## Sidebar", palette.muted, 9, false)
+            local row = label("No items in " .. gstring.xml_escape(preferences.todo_path)
+                .. " · ## Sidebar", palette.muted, 9, false)
             todo_list:add(row)
         else
             for _, entry in ipairs(todo_entries) do
@@ -1017,7 +1016,7 @@ function sidebar.create(s, dismiss_menu)
     }
     local function open_todo_document()
         if suppress_scroll_click then return end
-        launch_document((os.getenv("HOME") or "") .. "/Documents/todo.md")
+        launch_document(preferences.todo_path)
         if dismiss_menu then dismiss_menu() end
     end
     todo_body:buttons(gears.table.join(awful.button({}, 1, open_todo_document)))
@@ -1025,12 +1024,12 @@ function sidebar.create(s, dismiss_menu)
 
     local function open_calendar_document()
         if suppress_scroll_click then return end
-        launch_document((os.getenv("HOME") or "") .. "/Documents/calendar.md")
+        launch_document(preferences.calendar_path)
         if dismiss_menu then dismiss_menu() end
     end
     local calendar_ui = calendar_component.create {
         appearance = appearance, interaction = interaction, label = label,
-        path = (os.getenv("HOME") or "") .. "/Documents/calendar.md",
+        path = preferences.calendar_path,
         blocked = function() return suppress_scroll_click end, open = open_calendar_document,
         button_normal = button_gradient, button_hover = button_hover_gradient,
         bind = function(widget, callback) bind_sidebar_action(widget, callback, "calendar") end,

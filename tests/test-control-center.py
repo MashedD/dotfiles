@@ -95,6 +95,34 @@ class SidebarSettingsTests(unittest.TestCase):
         with self.assertRaisesRegex(settings.SettingsError, "Unknown sidebar section"):
             settings.update_sidebar_enabled_text("", {"not-a-section"})
 
+    def test_sidebar_preferences_round_trip_multiple_folders_and_equals(self):
+        preferences = settings.default_sidebar_preferences(Path("/home/test"), Path("/data"))
+        preferences.update({
+            "weather_label": "Toruń & region",
+            "latitude": "53.0138", "longitude": "18.5984",
+            "todo_path": "/home/test/Documents/todo=work.md",
+            "calendar_path": "/home/test/Notes/calendar.md",
+            "wallpaper_dirs": ["/data/wallpapers", "/mnt/pictures/Walls"],
+        })
+        serialized = settings.serialize_sidebar_preferences(preferences)
+        parsed = settings.parse_sidebar_preferences(serialized, settings.default_sidebar_preferences(
+            Path("/home/test"), Path("/data")))
+        self.assertEqual(parsed["weather_label"], "Toruń & region")
+        self.assertEqual(parsed["latitude"], 53.0138)
+        self.assertEqual(parsed["todo_path"], "/home/test/Documents/todo=work.md")
+        self.assertEqual(parsed["wallpaper_dirs"], ["/data/wallpapers", "/mnt/pictures/Walls"])
+
+    def test_sidebar_preferences_reject_invalid_coordinates_and_control_characters(self):
+        defaults = settings.default_sidebar_preferences(Path("/home/test"), Path("/data"))
+        invalid = dict(defaults, latitude=float("nan"))
+        with self.assertRaisesRegex(settings.SettingsError, "latitude must be between"):
+            settings.serialize_sidebar_preferences(invalid)
+        invalid = dict(defaults, weather_label="City\nOther")
+        with self.assertRaisesRegex(settings.SettingsError, "control character"):
+            settings.serialize_sidebar_preferences(invalid)
+        with self.assertRaisesRegex(settings.SettingsError, "longitude must be between"):
+            settings.parse_sidebar_preferences("version=1\nlongitude=181\n", defaults)
+
 
 class ApplyTests(unittest.TestCase):
     def test_apply_writes_both_files_then_restarts(self):
