@@ -26,6 +26,7 @@ from pathlib import Path
 with open(os.environ['FAKE_COUNTER'],'a') as f:f.write('request\\n')
 if os.environ.get('FAKE_BLOCK'):time.sleep(60)
 if os.path.basename(sys.argv[0])=='curl':
+ Path(os.environ['FAKE_URL']).write_text(' '.join(sys.argv[1:]))
  print(Path(os.environ['FAKE_BODY']).read_text());sys.exit(0)
 for line in sys.stdin:
  data=json.loads(line)
@@ -34,7 +35,7 @@ for line in sys.stdin:
 ''')
         self.backend.chmod(0o755);(self.bin/'curl').symlink_to(self.backend)
         self.env=dict(os.environ,HOME=str(self.base),PATH=str(self.bin)+':'+os.environ['PATH'],
-                      FAKE_BODY=str(self.body),FAKE_COUNTER=str(self.counter),
+                      FAKE_BODY=str(self.body),FAKE_COUNTER=str(self.counter),FAKE_URL=str(self.base/'url'),
                       CODEX_USAGE_TIMEOUT='1',CRYPTO_TIMEOUT='1',
                       CODEX_USAGE_PROXY=str(self.backend),CODEX_USAGE_STDIO=str(self.backend))
 
@@ -77,6 +78,39 @@ for line in sys.stdin:
                 self.assertEqual(result.stdout.strip(),'84' if kind=='codex' else '97.123')
                 legacy=self.run_helper('--sidebar' if kind=='codex' else '')
                 self.assertTrue(legacy.startswith('C ') if kind=='codex' else legacy.startswith('#[fg='))
+
+    def test_sidebar_crypto_uses_configured_tokens_currency_and_format(self):
+        self.setup_kind('crypto')
+        config_home = self.base / '.config'
+        settings_dir = config_home / 'desktop-control-center'
+        settings_dir.mkdir(parents=True)
+        (settings_dir / 'crypto-prices.json').write_text(json.dumps({
+            'version': 1, 'currency': 'EUR', 'currency_symbol': '€',
+            'decimal_separator': '.', 'thousands_separator': ',',
+            'tokens': [
+                {'symbol': 'BTC', 'id': 'bitcoin', 'decimals': 2},
+                {'symbol': 'DOGE', 'id': 'dogecoin', 'decimals': 4},
+            ],
+        }))
+        self.env['XDG_CONFIG_HOME'] = str(config_home)
+        self.body.write_text(json.dumps({
+            'bitcoin': {'eur': 12345.678}, 'dogecoin': {'eur': 0.123456},
+        }))
+        fields = self.run_helper('--sidebar-data').split('\t')
+        self.assertEqual(fields[0], 'crypto-v1')
+        self.assertEqual(fields[1], 'fresh')
+        self.assertIn('BTC ', fields[3])
+        self.assertIn('€12,345.67', fields[3])
+        self.assertIn('DOGE ', fields[3])
+        self.assertIn('€0.1234', fields[3])
+        self.assertIn('ids=bitcoin,dogecoin&vs_currencies=eur', self.env['FAKE_URL'] and Path(self.env['FAKE_URL']).read_text())
+        script = "local m=dofile('dotfiles/.config/awesome/sidebar-data.lua'); " \
+                 "local v,e=m.parse_crypto_sample(io.read('*a')); assert(v,e); " \
+                 "assert(v.BTC=='12,345.67' and v.DOGE=='0.1234'); print(v.DOGE)"
+        result = subprocess.run(['lua', '-e', script], input='\t'.join(fields) + '\n',
+                                cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), '0.1234')
 
     def test_failure_lock_contention_and_recovery_preserve_source_age(self):
         for kind in ('codex','crypto'):

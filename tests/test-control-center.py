@@ -167,6 +167,34 @@ class QuickLaunchSettingsTests(unittest.TestCase):
             settings.serialize_quick_launch_config(too_many)
 
 
+class CryptoSettingsTests(unittest.TestCase):
+    def test_defaults_round_trip_and_custom_token_formatting(self):
+        defaults = settings.default_crypto_prices_config()
+        self.assertEqual([token["symbol"] for token in defaults["tokens"]], ["BTC", "ETH", "LTC"])
+        self.assertEqual(settings.parse_crypto_prices_config(
+            settings.serialize_crypto_prices_config(defaults)), defaults)
+        custom = {"version": 1, "currency": "eur", "currency_symbol": "€",
+                  "decimal_separator": ".", "thousands_separator": ",",
+                  "tokens": [{"symbol": "BTC", "id": "bitcoin", "decimals": 2},
+                             {"symbol": "DOGE", "id": "dogecoin", "decimals": 4}]}
+        parsed = settings.parse_crypto_prices_config(settings.serialize_crypto_prices_config(custom))
+        self.assertEqual(parsed["currency"], "EUR")
+        self.assertEqual(parsed["currency_symbol"], "€")
+        self.assertEqual(parsed["tokens"][1], {"symbol": "DOGE", "id": "dogecoin", "decimals": 4})
+
+    def test_invalid_crypto_settings_are_rejected(self):
+        defaults = settings.default_crypto_prices_config()
+        duplicate = dict(defaults, tokens=[*defaults["tokens"], dict(defaults["tokens"][0])])
+        with self.assertRaisesRegex(settings.SettingsError, "Duplicate token symbol"):
+            settings.serialize_crypto_prices_config(duplicate)
+        invalid = dict(defaults, decimal_separator=",", thousands_separator=",")
+        with self.assertRaisesRegex(settings.SettingsError, "must differ"):
+            settings.serialize_crypto_prices_config(invalid)
+        invalid = dict(defaults, currency_symbol="€ ")
+        with self.assertRaisesRegex(settings.SettingsError, "Currency symbol"):
+            settings.serialize_crypto_prices_config(invalid)
+
+
 class ApplyTests(unittest.TestCase):
     def test_apply_writes_both_files_then_restarts(self):
         with tempfile.TemporaryDirectory() as temp:

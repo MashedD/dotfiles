@@ -142,9 +142,12 @@ starts btop or htop in Kitty, launches the AMDGPU TOP GUI and XFCE Task Manager,
 and opens Pavucontrol, NetworkManager, Bluetooth Manager, Power Manager settings,
 or Solaar on demand. The Sidebar tab follows Appearance and configures section
 visibility, weather city and coordinates, to-do/calendar Markdown paths, wallpaper
-folders, the document-editor command, and News-browser command. A separate Quick
-Launch tab manages its complete launcher list; News settings are managed in the
-following News tab. Sidebar preferences are stored outside Stow at
+folders, the document-editor command, and News-browser command. Separate Quick
+Launch, News, and Crypto Prices tabs manage their respective lists and settings.
+Crypto settings include the token list/order, CoinGecko IDs, quote currency, prefix,
+separators, and per-token decimal precision; they affect the Awesome sidebar only.
+They are stored at `$XDG_CONFIG_HOME/desktop-control-center/crypto-prices.json`.
+Sidebar preferences are stored outside Stow at
 `$XDG_CONFIG_HOME/desktop-control-center/sidebar-preferences` (default
 `~/.config/desktop-control-center/sidebar-preferences`). Editor commands may use
 `{file}` and browser commands `{url}`; if omitted, the path or URL is appended.
@@ -154,8 +157,9 @@ at `$XDG_CONFIG_HOME/desktop-control-center/quick-launch.json`. Existing launche
 are the initial defaults, but the list can be edited, reordered, enabled/disabled, or
 replaced. Commands are parsed as argv and never run through a shell; for example,
 `kitty mdn-editor -- ~/Documents/notes.md` adds a Notes shortcut. Quick Launch is
-hidden by default to save space. Use **Save & Restart Awesome** in either settings
-tab, or save choices and press Win+Ctrl+R to apply them. Solaar is not
+hidden by default to save space. Use **Save & Restart Awesome** on settings tabs, or save choices and press
+Win+Ctrl+R to apply them. The crypto display configuration does not change the
+tmux `crypto-prices` output. Solaar is not
 started automatically. The Start menu keeps
 its Volume Control entry but no longer duplicates Monitor or Display outputs.
 The sidebar also has a scrollable News inbox (default view: unread) backed only by

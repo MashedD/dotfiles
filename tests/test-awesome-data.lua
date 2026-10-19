@@ -167,7 +167,7 @@ assert(not module.parse_weather('{"current":{"temperature_2m":12}}'))
 assert(not module.parse_weather('bad response'))
 local prices = module.parse_crypto('#[fg=green]BTC $97.123 ETH $3.456 LTC $123,45')
 assert(prices.BTC == '97.123' and prices.LTC == '123,45')
-assert(not module.parse_crypto('BTC $1 ETH $2'))
+assert(module.parse_crypto('BTC $1 ETH $2').BTC == '1') -- Configured lists may contain any number of tokens.
 assert(not module.parse_crypto('BTC <bad> ETH $2 LTC $3'))
 local quotas = module.parse_codex('C 5h 0%@Sat 13:46 7d 100%@Wed 06:41\tA & B · C < D')
 assert(quotas.five == 0 and quotas.week == 100 and quotas.resets == 'A & B\nC < D')
@@ -186,6 +186,8 @@ assert(not module.parse_codex_sample(codex_sample:gsub('fresh','stale'),170))
 assert(not module.parse_codex_sample(codex_sample:gsub('C 5h','C* 5h'),170))
 assert(not module.parse_codex_sample('C 5h 84%@Sat 13:46 7d 33%@Wed 06:41',170))
 assert(module.parse_crypto_sample('crypto-v1\tfresh\t100\tBTC $1 ETH $2 LTC $3',170).source_updated==100)
+local empty_crypto = assert(module.parse_crypto_sample('crypto-v1\tfresh\t100\t',170))
+assert(empty_crypto.source_updated == 100 and empty_crypto.BTC == nil)
 assert(not module.parse_crypto_sample('crypto-v1\tstale\t100\tBTC $1 ETH $2 LTC $3',170))
 local news_snapshot = table.concat({
     'news-v2\t2\t100\t110',

@@ -137,15 +137,18 @@ end
 function M.parse_crypto(stdout)
     if stdout:match('^%s*STALE') then return nil end
     local display = stdout:gsub("#%b[]", ""):gsub("^%s+", ""):gsub("%s+$", "")
-    local btc, eth, ltc = display:match("^BTC%s+(%S+)%s+ETH%s+(%S+)%s+LTC%s+(%S+)$")
-    local result = {}
-    for key, value in pairs({BTC = btc, ETH = eth, LTC = ltc}) do
-        value = value:gsub("^%$", "")
-        if not value:match("^%d[%d.,]*$") then return nil end
-        result[key] = value
+    local result, words = {}, {}
+    if display == "" then return result end
+    for word in display:gmatch("%S+") do words[#words + 1] = word end
+    if #words % 2 ~= 0 then return nil end
+    for index = 1, #words, 2 do
+        local symbol, formatted = words[index], words[index + 1]
+        local value = formatted:gsub("^[^%d]*", "")
+        if not symbol:match("^[A-Z0-9]+$") or not value:match("^%d[%d.,]*$")
+            or result[symbol] then return nil end
+        result[symbol] = value
     end
-    if not result.BTC or not result.ETH or not result.LTC then return nil end
-    return result
+    return next(result) and result or nil
 end
 function M.parse_codex(stdout)
     if stdout:match('^%s*C%*') then return nil end
@@ -163,7 +166,7 @@ end
 
 -- Machine channels retain the source's confirmation time, not helper invocation time.
 local function source_sample(stdout,kind,parse,now)
-    local status,stamp,body=stdout:gsub('[\r\n]+$',''):match('^'..kind..'%-v1\t([a-z]+)\t(%d+)\t([^\r\n]+)$')
+    local status,stamp,body=stdout:gsub('[\r\n]+$',''):match('^'..kind..'%-v1\t([a-z]+)\t(%d+)\t([^\r\n]*)$')
     if not status then return nil,'Missing source freshness metadata' end
     if status~='fresh' then return nil,'Source '..status..'; current value unavailable' end
     stamp=tonumber(stamp); now=now or os.time()

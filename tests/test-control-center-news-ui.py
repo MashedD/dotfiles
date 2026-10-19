@@ -34,7 +34,7 @@ exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"), namespace)
 module = SimpleNamespace(**namespace)
 module.Gtk.init([])
 window = module.ControlCenter()
-assert window.notebook.get_n_pages() == 5
+assert window.notebook.get_n_pages() == 6
 assert window.sidebar_widgets["news"].get_active()
 assert window.news_config == {"version": 1, "categories": [], "feeds": []}
 window.sidebar_widgets["news"].set_active(False)
@@ -92,6 +92,32 @@ assert [entry["label"] for entry in json.loads(quick_path.read_text())["entries"
     "Terminal", "Files", "Control Panel", "Finder", "Firefox", "Quake 1", "Quake 2", "Sleep"]
 window.notebook.set_current_page(4)
 assert window.apply_button.get_label() == "_Save News"
+window.notebook.set_current_page(5)
+assert window.apply_button.get_label() == "_Save Crypto"
+window.crypto_currency.set_text("EUR")
+window.crypto_currency_symbol.set_text("€")
+window.crypto_decimal_separator.set_active_id(".")
+window.crypto_thousands_separator.set_active_id(",")
+for record in list(window.crypto_rows):
+    window._remove_crypto_token_row(None, record)
+window._add_crypto_token_row({"symbol": "BTC", "id": "bitcoin", "decimals": 2})
+window._add_crypto_token_row({"symbol": "DOGE", "id": "dogecoin", "decimals": 4})
+window._move_crypto_token_row(None, window.crypto_rows[-1], -1)
+assert window._save_crypto_settings()
+crypto_path = module.CRYPTO_PRICES_CONFIG_PATH
+saved_crypto = json.loads(crypto_path.read_text(encoding="utf-8"))
+assert saved_crypto["currency"] == "EUR" and saved_crypto["currency_symbol"] == "€"
+assert saved_crypto["tokens"] == [
+    {"symbol": "DOGE", "id": "dogecoin", "decimals": 4},
+    {"symbol": "BTC", "id": "bitcoin", "decimals": 2}]
+window.crypto_rows[1]["symbol"].set_text("DOGE")
+assert not window._save_crypto_settings()
+assert json.loads(crypto_path.read_text(encoding="utf-8")) == saved_crypto
+window._reload_crypto_settings()
+assert [row["symbol"].get_text() for row in window.crypto_rows] == ["DOGE", "BTC"]
+window._restore_crypto_defaults()
+assert window._save_crypto_settings()
+assert json.loads(crypto_path.read_text(encoding="utf-8"))["currency"] == "USD"
 window.notebook.set_current_page(1)
 window._revert()
 window.notebook.set_current_page(2)

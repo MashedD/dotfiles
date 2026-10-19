@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# BTC/ETH/LTC USD prices for the tmux status bar.
+# BTC/ETH/LTC USD prices for tmux; the Awesome sidebar accepts its own settings.
 # Cached and lock-guarded so the 5s status refresh never stacks requests.
 
 set -u
@@ -8,13 +8,24 @@ set -u
 readonly refresh_interval="${CRYPTO_REFRESH_INTERVAL:-60}"
 readonly request_timeout="${CRYPTO_TIMEOUT:-5}"
 readonly cache_root="${XDG_CACHE_HOME:-${HOME:?HOME must be set}/.cache}/crypto"
-readonly cache_file="${CRYPTO_CACHE:-$cache_root/prices.json}"
-readonly lock_file="${cache_file}.flock"
-readonly api_url='https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,litecoin&vs_currencies=usd'
+cache_file="${CRYPTO_CACHE:-$cache_root/prices.json}"
+lock_file="${cache_file}.flock"
+api_url='https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,litecoin&vs_currencies=usd'
+sidebar_currency="USD"
+sidebar_currency_symbol='$'
+sidebar_decimal_separator=','
+sidebar_thousands_separator='.'
+declare -a sidebar_symbols=(BTC ETH LTC)
+declare -a sidebar_ids=(bitcoin ethereum litecoin)
+declare -a sidebar_decimals=(0 0 2)
 
 print_unavailable() {
   if [[ "${1:-}" == --sidebar-data ]]; then
-    printf 'crypto-v1\tunavailable\t0\tBTC -- ETH -- LTC --\n'
+    local placeholder="" symbol
+    for symbol in "${sidebar_symbols[@]}"; do
+      placeholder+="${symbol} -- "
+    done
+    printf 'crypto-v1\tunavailable\t0\t%s\n' "${placeholder% }"
   else
     printf 'BTC -- ETH -- LTC --\n'
   fi
@@ -22,11 +33,11 @@ print_unavailable() {
 
 # Insert '.' thousands separators into an integer string (locale-independent).
 group_thousands() {
-  local value="$1" grouped="" chunk
+  local value="$1" separator="${2:-.}" grouped="" chunk
 
   while [[ "$value" =~ ^[0-9]+([0-9]{3})$ ]]; do
     chunk="${BASH_REMATCH[1]}"
-    grouped=".$chunk$grouped"
+    grouped="$separator$chunk$grouped"
     value="${value%$chunk}"
   done
   printf '%s%s' "$value" "$grouped"
@@ -50,6 +61,48 @@ format_usd() {
     frac="${frac}00"
     printf '$%s,%s' "$(group_thousands "$whole")" "${frac:0:2}"
   fi
+}
+
+load_sidebar_config() {
+  local config_path="${XDG_CONFIG_HOME:-${HOME:?HOME must be set}/.config}/desktop-control-center/crypto-prices.json"
+  local valid=false ids_csv signature
+  if [[ -r "$config_path" ]] && jq -e '
+    type == "object" and .version == 1
+    and (.currency | type == "string" and test("^[A-Za-z]{3}$"))
+    and (.currency_symbol | type == "string" and length >= 1 and length <= 8
+      and (.[0:1] | test("^[^0-9]")))
+    and (.decimal_separator == "." or .decimal_separator == ",")
+    and (.thousands_separator == "." or .thousands_separator == ",")
+    and .decimal_separator != .thousands_separator
+    and (.tokens | type == "array" and length <= 12
+      and all(.[]; (.symbol | type == "string" and test("^[A-Z0-9]{1,10}$"))
+        and (.id | type == "string" and test("^[a-z0-9-]{1,64}$"))
+        and (.decimals | type == "number" and floor == . and . >= 0 and . <= 8)))
+    and ([.tokens[].symbol] | unique | length) == (.tokens | length)
+    and ([.tokens[].id] | unique | length) == (.tokens | length)
+  ' "$config_path" >/dev/null 2>&1; then
+    valid=true
+  fi
+  if [[ "$valid" == true ]]; then
+    sidebar_currency="$(jq -r '.currency | ascii_upcase' "$config_path")"
+    sidebar_currency_symbol="$(jq -r '.currency_symbol' "$config_path")"
+    sidebar_decimal_separator="$(jq -r '.decimal_separator' "$config_path")"
+    sidebar_thousands_separator="$(jq -r '.thousands_separator' "$config_path")"
+    mapfile -t sidebar_symbols < <(jq -r '.tokens[].symbol' "$config_path")
+    mapfile -t sidebar_ids < <(jq -r '.tokens[].id' "$config_path")
+    mapfile -t sidebar_decimals < <(jq -r '.tokens[].decimals' "$config_path")
+  elif [[ -r "$config_path" ]]; then
+    printf '%s\n' 'crypto-prices: invalid sidebar settings; using BTC/ETH/LTC USD defaults' >&2
+  fi
+  sidebar_currency="${sidebar_currency^^}"
+  local currency_lower="${sidebar_currency,,}"
+  ids_csv="$(IFS=,; printf '%s' "${sidebar_ids[*]}")"
+  api_url="https://api.coingecko.com/api/v3/simple/price?ids=${ids_csv}&vs_currencies=${currency_lower}"
+  signature="$(printf '%s\n' "$sidebar_currency" "$sidebar_currency_symbol" \
+      "$sidebar_decimal_separator" "$sidebar_thousands_separator" \
+      "${sidebar_symbols[*]}" "${sidebar_ids[*]}" "${sidebar_decimals[*]}" | sha256sum | cut -c1-16)"
+  cache_file="${CRYPTO_CACHE:-$cache_root/sidebar-${signature}.json}"
+  lock_file="${cache_file}.flock"
 }
 
 cache_value() {
@@ -83,6 +136,36 @@ fetch_result() {
   curl -fsS --max-time "$request_timeout" "$api_url" 9>&- 2>/dev/null || return 1
 }
 
+format_sidebar_price() {
+  local price="$1" decimals="$2" fixed whole fraction=""
+  [[ "$price" =~ ^[0-9]+([.][0-9]+)?([eE][+-]?[0-9]+)?$ ]] || return 1
+  fixed="$(LC_ALL=C awk -v value="$price" -v digits="$decimals" \
+    'BEGIN { scale = 10 ^ digits; value = int(value * scale) / scale; printf "%.*f", digits, value }')" || return 1
+  whole="${fixed%%.*}"
+  if (( decimals > 0 )); then fraction="${fixed#*.}"; fi
+  whole="$(group_thousands "$whole" "$sidebar_thousands_separator")"
+  if (( decimals > 0 )); then
+    printf '%s%s%s' "$whole" "$sidebar_decimal_separator" "$fraction"
+  else
+    printf '%s' "$whole"
+  fi
+}
+
+format_sidebar_result() {
+  local result="$1" display="" index id symbol decimals price formatted
+  for index in "${!sidebar_ids[@]}"; do
+    id="${sidebar_ids[$index]}"
+    symbol="${sidebar_symbols[$index]}"
+    decimals="${sidebar_decimals[$index]}"
+    price="$(jq -r --arg id "$id" --arg currency "${sidebar_currency,,}" \
+      '.[$id][$currency] // empty' <<<"$result" 2>/dev/null)" || return 1
+    [[ -n "$price" ]] || return 1
+    formatted="$(format_sidebar_price "$price" "$decimals")" || return 1
+    display+="#[fg=#006400]${symbol} #[fg=#55ff99,bold]${sidebar_currency_symbol}${formatted} "
+  done
+  printf '%s' "${display% }"
+}
+
 format_result() {
   local result="$1"
   local btc eth ltc
@@ -102,6 +185,12 @@ format_result() {
 
 main() {
   local mode="${1:-tmux}" now cached cached_display cached_at age result display
+  if [[ "$mode" == --sidebar-data ]]; then
+    load_sidebar_config
+  else
+    cache_file="${CRYPTO_CACHE:-$cache_root/prices.json}"
+    lock_file="${cache_file}.flock"
+  fi
   now="$(date +%s)"
   emit() {
     local value="$1" at="${2:-0}" status="${3:-unavailable}"
@@ -113,6 +202,11 @@ main() {
       printf '%s\n' "$value"
     fi
   }
+
+  if [[ "$mode" == --sidebar-data && ${#sidebar_ids[@]} -eq 0 ]]; then
+    emit "" "$now" fresh
+    return 0
+  fi
 
   cached="$(cache_value 2>/dev/null || true)"
   cached_display="${cached%%$'\t'*}"
@@ -138,7 +232,12 @@ main() {
   fi
 
   result="$(fetch_result 2>/dev/null || true)"
-  if [[ -n "$result" ]] && display="$(format_result "$result" 2>/dev/null)" && [[ -n "$display" ]]; then
+  if [[ "$mode" == --sidebar-data ]]; then
+    display="$(format_sidebar_result "$result" 2>/dev/null)"
+  else
+    display="$(format_result "$result" 2>/dev/null)"
+  fi
+  if [[ -n "$result" && ( -n "$display" || ( "$mode" == --sidebar-data && ${#sidebar_ids[@]} -eq 0 ) ) ]]; then
     now="$(date +%s)"
     write_cache "$display" "$now" 2>/dev/null || true
     emit "$display" "$now" fresh
@@ -149,7 +248,8 @@ main() {
   fi
 }
 
-if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1 || ! command -v flock >/dev/null 2>&1; then
+if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1 \
+    || ! command -v flock >/dev/null 2>&1 || ! command -v awk >/dev/null 2>&1; then
   print_unavailable "${1:-}"
   exit 0
 fi

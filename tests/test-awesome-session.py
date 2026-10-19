@@ -144,7 +144,15 @@ def main():
         fake_news.chmod(0o755)
         news_state = testhome / ".local/state/awesome/news-test.json"
         crypto_helper = helpers / "crypto-prices"
-        crypto_helper.write_text("#!/bin/sh\nprintf 'crypto-v1\\tfresh\\t%s\\t%s\\n' \"$(date +%s)\" '#[fg=#006400]BTC #[fg=#55ff99,bold]$97.123 #[fg=#006400]ETH #[fg=#55ff99,bold]$3.456 #[fg=#006400]LTC #[fg=#55ff99,bold]$123,45'\n")
+        crypto_display = ('#[fg=#006400]BTC #[fg=#55ff99,bold]$97.123 '
+                          '#[fg=#006400]ETH #[fg=#55ff99,bold]$3.456 '
+                          '#[fg=#006400]LTC #[fg=#55ff99,bold]$123,45')
+        if args.scenario == "sidebar-personalization":
+            crypto_display = ('#[fg=#006400]DOGE #[fg=#55ff99,bold]€0.1234 '
+                              '#[fg=#006400]BTC #[fg=#55ff99,bold]€12,345.67')
+        crypto_helper.write_text(
+            "#!/bin/sh\nprintf 'crypto-v1\\tfresh\\t%s\\t%s\\n' \"$(date +%s)\" '"
+            + crypto_display + "'\n")
         crypto_helper.chmod(0o755)
         codex_helper = helpers / "codex-usage"
         codex_helper.write_text("#!/bin/sh\nprintf 'codex-v1\\tfresh\\t%s\\t%s\\t%s\\n' \"$(date +%s)\" 'C 5h #[fg=#55ff99]84%#[fg=#006400]@#[fg=#55ff99]Sat 13:46 7d #[fg=#55ff99]33%#[fg=#006400]@#[fg=#55ff99]Wed 06:41' 'Sat 24.10 13:46 · Tue 27.10 13:46 · Fri 30.10 13:46'\n")
@@ -163,6 +171,16 @@ def main():
             empty_quick_launch_file.parent.mkdir(parents=True, exist_ok=True)
             empty_quick_launch_file.write_text(json.dumps({"version": 1, "entries": []}))
         if args.scenario == "sidebar-personalization":
+            crypto_config = testhome / ".config/desktop-control-center/crypto-prices.json"
+            crypto_config.parent.mkdir(parents=True, exist_ok=True)
+            crypto_config.write_text(json.dumps({
+                "version": 1, "currency": "EUR", "currency_symbol": "€",
+                "decimal_separator": ".", "thousands_separator": ",",
+                "tokens": [
+                    {"symbol": "DOGE", "id": "dogecoin", "decimals": 4},
+                    {"symbol": "BTC", "id": "bitcoin", "decimals": 2},
+                ],
+            }), encoding="utf-8")
             custom_documents = testhome / "Notes"
             custom_documents.mkdir()
             (custom_documents / "tasks.md").write_text(
@@ -561,6 +579,8 @@ def main():
                     wait('return tostring(screen[1].sidebar_weather_text.text:find("12°C",1,true)~=nil)', '"true"')
                     audit = lua('local s=screen[1]; local n=s.sidebar_quick_launch_buttons.Notes; return s.sidebar_sections.weather.title.."|"..tostring(#s.sidebar_todo_entries==5 and s.sidebar_todo_entries[5]=="Fifth item")..":"..tostring(#s.sidebar_calendar_entries==7 and s.sidebar_calendar_entries[3].text=="visit: Today appointment")..":"..tostring(s.sidebar_wallpaper_name.text=="custom-wallpaper.png")..":"..tostring(n and #n.entry.argv==4 and n.entry.argv[4]==os.getenv("HOME").."/Documents/notes.md")..":"..tostring(s.sidebar_quick_launch_buttons.Disabled==nil)..":"..tostring(n and table.concat(n.entry.argv,"|"))')
                     assert 'TEST CITY &amp; REGION · WEATHER|true:true:true:true:true' in audit, audit + logfile.read_text()
+                    crypto_audit = lua('local s=screen[1]; return s.sidebar_crypto_config.currency..":"..s.sidebar_crypto_prices.DOGE.text..":"..s.sidebar_crypto_prices.BTC.text..":"..tostring(s.sidebar_crypto_prices.ETH==nil)')
+                    assert 'EUR:0.1234:12,345.67:true' in crypto_audit, crypto_audit
                     notes_point = widget_point('screen[1].sidebar_quick_launch_buttons.Notes.widget')
                     pointer('mousemove', *notes_point, 'click', 1)
                     expected_action = 'kitty mdn-editor -- ' + str(testhome / 'Documents/notes.md')

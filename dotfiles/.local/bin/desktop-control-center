@@ -29,12 +29,15 @@ from desktop_control_center.settings import (  # noqa: E402
     TOOLBAR_STYLES,
     apply_settings,
     atomic_write,
+    default_crypto_prices_config,
     default_quick_launch_config,
     default_sidebar_preferences,
     parse_quick_launch_command,
+    parse_crypto_prices_config,
     parse_quick_launch_config,
     parse_sidebar_enabled,
     parse_sidebar_preferences,
+    serialize_crypto_prices_config,
     serialize_quick_launch_config,
     serialize_sidebar_preferences,
     settings_from_files,
@@ -51,6 +54,7 @@ GTK_SETTINGS_PATH = CONFIG_HOME / "gtk-3.0/settings.ini"
 SIDEBAR_SECTIONS_PATH = STATE_HOME / "awesome/sidebar-sections"
 SIDEBAR_PREFERENCES_PATH = CONFIG_HOME / "desktop-control-center/sidebar-preferences"
 QUICK_LAUNCH_CONFIG_PATH = CONFIG_HOME / "desktop-control-center/quick-launch.json"
+CRYPTO_PRICES_CONFIG_PATH = CONFIG_HOME / "desktop-control-center/crypto-prices.json"
 NEWS_CONFIG_PATH = desktop_news_config.config_path()
 NEWS_HELPER = HOME / ".local/bin/desktop-news"
 
@@ -138,6 +142,9 @@ class ControlCenter(Gtk.Window):
         self.news_category_rows: list[dict[str, object]] = []
         self.news_feed_rows: list[dict[str, object]] = []
         self.news_config: dict[str, object] = {}
+        self.crypto_rows: list[dict[str, object]] = []
+        self.crypto_config: dict[str, object] = default_crypto_prices_config()
+        self.crypto_warning: str | None = None
         self.tool_buttons: dict[str, Gtk.Button] = {}
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -150,6 +157,7 @@ class ControlCenter(Gtk.Window):
         self._build_sidebar_page()
         self._build_quick_launch_page()
         self._build_news_page()
+        self._build_crypto_page()
 
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         actions.set_border_width(12)
@@ -174,6 +182,8 @@ class ControlCenter(Gtk.Window):
             self.status.set_text(self.sidebar_preferences_warning)
         elif self.quick_launch_warning:
             self.status.set_text(self.quick_launch_warning)
+        elif self.crypto_warning:
+            self.status.set_text(self.crypto_warning)
 
     def _add_tab(self, title: str) -> tuple[Gtk.Grid, Gtk.ScrolledWindow]:
         grid = Gtk.Grid(column_spacing=16, row_spacing=9, margin=12)
@@ -781,6 +791,193 @@ class ControlCenter(Gtk.Window):
         grid.attach(note, 0, 4, 2, 1)
         self._reload_news_config_data()
 
+    def _build_crypto_page(self) -> None:
+        grid, _ = self._add_tab("Crypto Prices")
+        intro = Gtk.Label(label=(
+            "Choose the sidebar token list, quote currency, price prefix, separators, and per-token precision. "
+            "The sidebar uses CoinGecko; these options do not change tmux crypto-prices output."
+        ))
+        intro.set_xalign(0)
+        intro.set_line_wrap(True)
+        grid.attach(intro, 0, 0, 2, 1)
+        try:
+            self.crypto_config = (
+                parse_crypto_prices_config(CRYPTO_PRICES_CONFIG_PATH.read_text(encoding="utf-8"))
+                if CRYPTO_PRICES_CONFIG_PATH.exists() else default_crypto_prices_config()
+            )
+            self.crypto_warning = None
+        except Exception as exc:
+            self.crypto_config = default_crypto_prices_config()
+            self.crypto_warning = f"Crypto settings could not be read; defaults loaded: {exc}"
+
+        fields = Gtk.Grid(column_spacing=12, row_spacing=7)
+        fields.attach(Gtk.Label(label="Quote currency (ISO code)"), 0, 0, 1, 1)
+        self.crypto_currency = Gtk.Entry()
+        self.crypto_currency.set_width_chars(8)
+        self.crypto_currency.set_text(self.crypto_config["currency"])
+        fields.attach(self.crypto_currency, 1, 0, 1, 1)
+        fields.attach(Gtk.Label(label="Currency prefix"), 2, 0, 1, 1)
+        self.crypto_currency_symbol = Gtk.Entry()
+        self.crypto_currency_symbol.set_width_chars(8)
+        self.crypto_currency_symbol.set_text(self.crypto_config["currency_symbol"])
+        fields.attach(self.crypto_currency_symbol, 3, 0, 1, 1)
+        fields.attach(Gtk.Label(label="Decimal separator"), 0, 1, 1, 1)
+        self.crypto_decimal_separator = Gtk.ComboBoxText()
+        self.crypto_decimal_separator.append(".", "Dot (.)")
+        self.crypto_decimal_separator.append(",", "Comma (,)")
+        self.crypto_decimal_separator.set_active_id(self.crypto_config["decimal_separator"])
+        fields.attach(self.crypto_decimal_separator, 1, 1, 1, 1)
+        fields.attach(Gtk.Label(label="Thousands separator"), 2, 1, 1, 1)
+        self.crypto_thousands_separator = Gtk.ComboBoxText()
+        self.crypto_thousands_separator.append(".", "Dot (.)")
+        self.crypto_thousands_separator.append(",", "Comma (,)")
+        self.crypto_thousands_separator.set_active_id(self.crypto_config["thousands_separator"])
+        fields.attach(self.crypto_thousands_separator, 3, 1, 1, 1)
+        grid.attach(fields, 0, 1, 2, 1)
+
+        token_frame = Gtk.Frame(label="Tokens (CoinGecko ID; display order; decimals 0–8)")
+        token_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        token_box.set_border_width(8)
+        self.crypto_token_list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        token_box.pack_start(self.crypto_token_list, False, False, 0)
+        for token in self.crypto_config["tokens"]:
+            self._add_crypto_token_row(token)
+        token_controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        add_token = Gtk.Button.new_with_label("Add Token")
+        add_token.connect("clicked", lambda *_: self._add_crypto_token_row())
+        restore = Gtk.Button.new_with_label("Restore Defaults")
+        restore.connect("clicked", self._restore_crypto_defaults)
+        token_controls.pack_start(add_token, False, False, 0)
+        token_controls.pack_start(restore, False, False, 0)
+        token_box.pack_start(token_controls, False, False, 0)
+        token_frame.add(token_box)
+        grid.attach(token_frame, 0, 2, 2, 1)
+
+        note = Gtk.Label(label=(
+            "Use CoinGecko coin IDs (for example bitcoin, ethereum, litecoin). Decimals are per token; "
+            "the selected separators and currency prefix apply to every price. Changes affect only the Awesome sidebar."
+        ))
+        note.set_xalign(0)
+        note.set_line_wrap(True)
+        grid.attach(note, 0, 3, 2, 1)
+
+        self.crypto_restart_button = Gtk.Button.new_with_label("Save & Restart Awesome")
+        self.crypto_restart_button.get_style_context().add_class("suggested-action")
+        self.crypto_restart_button.set_tooltip_text(
+            "Save crypto display settings and explicitly restart Awesome now."
+        )
+        if shutil.which("awesome-client"):
+            self.crypto_restart_button.connect("clicked", self._save_crypto_and_restart)
+        else:
+            self.crypto_restart_button.set_sensitive(False)
+            self.crypto_restart_button.set_tooltip_text("awesome-client is not installed")
+        grid.attach(self.crypto_restart_button, 0, 4, 2, 1)
+
+    def _add_crypto_token_row(self, token: dict[str, object] | None = None) -> None:
+        token = token or {"symbol": "", "id": "", "decimals": 2}
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        symbol = Gtk.Entry()
+        symbol.set_width_chars(8)
+        symbol.set_placeholder_text("Symbol")
+        symbol.set_text(str(token.get("symbol", "")))
+        coin_id = Gtk.Entry()
+        coin_id.set_width_chars(18)
+        coin_id.set_placeholder_text("CoinGecko ID")
+        coin_id.set_text(str(token.get("id", "")))
+        decimals = Gtk.SpinButton.new_with_range(0, 8, 1)
+        decimals.set_value(int(token.get("decimals", 2)))
+        decimals.set_tooltip_text("Digits after the decimal separator")
+        record: dict[str, object] = {"widget": row, "symbol": symbol,
+                                     "id": coin_id, "decimals": decimals}
+        up = Gtk.Button.new_with_label("↑")
+        down = Gtk.Button.new_with_label("↓")
+        remove = Gtk.Button.new_with_label("Remove")
+        up.connect("clicked", self._move_crypto_token_row, record, -1)
+        down.connect("clicked", self._move_crypto_token_row, record, 1)
+        remove.connect("clicked", self._remove_crypto_token_row, record)
+        row.pack_start(symbol, False, False, 0)
+        row.pack_start(coin_id, True, True, 0)
+        row.pack_start(decimals, False, False, 0)
+        row.pack_start(up, False, False, 0)
+        row.pack_start(down, False, False, 0)
+        row.pack_start(remove, False, False, 0)
+        self.crypto_rows.append(record)
+        self.crypto_token_list.pack_start(row, False, False, 0)
+        row.show_all()
+
+    def _remove_crypto_token_row(self, _button: Gtk.Button,
+                                 record: dict[str, object]) -> None:
+        self.crypto_rows.remove(record)
+        record["widget"].destroy()
+
+    def _move_crypto_token_row(self, _button: Gtk.Button, record: dict[str, object],
+                               direction: int) -> None:
+        index = self.crypto_rows.index(record)
+        target = max(0, min(len(self.crypto_rows) - 1, index + direction))
+        if target == index:
+            return
+        self.crypto_rows.pop(index)
+        self.crypto_rows.insert(target, record)
+        self.crypto_token_list.reorder_child(record["widget"], target)
+
+    def _collect_crypto_config(self) -> dict[str, object]:
+        return {
+            "version": 1,
+            "currency": self.crypto_currency.get_text(),
+            "currency_symbol": self.crypto_currency_symbol.get_text(),
+            "decimal_separator": self.crypto_decimal_separator.get_active_id(),
+            "thousands_separator": self.crypto_thousands_separator.get_active_id(),
+            "tokens": [{"symbol": row["symbol"].get_text(), "id": row["id"].get_text(),
+                        "decimals": row["decimals"].get_value_as_int()}
+                       for row in self.crypto_rows],
+        }
+
+    def _restore_crypto_defaults(self, *_args: object) -> None:
+        for record in list(self.crypto_rows):
+            self._remove_crypto_token_row(None, record)
+        self.crypto_config = default_crypto_prices_config()
+        self.crypto_currency.set_text(self.crypto_config["currency"])
+        self.crypto_currency_symbol.set_text(self.crypto_config["currency_symbol"])
+        self.crypto_decimal_separator.set_active_id(self.crypto_config["decimal_separator"])
+        self.crypto_thousands_separator.set_active_id(self.crypto_config["thousands_separator"])
+        for token in self.crypto_config["tokens"]:
+            self._add_crypto_token_row(token)
+        self.status.set_text("Built-in crypto defaults restored in the editor; save to persist them.")
+
+    def _save_crypto_settings(self) -> bool:
+        try:
+            config = parse_crypto_prices_config(serialize_crypto_prices_config(self._collect_crypto_config()))
+            atomic_write(CRYPTO_PRICES_CONFIG_PATH, serialize_crypto_prices_config(config))
+        except Exception as exc:
+            self.status.set_text(f"Could not save Crypto settings: {exc}")
+            return False
+        self.crypto_config = config
+        self.crypto_warning = None
+        self.status.set_text("Crypto settings saved. Restart Awesome to apply them.")
+        return True
+
+    def _save_crypto_and_restart(self, *_args: object) -> None:
+        if self._save_crypto_settings():
+            self._request_awesome_restart("Crypto settings saved; Awesome restart requested.")
+
+    def _reload_crypto_settings(self) -> None:
+        try:
+            self.crypto_config = (
+                parse_crypto_prices_config(CRYPTO_PRICES_CONFIG_PATH.read_text(encoding="utf-8"))
+                if CRYPTO_PRICES_CONFIG_PATH.exists() else default_crypto_prices_config()
+            )
+            for record in list(self.crypto_rows):
+                self._remove_crypto_token_row(None, record)
+            self.crypto_currency.set_text(self.crypto_config["currency"])
+            self.crypto_currency_symbol.set_text(self.crypto_config["currency_symbol"])
+            self.crypto_decimal_separator.set_active_id(self.crypto_config["decimal_separator"])
+            self.crypto_thousands_separator.set_active_id(self.crypto_config["thousands_separator"])
+            for token in self.crypto_config["tokens"]:
+                self._add_crypto_token_row(token)
+            self.status.set_text("Crypto settings reloaded from disk.")
+        except Exception as exc:
+            self.status.set_text(f"Could not reload Crypto settings: {exc}")
+
     def _news_category_ids(self) -> set[str]:
         return {str(row["id"]) for row in self.news_category_rows}
 
@@ -975,7 +1172,13 @@ class ControlCenter(Gtk.Window):
 
     def _update_action_buttons(self, _notebook: Gtk.Notebook, _page: Gtk.Widget | None,
                                page_number: int) -> None:
-        if page_number == 4:
+        if page_number == 5:
+            self.revert_button.set_label("_Reload")
+            self.apply_button.set_label("_Save Crypto")
+            self.revert_button.set_sensitive(True)
+            self.apply_button.set_sensitive(True)
+            self.status.set_text("Save token and price formatting settings for the Awesome sidebar.")
+        elif page_number == 4:
             self.revert_button.set_label("_Reload")
             self.apply_button.set_label("_Save News")
             self.revert_button.set_sensitive(True)
@@ -1122,6 +1325,9 @@ class ControlCenter(Gtk.Window):
         if page_number == 4:
             self._save_news_settings()
             return
+        if page_number == 5:
+            self._save_crypto_settings()
+            return
         if page_number != 1:
             return
         try:
@@ -1150,6 +1356,9 @@ class ControlCenter(Gtk.Window):
             return
         if page_number == 4:
             self._reload_news_settings()
+            return
+        if page_number == 5:
+            self._reload_crypto_settings()
             return
         if page_number != 1:
             return

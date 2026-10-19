@@ -27,7 +27,7 @@ persistent read/dismissal state. The Control Center's News tab manages custom
 categories and sources in `~/.config/desktop-news/config.json`; new profiles start
 empty, while existing profiles migrate the Wykop General source and current categories
 once. The Sidebar tab controls News visibility. The popup offers dynamic category/
-unread filters, Firefox opening (which marks the story read), individual
+unread filters, the configured browser (which marks a story read), individual
 read/unread/remove controls, and Mark all read. Open toggles to Close, the titlebar
 X closes explicitly, and outside clicks/Escape do not dismiss the popup. `sidebar-data.lua` shares
 session samples and only notifies on state/value changes. Fast CPU/memory/network
@@ -73,7 +73,11 @@ The separate Quick Launch tab edits the full launcher list; its JSON settings li
 `$XDG_CONFIG_HOME/desktop-control-center/quick-launch.json`. Existing launchers are
 initial defaults, while commands are parsed into argv and never sent through a shell.
 The example `kitty mdn-editor -- ~/Documents/notes.md` opens a notes file in MDN Editor.
-Use **Save & Restart Awesome** or Win+Ctrl+R to apply saved changes.
+The Crypto Prices tab configures sidebar token order, CoinGecko IDs, quote currency,
+currency prefix, separators, and per-token decimal precision. Defaults preserve BTC,
+ETH, and LTC in USD; settings live at
+`$XDG_CONFIG_HOME/desktop-control-center/crypto-prices.json` and do not alter tmux
+output. Use **Save & Restart Awesome** or Win+Ctrl+R to apply saved changes.
 
 | Component | Constructor inputs | Returned operations/handles |
 | --- | --- | --- |

@@ -10,6 +10,7 @@ local sidebar = {}
 local config_dir = awesome.conffile:match("^(.*)/") or "."
 local appearance = dofile(config_dir .. "/appearance.lua")
 local preferences = dofile(config_dir .. "/sidebar-preferences.lua").load()
+local crypto_preferences = dofile(config_dir .. "/sidebar-crypto-preferences.lua").load()
 local data = dofile(config_dir .. "/sidebar-data.lua")
 data.configure(preferences)
 local interaction = dofile(config_dir .. "/interaction.lua")
@@ -809,7 +810,7 @@ function sidebar.create(s, dismiss_menu)
             set_markup(row, string.format(
                 "<span foreground='%s' size='9pt' weight='bold'%s>%s</span> " ..
                     "<span foreground='%s' size='9pt' weight='bold'%s>%s</span>",
-                palette.teal, underline, symbol, palette.green, underline, entry.text))
+                palette.teal, underline, symbol, palette.green, underline, gstring.xml_escape(entry.text)))
         end
         entry.set = function(value)
             entry.text = value
@@ -825,14 +826,23 @@ function sidebar.create(s, dismiss_menu)
     end
     local crypto_line = wibox.layout.fixed.horizontal()
     crypto_line.spacing = 12
-    crypto_line:add(crypto_cell("BTC"))
-    crypto_line:add(crypto_cell("ETH"))
-    crypto_line:add(crypto_cell("LTC"))
-    local crypto_body = wibox.widget {
-        {crypto_line, halign = "center", widget = wibox.container.place},
-        spacing = compact_spacing, layout = wibox.layout.fixed.vertical,
-    }
-    local crypto_card = collapsible_card("crypto", "CRYPTO PRICES · USD", crypto_body)
+    for _, token in ipairs(crypto_preferences.tokens) do
+        crypto_line:add(crypto_cell(token.symbol))
+    end
+    local crypto_body
+    if #crypto_preferences.tokens == 0 then
+        crypto_body = wibox.widget {
+            label("No tokens configured", palette.muted, 9, false, "center"),
+            layout = wibox.layout.fixed.vertical,
+        }
+    else
+        crypto_body = wibox.widget {
+            {crypto_line, halign = "center", widget = wibox.container.place},
+            spacing = compact_spacing, layout = wibox.layout.fixed.vertical,
+        }
+    end
+    local crypto_card = collapsible_card("crypto",
+        "CRYPTO PRICES · " .. crypto_preferences.currency, crypto_body)
     local function refresh_crypto() data.refresh("crypto") end
     local function render_crypto(state)
         for symbol, entry in pairs(crypto_prices) do entry.set(state.value and state.value[symbol] or "--") end
@@ -1460,6 +1470,7 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_calendar_card = calendar_card
     s.sidebar_calendar_open = open_calendar_document
     s.sidebar_crypto_card, s.sidebar_crypto_prices = crypto_card, crypto_prices
+    s.sidebar_crypto_config = crypto_preferences
     s.sidebar_crypto_refresh = refresh_crypto
     s.sidebar_codex_card, s.sidebar_codex_5h, s.sidebar_codex_7d = codex_card, codex_5h, codex_7d
     s.sidebar_codex_resets = codex_resets

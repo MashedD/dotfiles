@@ -380,6 +380,85 @@ def serialize_quick_launch_config(entries: object) -> str:
                       ensure_ascii=False, indent=2) + "\n"
 
 
+CRYPTO_PRICES_VERSION = 1
+CRYPTO_MAX_TOKENS = 12
+CRYPTO_DECIMAL_OPTIONS = (".", ",")
+CRYPTO_TOKENS_DEFAULT = (
+    {"symbol": "BTC", "id": "bitcoin", "decimals": 0},
+    {"symbol": "ETH", "id": "ethereum", "decimals": 0},
+    {"symbol": "LTC", "id": "litecoin", "decimals": 2},
+)
+
+
+def default_crypto_prices_config() -> dict[str, object]:
+    return {"version": CRYPTO_PRICES_VERSION, "currency": "USD", "currency_symbol": "$",
+            "decimal_separator": ",", "thousands_separator": ".",
+            "tokens": [dict(token) for token in CRYPTO_TOKENS_DEFAULT]}
+
+
+def validate_crypto_prices_config(config: dict[str, object]) -> dict[str, object]:
+    if set(config) != {"version", "currency", "currency_symbol", "decimal_separator",
+                       "thousands_separator", "tokens"}:
+        raise SettingsError("Crypto settings have invalid fields")
+    version = config["version"]
+    if type(version) is not int or version != CRYPTO_PRICES_VERSION:
+        raise SettingsError("Unsupported Crypto settings version")
+    currency = config["currency"]
+    if not isinstance(currency, str) or not re.fullmatch(r"[A-Za-z]{3}", currency):
+        raise SettingsError("Currency must be a three-letter currency code")
+    currency_symbol = config["currency_symbol"]
+    if (not isinstance(currency_symbol, str) or not currency_symbol.strip()
+            or currency_symbol[0].isdigit() or len(currency_symbol) > 8
+            or any(char.isspace() for char in currency_symbol)
+            or any(ord(char) < 32 or ord(char) == 127 for char in currency_symbol)):
+        raise SettingsError("Currency symbol must be 1–8 printable characters")
+    decimal_separator, thousands_separator = config["decimal_separator"], config["thousands_separator"]
+    if decimal_separator not in CRYPTO_DECIMAL_OPTIONS or thousands_separator not in CRYPTO_DECIMAL_OPTIONS:
+        raise SettingsError("Number separators must be dots or commas")
+    if decimal_separator == thousands_separator:
+        raise SettingsError("Decimal and thousands separators must differ")
+    tokens = config["tokens"]
+    if not isinstance(tokens, list) or len(tokens) > CRYPTO_MAX_TOKENS:
+        raise SettingsError(f"Configure at most {CRYPTO_MAX_TOKENS} tokens")
+    cleaned, symbols, ids = [], set(), set()
+    for index, token in enumerate(tokens, 1):
+        if not isinstance(token, dict) or set(token) != {"symbol", "id", "decimals"}:
+            raise SettingsError(f"Token {index} has invalid fields")
+        symbol, coin_id, decimals = token["symbol"], token["id"], token["decimals"]
+        if not isinstance(symbol, str) or not re.fullmatch(r"[A-Z0-9]{1,10}", symbol):
+            raise SettingsError(f"Token {index} symbol must use 1–10 uppercase letters or digits")
+        if symbol in symbols:
+            raise SettingsError(f"Duplicate token symbol: {symbol}")
+        if not isinstance(coin_id, str) or not re.fullmatch(r"[a-z0-9-]{1,64}", coin_id):
+            raise SettingsError(f"Token {symbol} needs a valid CoinGecko ID")
+        if coin_id in ids:
+            raise SettingsError(f"Duplicate CoinGecko ID: {coin_id}")
+        if type(decimals) is not int or not 0 <= decimals <= 8:
+            raise SettingsError(f"Token {symbol} decimals must be between 0 and 8")
+        symbols.add(symbol); ids.add(coin_id)
+        cleaned.append({"symbol": symbol, "id": coin_id, "decimals": decimals})
+    return {"version": CRYPTO_PRICES_VERSION, "currency": currency.upper(),
+            "currency_symbol": currency_symbol.strip(),
+            "decimal_separator": decimal_separator, "thousands_separator": thousands_separator,
+            "tokens": cleaned}
+
+
+def parse_crypto_prices_config(text: str) -> dict[str, object]:
+    if len(text) > 65536:
+        raise SettingsError("Crypto settings file is too large")
+    try:
+        config = json.loads(text)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise SettingsError(f"Invalid Crypto settings JSON: {exc}") from exc
+    if not isinstance(config, dict):
+        raise SettingsError("Crypto settings must be a JSON object")
+    return validate_crypto_prices_config(config)
+
+
+def serialize_crypto_prices_config(config: dict[str, object]) -> str:
+    return json.dumps(validate_crypto_prices_config(config), ensure_ascii=False, indent=2) + "\n"
+
+
 def _split_comment(raw: str) -> tuple[str, str]:
     quoted = False
     escaped = False
