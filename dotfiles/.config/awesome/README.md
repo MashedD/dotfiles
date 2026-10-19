@@ -97,7 +97,7 @@ registers those methods in its lifetime group. Collector timers remain owned by
 `sidebar-data.lua`; document refresh timers remain in the parent. Components do not
 start desktop services or create independent polling loops for data. Release-bound
 sidebar actions activate only after a valid left-button release inside the control;
-Quick Launch availability is checked anew for each tooltip/click. Its section is
+Quick Launch availability is checked anew for each click; launcher tooltips are disabled. Its section is
 hidden by default; the Trash indicator is attached to System Status.
 
 See `../../../tests/README.md` for syntax, Lua, isolated Xvfb, and private

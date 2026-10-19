@@ -915,7 +915,6 @@ function sidebar.create(s, dismiss_menu)
                 function() launcher.run(entry) end, dismiss_menu, function(widget, activate)
                     bind_sidebar_action(widget, activate, "quick-launch")
                 end)
-            ui.tip(button, function() return launcher.tooltip(entry) end)
             s.sidebar_quick_launch_buttons[entry.label] = {widget = button, entry = entry}
             keyboard_launches[#keyboard_launches + 1] = {id = "quick-launch:" .. entry.label,
                 widget = button, activate = button._sidebar_keyboard_action,
