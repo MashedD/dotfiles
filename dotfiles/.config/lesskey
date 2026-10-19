@@ -1,0 +1,3 @@
+#command
+\eOH goto-line
+\eOF goto-end
