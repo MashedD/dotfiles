@@ -176,6 +176,8 @@ def main():
             crypto_config.write_text(json.dumps({
                 "version": 1, "currency": "EUR", "currency_symbol": "€",
                 "decimal_separator": ".", "thousands_separator": ",",
+                "click_action_enabled": True,
+                "click_command": ["xdg-open", "https://example.test/{id}?symbol={symbol}&currency={currency}"],
                 "tokens": [
                     {"symbol": "DOGE", "id": "dogecoin", "decimals": 4},
                     {"symbol": "BTC", "id": "bitcoin", "decimals": 2},
@@ -303,7 +305,7 @@ def main():
                     result = subprocess.run(["awesome-client", code], env=env,
                                             capture_output=True, text=True, timeout=3)
                     assert result.returncode == 0, result.stderr
-                    assert "Error" not in result.stdout, result.stdout
+                    assert "Error" not in result.stdout, result.stdout + logfile.read_text()
                     return result.stdout
 
                 def helper(expression):
@@ -580,7 +582,14 @@ def main():
                     audit = lua('local s=screen[1]; local n=s.sidebar_quick_launch_buttons.Notes; return s.sidebar_sections.weather.title.."|"..tostring(#s.sidebar_todo_entries==5 and s.sidebar_todo_entries[5]=="Fifth item")..":"..tostring(#s.sidebar_calendar_entries==7 and s.sidebar_calendar_entries[3].text=="visit: Today appointment")..":"..tostring(s.sidebar_wallpaper_name.text=="custom-wallpaper.png")..":"..tostring(n and #n.entry.argv==4 and n.entry.argv[4]==os.getenv("HOME").."/Documents/notes.md")..":"..tostring(s.sidebar_quick_launch_buttons.Disabled==nil)..":"..tostring(n and table.concat(n.entry.argv,"|"))')
                     assert 'TEST CITY &amp; REGION · WEATHER|true:true:true:true:true' in audit, audit + logfile.read_text()
                     crypto_audit = lua('local s=screen[1]; return s.sidebar_crypto_config.currency..":"..s.sidebar_crypto_prices.DOGE.text..":"..s.sidebar_crypto_prices.BTC.text..":"..tostring(s.sidebar_crypto_prices.ETH==nil)')
-                    assert 'EUR:0.1234:12,345.67:true' in crypto_audit, crypto_audit
+                    assert 'EUR:0.1234:12,345.67:true' in crypto_audit, crypto_audit + logfile.read_text()
+                    assert 'true' in lua('return screen[1].sidebar_crypto_config.click_action_enabled and #screen[1].sidebar_crypto_config.click_command==2')
+                    lua('screen[1].sidebar_crypto_click("DOGE")')
+                    crypto_action = 'open https://example.test/dogecoin?symbol=DOGE&currency=EUR'
+                    deadline = time.monotonic() + 3
+                    while time.monotonic() < deadline and crypto_action not in actions_file.read_text():
+                        time.sleep(0.05)
+                    assert crypto_action in actions_file.read_text(), actions_file.read_text()
                     notes_point = widget_point('screen[1].sidebar_quick_launch_buttons.Notes.widget')
                     pointer('mousemove', *notes_point, 'click', 1)
                     expected_action = 'kitty mdn-editor -- ' + str(testhome / 'Documents/notes.md')

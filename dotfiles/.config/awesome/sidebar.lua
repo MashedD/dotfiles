@@ -801,12 +801,36 @@ function sidebar.create(s, dismiss_menu)
             awful.spawn({"notify-send", "Trezor Suite", "Could not launch " .. path})
         end
     end
+    local function open_crypto_price(token)
+        if not token or not crypto_preferences.click_action_enabled then return end
+        if dismiss_menu then dismiss_menu() end
+        if #crypto_preferences.click_command == 0 then
+            open_trezor_suite()
+            return
+        end
+        local argv = {}
+        for _, argument in ipairs(crypto_preferences.click_command) do
+            local expanded = argument:gsub("{symbol}", token.symbol)
+                :gsub("{id}", token.id):gsub("{currency}", crypto_preferences.currency)
+            argv[#argv + 1] = expanded
+        end
+        local ok, reason = pcall(awful.spawn, argv)
+        if not ok then
+            awful.spawn({"notify-send", "Crypto Prices", "Could not run " .. argv[1] .. ": " .. tostring(reason)})
+        end
+    end
+    local crypto_tokens_by_symbol = {}
+    for _, token in ipairs(crypto_preferences.tokens) do crypto_tokens_by_symbol[token.symbol] = token end
+    local function click_crypto_symbol(symbol)
+        open_crypto_price(crypto_tokens_by_symbol[symbol])
+    end
     local crypto_prices = {}
-    local function crypto_cell(symbol)
+    local function crypto_cell(token)
+        local symbol = token.symbol
         local entry = {text = "--", hovered = false}
         local row = wibox.widget.textbox()
         local function update()
-            local underline = entry.hovered and " underline='single'" or ""
+            local underline = entry.hovered and crypto_preferences.click_action_enabled and " underline='single'" or ""
             set_markup(row, string.format(
                 "<span foreground='%s' size='9pt' weight='bold'%s>%s</span> " ..
                     "<span foreground='%s' size='9pt' weight='bold'%s>%s</span>",
@@ -817,7 +841,7 @@ function sidebar.create(s, dismiss_menu)
             update()
         end
         entry.widget = row
-        row:buttons(gears.table.join(awful.button({}, 1, open_trezor_suite)))
+        row:buttons(gears.table.join(awful.button({}, 1, function() click_crypto_symbol(symbol) end)))
         row:connect_signal("mouse::enter", function() entry.hovered = true; update() end)
         row:connect_signal("mouse::leave", function() entry.hovered = false; update() end)
         crypto_prices[symbol] = entry
@@ -827,7 +851,7 @@ function sidebar.create(s, dismiss_menu)
     local crypto_line = wibox.layout.fixed.horizontal()
     crypto_line.spacing = 12
     for _, token in ipairs(crypto_preferences.tokens) do
-        crypto_line:add(crypto_cell(token.symbol))
+        crypto_line:add(crypto_cell(token))
     end
     local crypto_body
     if #crypto_preferences.tokens == 0 then
@@ -1414,7 +1438,9 @@ function sidebar.create(s, dismiss_menu)
         end,function() change_volume('mute') end)
     if weather_enabled then target('weather','refresh',weather_body,update_weather) end
     target('news','open',news_ui.open_button,news_ui.open,true)
-    target('crypto','open',crypto_body,open_trezor_suite,true)
+    target('crypto','open',crypto_body,function()
+        click_crypto_symbol(crypto_preferences.tokens[1] and crypto_preferences.tokens[1].symbol)
+    end,true)
     target('codex','refresh',codex_refresh_button,refresh_codex)
     target('todo','open',todo_body,open_todo_document,true)
     target('calendar','previous',calendar_ui.previous,calendar_ui.previous._sidebar_keyboard_action)
@@ -1471,6 +1497,7 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_calendar_open = open_calendar_document
     s.sidebar_crypto_card, s.sidebar_crypto_prices = crypto_card, crypto_prices
     s.sidebar_crypto_config = crypto_preferences
+    s.sidebar_crypto_click = click_crypto_symbol
     s.sidebar_crypto_refresh = refresh_crypto
     s.sidebar_codex_card, s.sidebar_codex_5h, s.sidebar_codex_7d = codex_card, codex_5h, codex_7d
     s.sidebar_codex_resets = codex_resets

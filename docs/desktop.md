@@ -145,7 +145,10 @@ visibility, weather city and coordinates, to-do/calendar Markdown paths, wallpap
 folders, the document-editor command, and News-browser command. Separate Quick
 Launch, News, and Crypto Prices tabs manage their respective lists and settings.
 Crypto settings include the token list/order, CoinGecko IDs, quote currency, prefix,
-separators, and per-token decimal precision; they affect the Awesome sidebar only.
+separators, per-token decimal precision, and the click action. A blank custom action
+keeps the Trezor Suite default; custom argv commands support `{symbol}`, `{id}`, and
+`{currency}` placeholders, and the action can be disabled. These settings affect the
+Awesome sidebar only.
 They are stored at `$XDG_CONFIG_HOME/desktop-control-center/crypto-prices.json`.
 Sidebar preferences are stored outside Stow at
 `$XDG_CONFIG_HOME/desktop-control-center/sidebar-preferences` (default

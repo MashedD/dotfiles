@@ -74,8 +74,10 @@ The separate Quick Launch tab edits the full launcher list; its JSON settings li
 initial defaults, while commands are parsed into argv and never sent through a shell.
 The example `kitty mdn-editor -- ~/Documents/notes.md` opens a notes file in MDN Editor.
 The Crypto Prices tab configures sidebar token order, CoinGecko IDs, quote currency,
-currency prefix, separators, and per-token decimal precision. Defaults preserve BTC,
-ETH, and LTC in USD; settings live at
+currency prefix, separators, per-token decimal precision, and the price-click action.
+Blank action preserves the default Trezor Suite launch; custom argv commands support
+`{symbol}`, `{id}`, and `{currency}` placeholders, and clicking can be disabled.
+Defaults preserve BTC, ETH, and LTC in USD; settings live at
 `$XDG_CONFIG_HOME/desktop-control-center/crypto-prices.json` and do not alter tmux
 output. Use **Save & Restart Awesome** or Win+Ctrl+R to apply saved changes.
 

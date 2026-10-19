@@ -6,6 +6,7 @@ function M.defaults()
     return {
         version = 1, currency = "USD", currency_symbol = "$",
         decimal_separator = ",", thousands_separator = ".",
+        click_action_enabled = true, click_command = {},
         tokens = {
             {symbol = "BTC", id = "bitcoin", decimals = 0},
             {symbol = "ETH", id = "ethereum", decimals = 0},
@@ -35,16 +36,37 @@ local function read_config(path)
     if type(currency) ~= "string" or not currency:match("^[A-Za-z][A-Za-z][A-Za-z]$")
         or type(currency_symbol) ~= "string" or currency_symbol == "" or #currency_symbol > 8
         or currency_symbol:match("^%d") or currency_symbol:find("%s")
-        or currency_symbol:find("[%z\1-\31\127]")
+        or currency_symbol:find("%c")
         or (decimal_separator ~= "." and decimal_separator ~= ",")
         or (thousands_separator ~= "." and thousands_separator ~= ",")
         or decimal_separator == thousands_separator or not tokens_array then
         error("Crypto settings contain invalid currency or formatting")
     end
+    local click_action_enabled, click_command = true, {}
+    if config:has_member("click_action_enabled") then
+        click_action_enabled = config:get_boolean_member("click_action_enabled")
+    end
+    if type(click_action_enabled) ~= "boolean" then error("Invalid crypto click action setting") end
+    if config:has_member("click_command") then
+        local command_array = config:get_array_member("click_command")
+        if not command_array or command_array:get_length() > 32 then error("Invalid crypto click command") end
+        for index = 0, command_array:get_length() - 1 do
+            local node = command_array:get_element(index)
+            local argument = node and node:get_string()
+            if type(argument) ~= "string" or #argument > 4096 or argument:find("%c") then
+                error("Invalid crypto click command argument")
+            end
+            if argument == "~" then argument = home
+            elseif argument:sub(1, 2) == "~/" then argument = home .. argument:sub(2) end
+            click_command[#click_command + 1] = argument
+        end
+    end
+    if click_command[1] and click_command[1]:match("^%s*$") then error("Empty crypto click executable") end
     local length = tokens_array:get_length()
     if length > MAX_TOKENS then error("Too many configured crypto tokens") end
     local result = {version = 1, currency = currency:upper(), currency_symbol = currency_symbol,
-        decimal_separator = decimal_separator, thousands_separator = thousands_separator, tokens = {}}
+        decimal_separator = decimal_separator, thousands_separator = thousands_separator,
+        click_action_enabled = click_action_enabled, click_command = click_command, tokens = {}}
     local symbols, ids = {}, {}
     for index = 0, length - 1 do
         local node = tokens_array:get_element(index)

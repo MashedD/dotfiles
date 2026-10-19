@@ -393,12 +393,15 @@ CRYPTO_TOKENS_DEFAULT = (
 def default_crypto_prices_config() -> dict[str, object]:
     return {"version": CRYPTO_PRICES_VERSION, "currency": "USD", "currency_symbol": "$",
             "decimal_separator": ",", "thousands_separator": ".",
-            "tokens": [dict(token) for token in CRYPTO_TOKENS_DEFAULT]}
+            "tokens": [dict(token) for token in CRYPTO_TOKENS_DEFAULT],
+            "click_action_enabled": True, "click_command": []}
 
 
 def validate_crypto_prices_config(config: dict[str, object]) -> dict[str, object]:
-    if set(config) != {"version", "currency", "currency_symbol", "decimal_separator",
-                       "thousands_separator", "tokens"}:
+    required = {"version", "currency", "currency_symbol", "decimal_separator",
+                "thousands_separator", "tokens"}
+    optional = {"click_action_enabled", "click_command"}
+    if not required <= set(config) or set(config) - required - optional:
         raise SettingsError("Crypto settings have invalid fields")
     version = config["version"]
     if type(version) is not int or version != CRYPTO_PRICES_VERSION:
@@ -437,10 +440,21 @@ def validate_crypto_prices_config(config: dict[str, object]) -> dict[str, object
             raise SettingsError(f"Token {symbol} decimals must be between 0 and 8")
         symbols.add(symbol); ids.add(coin_id)
         cleaned.append({"symbol": symbol, "id": coin_id, "decimals": decimals})
+    click_action_enabled = config.get("click_action_enabled", True)
+    click_command = config.get("click_command", [])
+    if type(click_action_enabled) is not bool:
+        raise SettingsError("Crypto click action enabled flag must be boolean")
+    if (not isinstance(click_command, list) or len(click_command) > 32
+            or any(not isinstance(argument, str) or len(argument) > 4096
+                   or any(ord(char) < 32 or ord(char) == 127 for char in argument)
+                   for argument in click_command)
+            or (click_command and not click_command[0].strip())):
+        raise SettingsError("Crypto click action must be a valid argv command")
     return {"version": CRYPTO_PRICES_VERSION, "currency": currency.upper(),
             "currency_symbol": currency_symbol.strip(),
             "decimal_separator": decimal_separator, "thousands_separator": thousands_separator,
-            "tokens": cleaned}
+            "tokens": cleaned, "click_action_enabled": click_action_enabled,
+            "click_command": click_command}
 
 
 def parse_crypto_prices_config(text: str) -> dict[str, object]:

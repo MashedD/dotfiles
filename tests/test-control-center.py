@@ -171,16 +171,22 @@ class CryptoSettingsTests(unittest.TestCase):
     def test_defaults_round_trip_and_custom_token_formatting(self):
         defaults = settings.default_crypto_prices_config()
         self.assertEqual([token["symbol"] for token in defaults["tokens"]], ["BTC", "ETH", "LTC"])
+        self.assertTrue(defaults["click_action_enabled"])
+        self.assertEqual(defaults["click_command"], [])
         self.assertEqual(settings.parse_crypto_prices_config(
             settings.serialize_crypto_prices_config(defaults)), defaults)
         custom = {"version": 1, "currency": "eur", "currency_symbol": "€",
                   "decimal_separator": ".", "thousands_separator": ",",
+                  "click_action_enabled": False,
+                  "click_command": ["firefox", "https://example.test/{id}?token={symbol}"],
                   "tokens": [{"symbol": "BTC", "id": "bitcoin", "decimals": 2},
                              {"symbol": "DOGE", "id": "dogecoin", "decimals": 4}]}
         parsed = settings.parse_crypto_prices_config(settings.serialize_crypto_prices_config(custom))
         self.assertEqual(parsed["currency"], "EUR")
         self.assertEqual(parsed["currency_symbol"], "€")
         self.assertEqual(parsed["tokens"][1], {"symbol": "DOGE", "id": "dogecoin", "decimals": 4})
+        self.assertFalse(parsed["click_action_enabled"])
+        self.assertEqual(parsed["click_command"], ["firefox", "https://example.test/{id}?token={symbol}"])
 
     def test_invalid_crypto_settings_are_rejected(self):
         defaults = settings.default_crypto_prices_config()
@@ -192,6 +198,9 @@ class CryptoSettingsTests(unittest.TestCase):
             settings.serialize_crypto_prices_config(invalid)
         invalid = dict(defaults, currency_symbol="€ ")
         with self.assertRaisesRegex(settings.SettingsError, "Currency symbol"):
+            settings.serialize_crypto_prices_config(invalid)
+        invalid = dict(defaults, click_command=["firefox", "unfinished\nargument"])
+        with self.assertRaisesRegex(settings.SettingsError, "valid argv"):
             settings.serialize_crypto_prices_config(invalid)
 
 

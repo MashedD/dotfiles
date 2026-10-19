@@ -98,6 +98,8 @@ window.crypto_currency.set_text("EUR")
 window.crypto_currency_symbol.set_text("€")
 window.crypto_decimal_separator.set_active_id(".")
 window.crypto_thousands_separator.set_active_id(",")
+window.crypto_click_enabled.set_active(True)
+window.crypto_click_command.set_text('firefox --new-tab "https://example.test/{id}?token={symbol}&currency={currency}"')
 for record in list(window.crypto_rows):
     window._remove_crypto_token_row(None, record)
 window._add_crypto_token_row({"symbol": "BTC", "id": "bitcoin", "decimals": 2})
@@ -107,6 +109,9 @@ assert window._save_crypto_settings()
 crypto_path = module.CRYPTO_PRICES_CONFIG_PATH
 saved_crypto = json.loads(crypto_path.read_text(encoding="utf-8"))
 assert saved_crypto["currency"] == "EUR" and saved_crypto["currency_symbol"] == "€"
+assert saved_crypto["click_action_enabled"] is True
+assert saved_crypto["click_command"] == ["firefox", "--new-tab",
+    "https://example.test/{id}?token={symbol}&currency={currency}"]
 assert saved_crypto["tokens"] == [
     {"symbol": "DOGE", "id": "dogecoin", "decimals": 4},
     {"symbol": "BTC", "id": "bitcoin", "decimals": 2}]
@@ -117,7 +122,9 @@ window._reload_crypto_settings()
 assert [row["symbol"].get_text() for row in window.crypto_rows] == ["DOGE", "BTC"]
 window._restore_crypto_defaults()
 assert window._save_crypto_settings()
-assert json.loads(crypto_path.read_text(encoding="utf-8"))["currency"] == "USD"
+restored_crypto = json.loads(crypto_path.read_text(encoding="utf-8"))
+assert restored_crypto["currency"] == "USD"
+assert restored_crypto["click_action_enabled"] is True and restored_crypto["click_command"] == []
 window.notebook.set_current_page(1)
 window._revert()
 window.notebook.set_current_page(2)

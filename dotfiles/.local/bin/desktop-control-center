@@ -833,6 +833,15 @@ class ControlCenter(Gtk.Window):
         self.crypto_thousands_separator.append(",", "Comma (,)")
         self.crypto_thousands_separator.set_active_id(self.crypto_config["thousands_separator"])
         fields.attach(self.crypto_thousands_separator, 3, 1, 1, 1)
+        self.crypto_click_enabled = Gtk.CheckButton.new_with_label("Run an action when a price is clicked")
+        self.crypto_click_enabled.set_active(self.crypto_config.get("click_action_enabled", True))
+        self.crypto_click_enabled.connect("toggled", self._crypto_click_enabled_toggled)
+        fields.attach(self.crypto_click_enabled, 0, 2, 2, 1)
+        self.crypto_click_command = Gtk.Entry()
+        self.crypto_click_command.set_placeholder_text("Blank uses Trezor Suite; command uses argv, not a shell")
+        self.crypto_click_command.set_text(shlex.join(self.crypto_config.get("click_command", [])))
+        self.crypto_click_command.set_sensitive(self.crypto_click_enabled.get_active())
+        fields.attach(self.crypto_click_command, 2, 2, 2, 1)
         grid.attach(fields, 0, 1, 2, 1)
 
         token_frame = Gtk.Frame(label="Tokens (CoinGecko ID; display order; decimals 0–8)")
@@ -855,7 +864,8 @@ class ControlCenter(Gtk.Window):
 
         note = Gtk.Label(label=(
             "Use CoinGecko coin IDs (for example bitcoin, ethereum, litecoin). Decimals are per token; "
-            "the selected separators and currency prefix apply to every price. Changes affect only the Awesome sidebar."
+            "the selected separators and currency prefix apply to every price. The click command supports "
+            "{symbol}, {id}, and {currency}; blank keeps the Trezor Suite action. Changes affect only the Awesome sidebar."
         ))
         note.set_xalign(0)
         note.set_line_wrap(True)
@@ -872,6 +882,9 @@ class ControlCenter(Gtk.Window):
             self.crypto_restart_button.set_sensitive(False)
             self.crypto_restart_button.set_tooltip_text("awesome-client is not installed")
         grid.attach(self.crypto_restart_button, 0, 4, 2, 1)
+
+    def _crypto_click_enabled_toggled(self, button: Gtk.CheckButton) -> None:
+        self.crypto_click_command.set_sensitive(button.get_active())
 
     def _add_crypto_token_row(self, token: dict[str, object] | None = None) -> None:
         token = token or {"symbol": "", "id": "", "decimals": 2}
@@ -927,6 +940,9 @@ class ControlCenter(Gtk.Window):
             "currency_symbol": self.crypto_currency_symbol.get_text(),
             "decimal_separator": self.crypto_decimal_separator.get_active_id(),
             "thousands_separator": self.crypto_thousands_separator.get_active_id(),
+            "click_action_enabled": self.crypto_click_enabled.get_active(),
+            "click_command": (parse_quick_launch_command(self.crypto_click_command.get_text())
+                              if self.crypto_click_command.get_text().strip() else []),
             "tokens": [{"symbol": row["symbol"].get_text(), "id": row["id"].get_text(),
                         "decimals": row["decimals"].get_value_as_int()}
                        for row in self.crypto_rows],
@@ -940,6 +956,9 @@ class ControlCenter(Gtk.Window):
         self.crypto_currency_symbol.set_text(self.crypto_config["currency_symbol"])
         self.crypto_decimal_separator.set_active_id(self.crypto_config["decimal_separator"])
         self.crypto_thousands_separator.set_active_id(self.crypto_config["thousands_separator"])
+        self.crypto_click_enabled.set_active(self.crypto_config["click_action_enabled"])
+        self.crypto_click_command.set_text(shlex.join(self.crypto_config["click_command"]))
+        self.crypto_click_command.set_sensitive(self.crypto_click_enabled.get_active())
         for token in self.crypto_config["tokens"]:
             self._add_crypto_token_row(token)
         self.status.set_text("Built-in crypto defaults restored in the editor; save to persist them.")
@@ -972,6 +991,9 @@ class ControlCenter(Gtk.Window):
             self.crypto_currency_symbol.set_text(self.crypto_config["currency_symbol"])
             self.crypto_decimal_separator.set_active_id(self.crypto_config["decimal_separator"])
             self.crypto_thousands_separator.set_active_id(self.crypto_config["thousands_separator"])
+            self.crypto_click_enabled.set_active(self.crypto_config["click_action_enabled"])
+            self.crypto_click_command.set_text(shlex.join(self.crypto_config["click_command"]))
+            self.crypto_click_command.set_sensitive(self.crypto_click_enabled.get_active())
             for token in self.crypto_config["tokens"]:
                 self._add_crypto_token_row(token)
             self.status.set_text("Crypto settings reloaded from disk.")
