@@ -32,7 +32,6 @@ if command -v snixembed >/dev/null 2>&1; then
         once '(^|/)snixembed( |$)' snixembed --fork
     ) &
 fi
-once '(^|/)picom( |$)' picom --config "$HOME/.config/picom/picom.conf"
 once '(^|/)dunst( |$)' dunst -conf "$HOME/.config/dunst/dunstrc"
 once '(^|/)lxqt-policykit-agent( |$)' lxqt-policykit-agent
 # Clipboard history is off by default; users may opt in before starting Awesome.
@@ -53,6 +52,6 @@ if [ -d "$HOME/Documents/notes/html" ]; then
         once '(^|/)python3 -m http.server( |$)' python3 -m http.server
     ) &
 fi
-# nm-applet is externally managed. No pcmanfm desktop or second tray; picom
-# supplies only X11 compositing (no blur, fades, shadows, or rounded corners).
+# nm-applet is externally managed. No pcmanfm desktop or second tray. Picom is
+# intentionally not autostarted; launch it manually only when X11 compositing is wanted.
 # Desktop wallpaper is rendered by Awesome from aurora-cabin.png.

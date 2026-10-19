@@ -9,7 +9,7 @@ files below were backed up and preserved locally before their source copies were
 | --- | --- | --- |
 | `.xinitrc`, `.bash_profile`, `.config/X11/`, `.config/awesome/` | Forwarding startx entry points, systemd user bus, Awesome config/autostart; deployed | Active; retain |
 | `.local/bin/desktop-*`, `codex-usage`, `crypto-prices` | WM/sidebar/autostart callers; Stow-managed helpers | Active; retain. The `openbox-*` strings remaining in display/battery helpers are lock identities, not commands |
-| `.config/picom/`, `dunst/`, `xsettingsd/`, `fontconfig/` | Autostart and theme/font integration; deployed | Active desktop configuration; retain |
+| `.config/picom/`, `dunst/`, `xsettingsd/`, `fontconfig/` | Picom config is retained for optional manual use; Dunst/xsettingsd remain session services; theme/font integration; deployed | Retain; Picom is intentionally not autostarted |
 | `.config/kitty/`, `btop/`, `libfm/` | Launcher/sidebar invokes kitty, btop and PCManFM; btop VAX config is repository-linked | Active application configuration; retain |
 | `.config/pcmanfm/default/pcmanfm.conf`, `desktop-items-0.conf`, `desktop-items-1.conf` | All three live files are regular machine-local files; repository copies removed after backup/detachment | Keep geometry, wallpaper and icon state local; not part of deployment |
 | `.config/mc/panels.ini`, `.config/mc/hotlist` | Live panel state and personal bookmark preserved as regular files; repository copies removed after backup/detachment | Local state; MC menu, extension definitions and skins remain managed |

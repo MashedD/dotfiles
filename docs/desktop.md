@@ -46,8 +46,10 @@ XDG autostart entry is hidden for this profile, but manual launching is not
 blocked. Microsoft Sans Serif is preferred; a weak fontconfig alias uses
 Liberation Sans when the proprietary font is absent.
 
-Optional application packages in the notes (games, development tools, office
-software, and unrelated services) are not required by this desktop package.
+Picom is installed only for optional/manual X11 compositing and is not started by
+the Awesome autostart; avoid enabling it automatically, especially when using
+Gamescope or gaming. Optional application packages in the notes (games, development
+tools, office software, and unrelated services) are not required by this desktop package.
 
 Apply the Stow package first. Stow remains conflict-safe and never adopts an
 existing file or symlink:

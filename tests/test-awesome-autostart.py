@@ -32,7 +32,7 @@ class AutostartTest(unittest.TestCase):
             started_by_default = ["xsettingsd", "snixembed", "dunst", "lxqt-policykit-agent",
                                   "xss-lock", "syncthing", "mpd", "python3"]
             not_started_by_default = ["lxpanel", "clipmenud", "clipmenu", "xfce4-clipman",
-                                      "xfce4-popup-clipman", "solaar"]
+                                      "xfce4-popup-clipman", "solaar", "picom"]
             support_commands = ["dbus-update-activation-environment", "xset", "localedef", "i3lock"]
             command_names = started_by_default + not_started_by_default + support_commands
             for path in [bin_dir / name for name in command_names] + [helpers / name for name in
