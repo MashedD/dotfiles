@@ -172,11 +172,14 @@ local function lower(c)
     awful.client.focus.byidx(1)
     if client.focus == c then client.focus = nil end
 end
-local function snap(c, right)
+local function clear_window_state(c)
     c.fullscreen = false
     c.maximized = false
     c.maximized_horizontal = false
     c.maximized_vertical = false
+end
+local function snap(c, right)
+    clear_window_state(c)
     local area = c.screen.workarea
     local width = math.floor(area.width / 2)
     c:geometry({x = area.x + (right and width or 0), y = area.y,
@@ -184,6 +187,31 @@ local function snap(c, right)
         height = area.height - 2 * c.border_width})
     -- Include titlebars and size hints when fitting the window to the workarea.
     awful.placement.no_offscreen(c, {honor_workarea = true})
+end
+local function snap_vertical(c, bottom)
+    clear_window_state(c)
+    local area = c.screen.workarea
+    local height = math.floor(area.height / 2)
+    c:geometry({x = area.x, y = area.y + (bottom and area.height - height or 0),
+        width = area.width - 2 * c.border_width, height = height - 2 * c.border_width})
+    awful.placement.no_offscreen(c, {honor_workarea = true})
+end
+local function snap_top_or_maximize(c)
+    if c.maximized then
+        c.maximized = false
+        return
+    end
+    local area = c.screen.workarea
+    local geometry = c:geometry()
+    local half_height = math.floor(area.height / 2) - 2 * c.border_width
+    local is_top_snapped = math.abs(geometry.y - area.y) <= 2
+        and math.abs(geometry.height - half_height) <= 2
+    if is_top_snapped then
+        c.maximized = true
+    else
+        snap_vertical(c, false)
+    end
+    c:raise()
 end
 local titlebar_drag = titlebar_drag_module.new {
     mouse = mouse, placement = awful.placement, resize = awful.mouse.resize,
@@ -482,6 +510,8 @@ for _, entry in ipairs({{"Left", -1}, {"Up", -1}, {"Right", 1}, {"Down", 1}}) do
 end
 key({mod}, "Left", function() if client.focus then snap(client.focus, false) end end)
 key({mod}, "Right", function() if client.focus then snap(client.focus, true) end end)
+key({mod}, "Up", function() if client.focus then snap_top_or_maximize(client.focus) end end)
+key({mod}, "Down", function() if client.focus then snap_vertical(client.focus, true) end end)
 local commands = {
     {{}, "XF86AudioRaiseVolume", {home .. "/.local/bin/desktop-volume", "up"}},
     {{}, "XF86AudioLowerVolume", {home .. "/.local/bin/desktop-volume", "down"}},
