@@ -670,18 +670,20 @@ function sidebar.create(s, dismiss_menu)
         if #wallpapers > 0 then
             wallpaper_index = ((wallpaper_index - 2) % #wallpapers) + 1
             update_wallpaper_preview()
+            apply_wallpaper()
         end
     end
     local function show_next_wallpaper()
         if #wallpapers > 0 then
             wallpaper_index = (wallpaper_index % #wallpapers) + 1
             update_wallpaper_preview()
+            apply_wallpaper()
         end
     end
     local previous_wallpaper = small_button("‹", show_previous_wallpaper, "Previous wallpaper")
     local next_wallpaper = small_button("›", show_next_wallpaper, "Next wallpaper")
     bind_sidebar_action(preview, apply_wallpaper, "wallpaper")
-    ui.tip(preview, "Apply selected wallpaper")
+    ui.tip(preview, "Apply selected wallpaper (also applied when browsing)")
     local wallpaper_controls = wibox.widget {
         previous_wallpaper, wallpaper_name, next_wallpaper,
         spacing = 8, layout = wibox.layout.fixed.horizontal,
