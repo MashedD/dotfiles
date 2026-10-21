@@ -666,6 +666,22 @@ function sidebar.create(s, dismiss_menu)
         ui.tip(button, tooltip)
         return button
     end
+    local wallpaper_refresh_button
+    local function refresh_wallpapers()
+        local current = wallpapers[wallpaper_index]
+        wallpapers = wallpaper_paths(preferences.wallpaper_dirs)
+        wallpaper_index = 1
+        for index, path in ipairs(wallpapers) do
+            if path == current then wallpaper_index = index; break end
+        end
+        if #wallpapers == 0 then
+            preview.image = nil
+            wallpaper_name.text = "No wallpapers found"
+            s.sidebar_wallpaper_index, s.sidebar_wallpaper_path = nil, nil
+        else
+            update_wallpaper_preview()
+        end
+    end
     local function show_previous_wallpaper()
         if #wallpapers > 0 then
             wallpaper_index = ((wallpaper_index - 2) % #wallpapers) + 1
@@ -696,7 +712,16 @@ function sidebar.create(s, dismiss_menu)
         {wallpaper_controls, halign = "center", widget = wibox.container.place},
         spacing = 5, layout = wibox.layout.fixed.vertical,
     }
-    local wallpaper_card = collapsible_card("wallpaper", "WALLPAPER", wallpaper_body)
+    wallpaper_refresh_button = style_button(wibox.widget {
+        {label("⟳", palette.title, 10, true, "center"),
+            halign = "center", valign = "center", widget = wibox.container.place},
+        forced_width = 22, forced_height = 18,
+        bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
+        widget = wibox.container.background,
+    }, dismiss_menu)
+    bind_sidebar_action(wallpaper_refresh_button, refresh_wallpapers, "wallpaper")
+    ui.tip(wallpaper_refresh_button, "Refresh wallpaper list")
+    local wallpaper_card = collapsible_card("wallpaper", "WALLPAPER", wallpaper_body, nil, wallpaper_refresh_button)
 
     local weather_icon = label("☁", palette.teal, 22, true, "center")
     weather_icon.font = "Noto Sans Symbols 2 20"
@@ -760,8 +785,17 @@ function sidebar.create(s, dismiss_menu)
     weather_body:buttons(gears.table.join(awful.button({}, 1, function()
         if weather_enabled then update_weather() end
     end)))
+    local weather_refresh_button = style_button(wibox.widget {
+        {label("⟳", palette.title, 10, true, "center"),
+            halign = "center", valign = "center", widget = wibox.container.place},
+        forced_width = 22, forced_height = 18,
+        bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
+        widget = wibox.container.background,
+    }, dismiss_menu)
+    bind_sidebar_action(weather_refresh_button, update_weather, "weather")
+    ui.tip(weather_refresh_button, "Refresh weather")
     local weather_card = collapsible_card("weather",
-        gstring.xml_escape(string.upper(preferences.weather_label)) .. " · WEATHER", weather_body)
+        gstring.xml_escape(string.upper(preferences.weather_label)) .. " · WEATHER", weather_body, nil, weather_refresh_button)
 
     local function find_trezor_appimage()
         local root = (os.getenv("HOME") or "") .. "/Programs"
@@ -867,9 +901,18 @@ function sidebar.create(s, dismiss_menu)
             spacing = compact_spacing, layout = wibox.layout.fixed.vertical,
         }
     end
-    local crypto_card = collapsible_card("crypto",
-        "CRYPTO PRICES · " .. crypto_preferences.currency, crypto_body)
     local function refresh_crypto() data.refresh("crypto") end
+    local crypto_refresh_button = style_button(wibox.widget {
+        {label("⟳", palette.title, 10, true, "center"),
+            halign = "center", valign = "center", widget = wibox.container.place},
+        forced_width = 22, forced_height = 18,
+        bg = button_gradient, border_width = 1, border_color = palette.bevel_light,
+        widget = wibox.container.background,
+    }, dismiss_menu)
+    bind_sidebar_action(crypto_refresh_button, refresh_crypto, "crypto")
+    ui.tip(crypto_refresh_button, "Refresh crypto prices")
+    local crypto_card = collapsible_card("crypto",
+        "CRYPTO PRICES · " .. crypto_preferences.currency, crypto_body, nil, crypto_refresh_button)
     local function render_crypto(state)
         for symbol, entry in pairs(crypto_prices) do entry.set(state.value and state.value[symbol] or "--") end
     end
@@ -1429,6 +1472,7 @@ function sidebar.create(s, dismiss_menu)
     target('wallpaper','apply',preview,apply_wallpaper)
     target('wallpaper','previous',previous_wallpaper,show_previous_wallpaper)
     target('wallpaper','next',next_wallpaper,show_next_wallpaper)
+    target('wallpaper','refresh',wallpaper_refresh_button,refresh_wallpapers)
     for _,entry in ipairs({{'previous',media_previous},{'toggle',media_toggle},{'next',media_next}}) do
         target('now-playing',entry[1],entry[2],entry[2]._sidebar_keyboard_action)
     end
@@ -1437,8 +1481,9 @@ function sidebar.create(s, dismiss_menu)
             if key~='Left' and key~='Right' then return false end
             change_volume(key=='Left' and 'down' or 'up'); return true
         end,function() change_volume('mute') end)
-    if weather_enabled then target('weather','refresh',weather_body,update_weather) end
+    if weather_enabled then target('weather','refresh',weather_refresh_button,update_weather) end
     target('news','open',news_ui.open_button,news_ui.open,true)
+    target('crypto','refresh',crypto_refresh_button,refresh_crypto)
     target('crypto','open',crypto_body,function()
         click_crypto_symbol(crypto_preferences.tokens[1] and crypto_preferences.tokens[1].symbol)
     end,true)
