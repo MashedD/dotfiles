@@ -8,7 +8,7 @@
     offset = (0, 40)
     notification_limit = 5
 
-    font = Microsoft Sans Serif 8
+    font = Microsoft Sans Serif 12
     markup = full
     format = "<b>%s</b>\n%b"
     alignment = left
