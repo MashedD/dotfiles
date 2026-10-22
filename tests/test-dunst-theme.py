@@ -52,8 +52,8 @@ class DunstThemeTests(unittest.TestCase):
 
     def test_shape_font_geometry_and_actions_are_preserved(self):
         expected = {
-            'width': '360', 'height': '(0, 220)', 'origin': 'top-right',
-            'offset': '(10, 40)', 'notification_limit': '5',
+            'width': '360', 'height': '(0, 220)', 'origin': 'top-center',
+            'offset': '(0, 40)', 'notification_limit': '5',
             'font': 'Microsoft Sans Serif 8', 'frame_width': '2',
             'separator_height': '1', 'corner_radius': '0',
             'progress_bar_height': '10', 'progress_bar_frame_width': '1',

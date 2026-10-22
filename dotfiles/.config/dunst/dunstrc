@@ -4,8 +4,8 @@
     follow = keyboard
     width = 360
     height = (0, 220)
-    origin = top-right
-    offset = (10, 40)
+    origin = top-center
+    offset = (0, 40)
     notification_limit = 5
 
     font = Microsoft Sans Serif 8
