@@ -262,8 +262,8 @@ def main():
         actions_file = directory / "actions"
         actions_file.touch()
         section_state_file = testhome / ".local/state/awesome/sidebar-sections"
-        all_sidebar_sections = "calendar,todo,news,quick-launch,system-status,codex,crypto,weather,now-playing,wallpaper"
-        default_sidebar_order = ("version=2\n"
+        all_sidebar_sections = "calendar,todo,news,quick-launch,system-status,codex,crypto,markets,weather,now-playing,wallpaper"
+        default_sidebar_order = ("version=3\n"
                                  f"order={all_sidebar_sections}\n"
                                  f"enabled={all_sidebar_sections}\n")
         section_state_file.parent.mkdir(parents=True)
@@ -272,7 +272,7 @@ def main():
             raise ValueError("AWESOME_TEST_THEME must be aero or night-circuit")
         (section_state_file.parent / "theme").write_text(test_theme + "\n")
         legacy_sidebar_state = (
-            "order=calendar,todo,codex,system-status,crypto,weather,now-playing,quick-launch,wallpaper\n"
+            "order=calendar,todo,codex,system-status,crypto,markets,weather,now-playing,quick-launch,wallpaper\n"
             "crypto\nquick-launch\nwallpaper\n")
         section_state_file.write_text(
             legacy_sidebar_state if args.scenario == "sidebar-settings"
@@ -627,6 +627,11 @@ def main():
                 wait('return tostring(not screen[1].sidebar_data.collectors.codex.pending)', '"true"')
                 lua('_G.__codex_requests=screen[1].sidebar_data.collectors.codex.requests; screen[1].sidebar_codex_refresh_button._sidebar_keyboard_action()')
                 wait('return tostring(screen[1].sidebar_data.collectors.codex.requests==__codex_requests+1)', '"true"')
+                wait('return tostring(not screen[1].sidebar_data.collectors.markets.pending)', '"true"')
+                market_audit = lua('local s=screen[1]; local p=s.sidebar_data.parsers.parse_markets; local value=p("markets-v1\\t1\\nquote\\tEURPLN\\t4.1234\\nquote\\tUSDPLN\\t3.9981\\nquote\\tXAU\\t3021.5\\nquote\\tXAG\\t31.25\\n"); s.sidebar_data.publish("markets",value); return tostring(value and value.EURPLN).."/"..tostring(s.sidebar_data.state("markets").value and s.sidebar_data.state("markets").value.EURPLN).."|"..table.concat(s.sidebar_content_order,",").."|"..s.sidebar_markets_values.EURPLN.widget.markup.."|"..s.sidebar_markets_values.XAU.widget.markup.."|"..tostring(s.sidebar_sections.markets.trailing_widget~=nil)')
+                assert 'markets' in market_audit and '4.1234' in market_audit and '3021.50' in market_audit and '|true' in market_audit, market_audit
+                lua('_G.__market_requests=screen[1].sidebar_data.collectors.markets.requests; screen[1].sidebar_data.refresh("markets")')
+                wait('return tostring(screen[1].sidebar_data.collectors.markets.requests==__market_requests+1)', '"true"')
                 if args.scenario == 'sidebar-news':
                     run_timed('sidebar.news', lambda: awesome_sidebar.verify_news(
                         lua=lua, wait=wait, pointer=pointer, widget_point=widget_point,
@@ -635,12 +640,12 @@ def main():
                     finish_session(args.scenario)
                     return 0
                 if args.scenario == 'sidebar-settings':
-                    assert 'true' in lua('local s=screen[1]; return table.concat(s.sidebar_content_order, ",")=="calendar,todo,news,codex,system-status,crypto,weather,now-playing,wallpaper" and not s.sidebar_enabled_sections["quick-launch"] and s.sidebar_sections["quick-launch"].collapsed and s.sidebar_sections["system-status"].trailing_widget==s.sidebar_trash_status and s.sidebar_sections["quick-launch"].trailing_widget==nil')
+                    assert 'true' in lua('local s=screen[1]; return table.concat(s.sidebar_content_order, ",")=="calendar,todo,news,codex,system-status,crypto,markets,weather,now-playing,wallpaper" and not s.sidebar_enabled_sections["quick-launch"] and s.sidebar_sections["quick-launch"].collapsed and s.sidebar_sections["system-status"].trailing_widget==s.sidebar_trash_status and s.sidebar_sections["quick-launch"].trailing_widget==nil')
                     lua('screen[1].sidebar_sections.crypto.toggle_action()')
                     assert section_state_file.read_text() == (
-                        "version=2\n"
-                        "order=calendar,todo,news,codex,system-status,crypto,weather,now-playing,quick-launch,wallpaper\n"
-                        "enabled=calendar,todo,news,system-status,codex,crypto,weather,now-playing,wallpaper\n"
+                        "version=3\n"
+                        "order=calendar,todo,news,codex,system-status,crypto,markets,weather,now-playing,quick-launch,wallpaper\n"
+                        "enabled=calendar,todo,news,system-status,codex,crypto,markets,weather,now-playing,wallpaper\n"
                         "quick-launch\nwallpaper\n")
                     finish_session(args.scenario)
                     return 0
@@ -674,7 +679,7 @@ def main():
                     wait('return tostring(__awesome_quit_confirmation.wibox.visible)', '"false"')
                     finish_session(args.scenario)
                     return 0
-                assert 'true' in lua('local s=screen[1]; return table.concat(s.sidebar_content_order, ",") == "calendar,todo,news,quick-launch,system-status,codex,crypto,weather,now-playing,wallpaper"')
+                assert 'true' in lua('local s=screen[1]; return table.concat(s.sidebar_content_order, ",") == "calendar,todo,news,quick-launch,system-status,codex,crypto,markets,weather,now-playing,wallpaper"')
                 assert 'true' in lua('local s=screen[1]; return s.sidebar_sections.crypto.collapsed')
                 click_sidebar_title("crypto")
                 wait('return tostring(screen[1].sidebar_sections.crypto.collapsed)', '"false"')
@@ -684,7 +689,7 @@ def main():
                 subprocess.run(["awesome-client", "awesome.restart()"], env=env,
                                capture_output=True, text=True, timeout=5)
                 wait('return table.concat(screen[1].sidebar_content_order, ",")',
-                     '"calendar,todo,news,quick-launch,system-status,codex,crypto,weather,now-playing,wallpaper"')
+                     '"calendar,todo,news,quick-launch,system-status,codex,crypto,markets,weather,now-playing,wallpaper"')
                 assert 'true' in lua('local s=screen[1]; for _,section in pairs(s.sidebar_sections) do if section.collapsed then return false end end; return true')
                 assert 'true' in lua('local s=screen[1]; if s.sidebar_stats_card.forced_height ~= nil or #s.sidebar_progress_bars ~= 8 then return false end; for _,b in ipairs(s.sidebar_progress_bars) do if b.forced_height ~= 8 then return false end end; return true')
                 wait('return screen[1].sidebar_crypto_prices.BTC.text.."|"..screen[1].sidebar_crypto_prices.ETH.text.."|"..screen[1].sidebar_crypto_prices.LTC.text', '"97.123|3.456|123,45"')
@@ -778,11 +783,11 @@ def main():
                 assert source and target, f"Could not locate visible reorder titles: {source}, {target}"
                 awesome_controls.verify_reorder_drag(start=source,end=target,section='calendar',
                     lua=lua,pointer=pointer,wait=wait)
-                first_reordered = "todo,news,calendar,quick-launch,system-status,codex,crypto,weather,now-playing,wallpaper"
+                first_reordered = "todo,news,calendar,quick-launch,system-status,codex,crypto,markets,weather,now-playing,wallpaper"
                 wait('return table.concat(screen[1].sidebar_content_order, ",")', f'"{first_reordered}"')
                 click_sidebar_title("calendar")
                 assert 'true' in lua('return not screen[1].sidebar_sections.calendar.collapsed')
-                first_order_state = ("version=2\n"
+                first_order_state = ("version=3\n"
                                      f"order={first_reordered}\n"
                                      f"enabled={all_sidebar_sections}\ncrypto\n")
                 assert section_state_file.read_text() == first_order_state
@@ -793,7 +798,7 @@ def main():
                 assert section_state_file.read_text() == first_order_state
                 click_sidebar_title("crypto")
                 wait('return tostring(screen[1].sidebar_sections.crypto.collapsed)', '"false"')
-                default_sidebar_order = ("version=2\n"
+                default_sidebar_order = ("version=3\n"
                                          f"order={first_reordered}\n"
                                          f"enabled={all_sidebar_sections}\n")
                 assert section_state_file.read_text() == default_sidebar_order
@@ -801,16 +806,16 @@ def main():
                 awesome_controls.verify_sidebar_edge_scroll(
                     lua=lua, pointer=pointer, sidebar_title_point=sidebar_title_point,
                     log_text=logfile.read_text)
-                second_reordered = "news,calendar,quick-launch,system-status,codex,crypto,weather,now-playing,wallpaper,todo"
+                second_reordered = "news,calendar,quick-launch,system-status,codex,crypto,markets,weather,now-playing,wallpaper,todo"
                 wait('return table.concat(screen[1].sidebar_content_order, ",")', f'"{second_reordered}"')
                 assert section_state_file.read_text() == (
-                    f"version=2\norder={second_reordered}\nenabled={all_sidebar_sections}\n")
+                    f"version=3\norder={second_reordered}\nenabled={all_sidebar_sections}\n")
                 subprocess.run(["awesome-client", "awesome.restart()"], env=env,
                                capture_output=True, text=True, timeout=5)
                 wait('return table.concat(screen[1].sidebar_content_order, ",")', f'"{second_reordered}"')
                 assert section_state_file.read_text() == (
-                    f"version=2\norder={second_reordered}\nenabled={all_sidebar_sections}\n")
-                default_sidebar_order = ("version=2\n"
+                    f"version=3\norder={second_reordered}\nenabled={all_sidebar_sections}\n")
+                default_sidebar_order = ("version=3\n"
                                          f"order={second_reordered}\n"
                                          f"enabled={all_sidebar_sections}\n")
                 lua('for _,section in pairs(screen[1].sidebar_sections) do if not section.collapsed then for _,button in ipairs(section.marker:buttons()) do if button.button == 1 then button:emit_signal("press"); break end end end end')

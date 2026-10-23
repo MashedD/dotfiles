@@ -11,6 +11,7 @@ local config_dir = awesome.conffile:match("^(.*)/") or "."
 local appearance = dofile(config_dir .. "/appearance.lua")
 local preferences = dofile(config_dir .. "/sidebar-preferences.lua").load()
 local crypto_preferences = dofile(config_dir .. "/sidebar-crypto-preferences.lua").load()
+local market_preferences = dofile(config_dir .. "/sidebar-market-preferences.lua").load()
 local data = dofile(config_dir .. "/sidebar-data.lua")
 data.configure(preferences)
 local interaction = dofile(config_dir .. "/interaction.lua")
@@ -466,7 +467,7 @@ function sidebar.create(s, dismiss_menu)
         or ((os.getenv("HOME") or ".") .. "/.local/state")
     local section_state_path = state_root .. "/awesome/sidebar-sections"
     local all_section_ids = {"calendar", "todo", "news", "quick-launch", "system-status", "codex",
-        "crypto", "weather", "now-playing", "wallpaper"}
+        "crypto", "markets", "weather", "now-playing", "wallpaper"}
     local known_section_ids, collapsed_ids, saved_order_ids, saved_order_seen = {}, {}, {}, {}
     for _, id in ipairs(all_section_ids) do known_section_ids[id] = true end
     local saved_enabled_ids, saved_state_version
@@ -510,6 +511,19 @@ function sidebar.create(s, dismiss_menu)
             end
         end
     end
+    if saved_enabled_ids and (saved_state_version or 0) < 3 then
+        saved_enabled_ids.markets = true
+    end
+    if saved_sections ~= "" and next(saved_order_seen) and (saved_state_version or 0) < 3
+        and not saved_order_seen.markets then
+        for index, id in ipairs(saved_order_ids) do
+            if id == "crypto" then
+                table.insert(saved_order_ids, index + 1, "markets")
+                saved_order_seen.markets = true
+                break
+            end
+        end
+    end
     local enabled_ids = saved_enabled_ids or {}
     if not saved_enabled_ids then
         for _, id in ipairs(all_section_ids) do
@@ -547,7 +561,7 @@ function sidebar.create(s, dismiss_menu)
         local temporary = section_state_path .. ".tmp"
         local file = io.open(temporary, "w")
         if not file then return end
-        file:write("version=2\n")
+        file:write("version=3\n")
         file:write("order=", table.concat(saved_order_ids, ","), "\n")
         file:write("enabled=")
         local first_enabled = true
@@ -959,6 +973,50 @@ function sidebar.create(s, dismiss_menu)
         for symbol, entry in pairs(crypto_prices) do entry.set(state.value and state.value[symbol] or "--") end
     end
 
+    local market_values = {}
+    local market_rows = wibox.layout.fixed.vertical()
+    market_rows.spacing = 4
+    local function market_row(key, title, precision)
+        local value = label("--", palette.green, 9, true, "right")
+        if appearance.cyberpunk then value.font = appearance.fonts.telemetry end
+        local heading = label(title, palette.muted, 9, true)
+        local row = wibox.widget {
+            {heading, value, layout = wibox.layout.align.horizontal},
+            left = 2, right = 2, top = 1, bottom = 1, widget = wibox.container.margin,
+        }
+        market_rows:add(row)
+        market_values[key] = {widget = value, precision = precision}
+    end
+    for _, pair in ipairs(market_preferences.pairs) do
+        local key = pair.base .. pair.quote
+        market_row(key, pair.base .. " / " .. pair.quote, 4)
+    end
+    market_row("XAU", "GOLD · USD / TROY OZ", 2)
+    market_row("XAG", "SILVER · USD / TROY OZ", 3)
+    local market_body = wibox.widget {market_rows, spacing = 2, layout = wibox.layout.fixed.vertical}
+    local function refresh_markets() data.refresh("markets") end
+    local markets_refresh_button = style_button(wibox.widget {
+        {label("⟳", palette.title, 10, true, "center"),
+            halign = "center", valign = "center", widget = wibox.container.place},
+        forced_width = 22, forced_height = 18, bg = button_gradient,
+        border_width = 1, border_color = palette.bevel_light,
+        widget = wibox.container.background,
+    }, dismiss_menu)
+    bind_sidebar_action(markets_refresh_button, refresh_markets, "markets")
+    ui.tip(markets_refresh_button, "Refresh currency and metals prices")
+    local markets_card = collapsible_card("markets", "CURRENCY & METALS",
+        market_body, nil, markets_refresh_button)
+    local function render_markets(state)
+        for key, entry in pairs(market_values) do
+            local value = not state.error and state.value and state.value[key]
+            set_markup(entry.widget, string.format("<span foreground='%s' size='9pt' weight='bold'>%s</span>",
+                palette.green, value and string.format("%." .. entry.precision .. "f", value) or "--"))
+        end
+        for key, entry in pairs(market_values) do
+            if state.value and state.value[key] then entry.widget.fg = palette.green end
+        end
+    end
+
     local trash_icon = make_trash_icon()
     local trash_state = label("UNKNOWN", appearance.trash_color(nil), 9, true)
     local trash_status = wibox.widget {
@@ -1236,6 +1294,7 @@ function sidebar.create(s, dismiss_menu)
         {id = "system-status", widget = stats_card},
         {id = "codex", widget = codex_card},
         {id = "crypto", widget = crypto_card},
+        {id = "markets", widget = markets_card},
         {id = "weather", widget = weather_card},
         {id = "now-playing", widget = media_card},
         {id = "wallpaper", widget = wallpaper_card},
@@ -1526,6 +1585,7 @@ function sidebar.create(s, dismiss_menu)
     if weather_enabled then target('weather','refresh',weather_refresh_button,update_weather) end
     target('news','open',news_ui.open_button,news_ui.open,true)
     target('crypto','refresh',crypto_refresh_button,refresh_crypto)
+    target('markets','refresh',markets_refresh_button,refresh_markets)
     target('crypto','open',crypto_body,function()
         click_crypto_symbol(crypto_preferences.tokens[1] and crypto_preferences.tokens[1].symbol)
     end,true)
@@ -1585,6 +1645,8 @@ function sidebar.create(s, dismiss_menu)
     s.sidebar_calendar_open = open_calendar_document
     s.sidebar_crypto_card, s.sidebar_crypto_prices = crypto_card, crypto_prices
     s.sidebar_crypto_config = crypto_preferences
+    s.sidebar_markets_card, s.sidebar_markets_values = markets_card, market_values
+    s.sidebar_markets_refresh = refresh_markets
     s.sidebar_crypto_click = click_crypto_symbol
     s.sidebar_crypto_refresh = refresh_crypto
     s.sidebar_codex_card, s.sidebar_codex_5h, s.sidebar_codex_7d = codex_card, codex_5h, codex_7d
@@ -1722,6 +1784,7 @@ function sidebar.create(s, dismiss_menu)
         timeout = 60, autostart = true, call_now = false, callback = refresh_calendar,
     }
     bind("crypto", render_crypto, crypto_body)
+    bind("markets", render_markets, market_body)
     bind("codex", render_codex, codex_body)
     bind("news", news_ui.render)
     if weather_enabled then

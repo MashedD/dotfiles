@@ -178,6 +178,24 @@ local function source_sample(stdout,kind,parse,now)
 end
 function M.parse_codex_sample(stdout,now) return source_sample(stdout,'codex',M.parse_codex,now) end
 function M.parse_crypto_sample(stdout,now) return source_sample(stdout,'crypto',M.parse_crypto,now) end
+function M.parse_markets(stdout)
+    local result, seen, first = {pairs = {}}, {}, true
+    for line in stdout:gmatch("[^\r\n]+") do
+        if first then
+            local stamp = line:match("^markets%-v1\t(%d+)$")
+            if not stamp then return nil end
+            result.updated, first = tonumber(stamp), false
+        else
+            local key, raw = line:match("^quote\t([A-Z]+)\t([%d%.]+)$")
+            local value = raw and tonumber(raw)
+            if not key or (#key ~= 3 and #key ~= 6) or seen[key]
+                or not value or value <= 0 or value >= 10000000 then return nil end
+            seen[key], result[key] = true, value
+        end
+    end
+    if first then return nil end
+    return result
+end
 
 local function split_fields(line)
     local fields, start = {}, 1
@@ -292,6 +310,9 @@ end)
 service.define("crypto", 60, function(done)
     service.command({home .. "/.local/bin/crypto-prices", "--sidebar-data"}, M.parse_crypto_sample, done)
 end, M.SOURCE_MAX_AGE)
+service.define("markets", 900, function(done)
+    service.command({home .. "/.local/bin/desktop-markets", "--sidebar-data"}, M.parse_markets, done)
+end, 3600)
 service.define("codex", 60, function(done)
     service.command({home .. "/.local/bin/codex-usage", "--sidebar-data"}, M.parse_codex_sample, done)
 end, M.SOURCE_MAX_AGE)

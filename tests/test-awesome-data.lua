@@ -1,5 +1,11 @@
 -- Deterministic, X11-free tests: lua tests/test-awesome-data.lua
 local module = dofile("dotfiles/.config/awesome/sidebar-data.lua")
+local market_sample = module.parse_markets("markets-v1\t123\nquote\tEURPLN\t4.1234\nquote\tUSDPLN\t3.9981\nquote\tXAU\t3021.5\nquote\tXAG\t31.25\n")
+assert(market_sample and market_sample.updated == 123 and market_sample.EURPLN == 4.1234
+    and market_sample.USDPLN == 3.9981 and market_sample.XAU == 3021.5 and market_sample.XAG == 31.25)
+assert(module.parse_markets("invalid\n") == nil)
+assert(module.parse_markets("markets-v1\t1\nquote\tEURPLN\t0\n") == nil)
+assert(module.parse_markets("markets-v1\t1\nquote\tEURPLN\t4.1\nquote\tEURPLN\t4.2\n") == nil)
 local weather_url = module.weather_url(41.4034, 2.1740)
 assert(weather_url:find("latitude=41.403400", 1, true)
     and weather_url:find("longitude=2.174000", 1, true)

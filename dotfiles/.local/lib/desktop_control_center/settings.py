@@ -47,6 +47,55 @@ TOOLBAR_STYLES = {
 }
 TOOLBAR_STYLE_IDS = {value: key for key, value in TOOLBAR_STYLES.items()}
 
+MARKET_PAIRS_VERSION = 1
+MARKET_PAIRS_DEFAULT = (("EUR", "PLN"), ("USD", "PLN"))
+MARKET_PAIRS_MAX = 8
+MARKET_CURRENCIES = frozenset({"USD", "EUR", "PLN", "GBP", "CHF", "JPY", "CAD", "AUD", "NZD", "SEK", "NOK", "DKK", "CZK", "HUF"})
+
+
+def default_market_config() -> dict[str, object]:
+    return {"version": MARKET_PAIRS_VERSION,
+            "pairs": [{"base": base, "quote": quote} for base, quote in MARKET_PAIRS_DEFAULT]}
+
+
+def validate_market_config(config: dict[str, object]) -> dict[str, object]:
+    if not isinstance(config, dict) or set(config) != {"version", "pairs"}:
+        raise SettingsError("Market settings have invalid fields")
+    if type(config["version"]) is not int or config["version"] != MARKET_PAIRS_VERSION:
+        raise SettingsError("Unsupported market settings version")
+    pairs = config["pairs"]
+    if not isinstance(pairs, list) or len(pairs) > MARKET_PAIRS_MAX:
+        raise SettingsError(f"Configure at most {MARKET_PAIRS_MAX} currency pairs")
+    result, seen = [], set()
+    for index, pair in enumerate(pairs, 1):
+        if not isinstance(pair, dict) or set(pair) != {"base", "quote"}:
+            raise SettingsError(f"Currency pair {index} has invalid fields")
+        base, quote = pair["base"], pair["quote"]
+        if (not isinstance(base, str) or not isinstance(quote, str)
+                or base not in MARKET_CURRENCIES or quote not in MARKET_CURRENCIES or base == quote):
+            raise SettingsError(f"Currency pair {index} must use two distinct supported ISO currency codes")
+        key = (base, quote)
+        if key in seen:
+            raise SettingsError(f"Duplicate currency pair: {base}/{quote}")
+        seen.add(key)
+        result.append({"base": base, "quote": quote})
+    return {"version": MARKET_PAIRS_VERSION, "pairs": result}
+
+
+def parse_market_config(text: str) -> dict[str, object]:
+    if len(text) > 65536:
+        raise SettingsError("Market settings file is too large")
+    try:
+        value = json.loads(text)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise SettingsError(f"Invalid market settings JSON: {exc}") from exc
+    return validate_market_config(value)
+
+
+def serialize_market_config(config: dict[str, object]) -> str:
+    return json.dumps(validate_market_config(config), indent=2) + "\n"
+
+
 SIDEBAR_SECTIONS = (
     ("calendar", "Calendar"),
     ("todo", "To-do list"),
@@ -55,6 +104,7 @@ SIDEBAR_SECTIONS = (
     ("system-status", "System Status"),
     ("codex", "Codex quotas"),
     ("crypto", "Crypto prices"),
+    ("markets", "Currency & metals"),
     ("weather", "Weather"),
     ("now-playing", "Now Playing"),
     ("wallpaper", "Wallpaper picker"),

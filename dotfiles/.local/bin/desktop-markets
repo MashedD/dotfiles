@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""Fetch bounded public FX and spot-metal quotes for the Awesome sidebar."""
+from __future__ import annotations
+
+import concurrent.futures
+import json
+import os
+from pathlib import Path
+import re
+import sys
+import time
+import urllib.error
+import urllib.request
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+from desktop_control_center.settings import SettingsError, default_market_config, parse_market_config
+
+CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "desktop-control-center/market-pairs.json"
+USER_AGENT = "desktop-markets/1.0 (Awesome sidebar; public market data)"
+
+def fetch(url: str) -> dict[str, object]:
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
+    with urllib.request.urlopen(request, timeout=7) as response:
+        if response.status != 200:
+            raise ValueError(f"HTTP {response.status}")
+        body = response.read(65537)
+    if len(body) > 65536:
+        raise ValueError("response too large")
+    value = json.loads(body)
+    if not isinstance(value, dict):
+        raise ValueError("invalid response")
+    return value
+
+def quote(url: str, field: str) -> float:
+    data = fetch(url)
+    value = data
+    for name in field.split("."):
+        if not isinstance(value, dict):
+            raise ValueError("missing quote")
+        value = value.get(name)
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 < value < 10_000_000:
+        raise ValueError("invalid quote")
+    return float(value)
+
+def load_config() -> dict[str, object]:
+    try:
+        if CONFIG.stat().st_size > 65536:
+            raise ValueError("configuration too large")
+        return parse_market_config(CONFIG.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return default_market_config()
+    except (OSError, UnicodeError, SettingsError) as exc:
+        print(f"desktop-markets: invalid pair settings: {exc}; using defaults", file=sys.stderr)
+        return default_market_config()
+
+def main() -> int:
+    if sys.argv[1:] not in ([], ["--sidebar-data"]):
+        print("Usage: desktop-markets [--sidebar-data]", file=sys.stderr)
+        return 64
+    config = load_config()
+    jobs: dict[str, tuple[str, str]] = {}
+    for pair in config["pairs"]:
+        base, target = pair["base"], pair["quote"]
+        key = base + target
+        jobs[key] = (f"https://api.frankfurter.app/latest?from={base}&to={target}", f"rates.{target}")
+    jobs["XAU"] = ("https://api.gold-api.com/price/XAU", "price")
+    jobs["XAG"] = ("https://api.gold-api.com/price/XAG", "price")
+    results: dict[str, float | None] = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        pending = {executor.submit(quote, url, field): symbol
+                   for symbol, (url, field) in jobs.items()}
+        for future in concurrent.futures.as_completed(pending, timeout=12):
+            symbol = pending[future]
+            try:
+                results[symbol] = future.result()
+            except Exception as exc:
+                print(f"desktop-markets: {symbol}: {exc}", file=sys.stderr)
+                results[symbol] = None
+    results["updated"] = int(time.time())
+    if sys.argv[1:] == ["--sidebar-data"]:
+        print(f"markets-v1\t{results['updated']}")
+        for symbol, value in results.items():
+            if symbol != "updated" and value is not None:
+                print(f"quote\t{symbol}\t{value:.10g}")
+    else:
+        print(json.dumps(results, separators=(",", ":"), allow_nan=False))
+    return 0 if any(value is not None for key, value in results.items() if key != "updated") else 1
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (OSError, ValueError, json.JSONDecodeError, concurrent.futures.TimeoutError) as exc:
+        print(f"desktop-markets: {exc}", file=sys.stderr)
+        raise SystemExit(1)

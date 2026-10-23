@@ -46,6 +46,21 @@ class XSettingsFileTests(unittest.TestCase):
             self.assertEqual(link.read_text(), updated)
             self.assertEqual(source.read_text(), updated)
 
+    def test_market_pair_defaults_and_validation(self):
+        defaults = settings.default_market_config()
+        self.assertEqual(defaults["pairs"], [
+            {"base": "EUR", "quote": "PLN"}, {"base": "USD", "quote": "PLN"}])
+        self.assertEqual(settings.parse_market_config(settings.serialize_market_config(defaults)), defaults)
+        for pairs in ([{"base": "EUR", "quote": "PLN"}, {"base": "EUR", "quote": "PLN"}],
+                      [{"base": "EUR", "quote": "EUR"}],
+                      [{"base": "XXX", "quote": "PLN"}],
+                      [{"base": "USD", "quote": "PLN", "url": "https://evil.test"}],
+                      [None]):
+            with self.subTest(pairs=pairs), self.assertRaises(settings.SettingsError):
+                settings.validate_market_config({"version": 1, "pairs": pairs})
+        with self.assertRaises(settings.SettingsError):
+            settings.parse_market_config("not json")
+
     def test_settings_merge_prefers_xsettings_over_gtk_ini(self):
         gtk = "[Settings]\ngtk-theme-name=Adwaita\ngtk-icon-theme-name=Breeze\n"
         merged = settings.settings_from_files(

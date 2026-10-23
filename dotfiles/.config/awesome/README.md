@@ -34,8 +34,11 @@ once. The Sidebar tab controls News visibility. The popup offers dynamic categor
 unread filters, the configured browser (which marks a story read), individual
 read/unread/remove controls, and Mark all read. Open toggles to Close, the titlebar
 X closes explicitly, and outside clicks/Escape do not dismiss the popup. `sidebar-data.lua` shares
-session samples and only notifies on state/value changes. Fast CPU/memory/network
-stats run every second; battery and root-filesystem capacity use a separate 30-second
+session samples and only notifies on state/value changes. The Currency & Metals card uses
+configurable Frankfurter currency pairs plus public Gold-API XAU/XAG quotes, refreshed every
+15 minutes or with its card refresh button; Control Panel → Markets edits up to eight pairs.
+Gold and silver display USD per troy ounce. Fast CPU/memory/network stats run every second;
+battery and root-filesystem capacity use a separate 30-second
 collector. Clock, fast-stat, and slow-power widget updates are coalesced by
 `sidebar-refresh.lua` within a 50 ms window. Widget setters skip identical rendered
 values, and system-status layout is invalidated only when optional readings

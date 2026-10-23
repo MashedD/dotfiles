@@ -17,8 +17,10 @@ screenshots and locking. Overrides use `DESKTOP_*` environment names.
 Display/battery lock filenames retain their original identities to coordinate with
 running processes.
 
-Select **Control Panel → Appearance → Desktop theme** to switch between the
-previous Win98 / Aero look and Night Circuit. See [desktop themes](night-circuit.md)
+Select **Control Panel → Appearance → Desktop theme** to switch between Win98 / Aero
+and Night Circuit. **Control Panel → Markets** configures currency pairs; EUR/PLN
+and USD/PLN are the defaults. The sidebar also shows gold and silver spot prices in
+USD per troy ounce with a manual refresh button. See [desktop themes](night-circuit.md)
 for profile persistence, per-theme wallpapers, and the original 4K artwork.
 
 ## Screenshot status

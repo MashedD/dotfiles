@@ -34,7 +34,7 @@ exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"), namespace)
 module = SimpleNamespace(**namespace)
 module.Gtk.init([])
 window = module.ControlCenter()
-assert window.notebook.get_n_pages() == 6
+assert window.notebook.get_n_pages() == 7
 assert window.sidebar_widgets["news"].get_active()
 assert window.news_config == {"version": 1, "categories": [], "feeds": []}
 window.sidebar_widgets["news"].set_active(False)
@@ -94,6 +94,17 @@ window.notebook.set_current_page(4)
 assert window.apply_button.get_label() == "_Save News"
 window.notebook.set_current_page(5)
 assert window.apply_button.get_label() == "_Save Crypto"
+window.notebook.set_current_page(6)
+assert window.apply_button.get_label() == "_Save Markets"
+assert [row["base"].get_active_id() + row["quote"].get_active_id()
+        for row in window.market_rows] == ["EURPLN", "USDPLN"]
+assert window._save_markets()
+assert window._collect_market_config()["pairs"] == [
+    {"base": "EUR", "quote": "PLN"}, {"base": "USD", "quote": "PLN"}]
+window.market_rows[1]["base"].set_active_id("EUR")
+assert not window._save_markets()
+window._reload_markets()
+assert len(window.market_rows) == 2
 window.crypto_currency.set_text("EUR")
 window.crypto_currency_symbol.set_text("€")
 window.crypto_decimal_separator.set_active_id(".")

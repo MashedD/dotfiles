@@ -37,6 +37,7 @@ run bash -n stow.sh tests/run.sh
 run awesome -k -c dotfiles/.config/awesome/rc.lua
 for test in tests/test-awesome-*.lua; do run lua "$test"; done
 run python3 tests/test-night-circuit.py
+run python3 tests/test-desktop-markets.py
 run python3 tests/test-desktop-themes.py
 run python3 tests/test-control-center-theme-ui.py
 for test in tests/test-awesome-autostart.py tests/test-awesome-controls.py tests/test-awesome-session-runner.py tests/test-awesome-sidebar-preferences.py tests/test-awesome-lock.py tests/test-desktop-display.py tests/test-desktop-check.py tests/test-screen-lock.py tests/test-deployment.py tests/test-status-helpers.py tests/test-desktop-screenshot.py tests/test-desktop-news.py tests/test-updaterepo.py tests/test-idle-audit.py tests/test-control-center.py tests/test-control-center-news-ui.py tests/test-dunst-theme.py; do
