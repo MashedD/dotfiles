@@ -24,10 +24,12 @@ except (ImportError, ValueError) as exc:  # pragma: no cover - depends on system
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 import desktop_news_config  # noqa: E402
+from desktop_control_center.themes import (  # noqa: E402
+    PROFILES, apply_profile, profile_settings, read_profile,
+)
 from desktop_control_center.settings import (  # noqa: E402
     SIDEBAR_SECTIONS,
     TOOLBAR_STYLES,
-    apply_settings,
     atomic_write,
     default_crypto_prices_config,
     default_quick_launch_config,
@@ -131,6 +133,7 @@ class ControlCenter(Gtk.Window):
         self.set_icon_name("preferences-system")
         self.connect("destroy", lambda *_: Gtk.main_quit())
         self.settings = _read_initial_settings()
+        self.desktop_profile = read_profile(STATE_HOME)
         self.widgets: dict[str, object] = {}
         self.sidebar_widgets: dict[str, Gtk.CheckButton] = {}
         self.sidebar_preference_widgets: dict[str, Gtk.Entry] = {}
@@ -226,6 +229,8 @@ class ControlCenter(Gtk.Window):
         grid, _ = self._add_tab("Appearance")
         values = self.settings
         row = 0
+        self.desktop_theme = self._combo(list(PROFILES), self.desktop_profile)
+        self._row(grid, row, "Desktop theme", self.desktop_theme, "Desktop/Profile"); row += 1
         theme = self._combo([(name, name) for name in _theme_names("gtk")], str(values["Net/ThemeName"]))
         self._row(grid, row, "GTK theme", theme, "Net/ThemeName"); row += 1
         icons = self._combo([(name, name) for name in _theme_names("icons")], str(values["Net/IconThemeName"]))
@@ -292,10 +297,23 @@ class ControlCenter(Gtk.Window):
         self._row(font_grid, 2, "Subpixel order", subpixel, "Xft/RGBA")
         grid.attach(font_frame, 0, row, 2, 1)
 
-        note = Gtk.Label(label="Apply saves these choices and restarts xsettingsd. Some already-open applications may need restarting.")
+        self.desktop_theme.connect("changed", self._desktop_theme_changed)
+        note = Gtk.Label(label="Desktop themes include Awesome, GTK, dark mode and a separate remembered wallpaper. Apply restarts Awesome when switching themes. Reopen apps to reload GTK styles.")
         note.set_xalign(0)
         note.set_line_wrap(True)
         grid.attach(note, 0, row + 1, 2, 1)
+
+    def _desktop_theme_changed(self, combo: Gtk.ComboBoxText) -> None:
+        selected = combo.get_active_id()
+        if selected is None:
+            return
+        defaults = profile_settings(selected, self.settings)
+        theme = self.widgets["Net/ThemeName"]
+        value = str(defaults["Net/ThemeName"])
+        if not theme.set_active_id(value):
+            theme.append(value, value)
+            theme.set_active_id(value)
+        self.widgets["Gtk/EnableAnimations"].set_active(bool(defaults["Gtk/EnableAnimations"]))
 
     @staticmethod
     def _color_button(value: str) -> Gtk.ColorButton:
@@ -1223,7 +1241,7 @@ class ControlCenter(Gtk.Window):
             self.apply_button.set_label("_Apply")
             self.revert_button.set_sensitive(True)
             self.apply_button.set_sensitive(True)
-            self.status.set_text("Appearance settings are saved to xsettingsd.conf and GTK settings.ini.")
+            self.status.set_text("Choose a desktop theme, then Apply. Switching themes restarts Awesome and restores that theme's wallpaper.")
         else:
             self.revert_button.set_sensitive(False)
             self.apply_button.set_sensitive(False)
@@ -1318,7 +1336,7 @@ class ControlCenter(Gtk.Window):
     def _collect_settings(self) -> dict[str, object]:
         result: dict[str, object] = {}
         for key, widget in self.widgets.items():
-            if key in {"selection-bg", "selection-fg"}:
+            if key in {"selection-bg", "selection-fg", "Desktop/Profile"}:
                 continue
             if isinstance(widget, Gtk.ComboBoxText):
                 selected = widget.get_active_id()
@@ -1354,7 +1372,10 @@ class ControlCenter(Gtk.Window):
             return
         try:
             settings = self._collect_settings()
-            apply_settings(XSETTINGS_PATH, GTK_SETTINGS_PATH, settings)
+            selected = self.desktop_theme.get_active_id()
+            changed_theme = selected != read_profile(STATE_HOME)
+            apply_profile(selected, settings, config_home=CONFIG_HOME,
+                          data_home=DATA_HOME, state_home=STATE_HOME)
         except Exception as exc:
             self.status.set_text("Apply failed; previous files were restored when possible.")
             dialog = Gtk.MessageDialog(
@@ -1366,7 +1387,11 @@ class ControlCenter(Gtk.Window):
             dialog.destroy()
             return
         self.settings = settings
-        self.status.set_text("Settings saved and xsettingsd restarted. Reopen apps that do not update live.")
+        self.desktop_profile = selected
+        if changed_theme:
+            self._request_awesome_restart("Desktop theme applied; Awesome restart requested. Reopen apps to reload GTK styles.")
+        else:
+            self.status.set_text("Settings saved and xsettingsd restarted. Reopen apps that do not update live.")
 
     def _revert(self, *_args: object) -> None:
         page_number = self.notebook.get_current_page()
@@ -1386,8 +1411,10 @@ class ControlCenter(Gtk.Window):
             return
         try:
             self.settings = _read_initial_settings()
+            self.desktop_profile = read_profile(STATE_HOME)
+            self.desktop_theme.set_active_id(self.desktop_profile)
             for key, widget in self.widgets.items():
-                if key in {"selection-bg", "selection-fg", "Gtk/ColorScheme"}:
+                if key in {"selection-bg", "selection-fg", "Gtk/ColorScheme", "Desktop/Profile"}:
                     continue
                 value = self.settings[key]
                 if isinstance(widget, Gtk.ComboBoxText):

@@ -36,6 +36,17 @@ MC/PCManFM state files survive apply/unlink without package copies or ignore rul
 Focused checks validate Code JSONC settings and the portable opencode PATH without
 executing application or interactive shell startup. No tests change the live desktop.
 
+## Desktop theme profiles
+
+`./tests/run.sh` includes profile transactions, per-theme wallpaper round trips,
+custom CSS/Stow-link preservation, rollback, both palettes' contrast, and an isolated
+GTK selector UI test. `AWESOME_TEST_THEME=aero` (default) or `night-circuit` selects
+the profile for private Awesome session scenarios, for example:
+
+```sh
+AWESOME_TEST_THEME=night-circuit python3 tests/test-awesome-session.py --scenario titlebars
+```
+
 ## Awesome session
 
 ```sh

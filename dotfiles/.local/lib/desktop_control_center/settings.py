@@ -681,10 +681,13 @@ def _gtk_ini_values(settings: dict[str, object]) -> dict[str, str]:
     return result
 
 
-def update_gtk_settings_text(text: str, settings: dict[str, object]) -> str:
-    """Synchronize GTK3 appearance settings without discarding other preferences."""
+def update_gtk_settings_text(text: str, settings: dict[str, object], *,
+                             gtk_keys: set[str] | None = None) -> str:
+    """Synchronize GTK preferences, optionally limiting writes to GTK4-supported keys."""
     _validate_settings(settings)
     desired = _gtk_ini_values(settings)
+    if gtk_keys is not None:
+        desired = {key: value for key, value in desired.items() if key in gtk_keys}
     lines = text.splitlines(keepends=True)
     section = ""
     found_section = False

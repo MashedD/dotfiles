@@ -267,6 +267,10 @@ def main():
                                  f"order={all_sidebar_sections}\n"
                                  f"enabled={all_sidebar_sections}\n")
         section_state_file.parent.mkdir(parents=True)
+        test_theme = os.environ.get("AWESOME_TEST_THEME", "aero")
+        if test_theme not in {"aero", "night-circuit"}:
+            raise ValueError("AWESOME_TEST_THEME must be aero or night-circuit")
+        (section_state_file.parent / "theme").write_text(test_theme + "\n")
         legacy_sidebar_state = (
             "order=calendar,todo,codex,system-status,crypto,weather,now-playing,quick-launch,wallpaper\n"
             "crypto\nquick-launch\nwallpaper\n")

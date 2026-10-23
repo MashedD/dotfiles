@@ -1,7 +1,11 @@
 # Awesome components
 
 `rc.lua` composes the session, window rules, titlebar controls, and menus.
-`appearance.lua` owns shared palettes, gradients, opacity, and status thresholds.
+`appearance.lua` loads the selected bundled profile from `themes/`: original
+Win98 / Aero (default) or Night Circuit. Control Panel → Appearance switches the
+whole desktop, optional GTK overlays and each profile's remembered wallpaper.
+See [the theme notes](../../../docs/night-circuit.md). Window titles keep Segoe UI;
+Night Circuit uses bundled FiraCode for numeric readouts.
 `titlebar-drag.lua` restores maximized floating windows only after a real titlebar
 drag begins, preserves the pointer's relative position, and applies top/side
 workarea snapping on release. Top-edge maximize takes precedence at corners.

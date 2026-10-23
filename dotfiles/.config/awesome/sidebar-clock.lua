@@ -121,6 +121,7 @@ function M.create(options)
     local palette, label = options.appearance.palette, options.label
     local clock = analog_clock()
     local digital = label("00:00:00", palette.scrollbar_highlight, 24, true, "center")
+    if options.appearance.cyberpunk then digital.font = options.appearance.fonts.telemetry end
     local date = label("", palette.scrollbar_highlight, 13, true, "center")
     local centered = wibox.widget {clock, halign = "center", valign = "center", widget = wibox.container.place}
     local content = wibox.layout.fixed.vertical()

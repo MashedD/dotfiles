@@ -100,14 +100,14 @@ if [ -f "$xsettings_config" ]; then
   gtk_theme=no gtk_blue=no gtk_icons=no gtk_cursor=no
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in
-      'Net/ThemeName "Adwaita"') gtk_theme=yes ;;
+      'Net/ThemeName "Adwaita"'|'Net/ThemeName "Adwaita-dark"') gtk_theme=yes ;;
       'Net/IconThemeName "Breeze"') gtk_icons=yes ;;
       'Gtk/CursorThemeName "Adwaita"') gtk_cursor=yes ;;
       *'selected_bg_color:#3584e4'*) gtk_blue=yes ;;
     esac
   done < "$xsettings_config"
-  if [ "$gtk_theme" = yes ]; then ok 'GTK theme Adwaita'
-  else fail "GTK theme: expected Adwaita in $xsettings_config"; fi
+  if [ "$gtk_theme" = yes ]; then ok 'GTK theme Adwaita (light or dark)'
+  else fail "GTK theme: expected Adwaita or Adwaita-dark in $xsettings_config"; fi
   if [ "$gtk_blue" = yes ]; then ok 'GTK selection accent Adwaita blue'
   else fail "GTK selection accent: expected #3584e4 in $xsettings_config"; fi
   if [ "$gtk_icons" = yes ]; then ok 'GTK icon theme Breeze'

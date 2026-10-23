@@ -1,0 +1,37 @@
+/* Night Circuit: native GTK4/libadwaita layout, shared dark surfaces and blue
+ * selection. Older GTK4 reads the named colors; newer libadwaita reads variables.
+ */
+@define-color accent_bg_color #3584e4;
+@define-color accent_fg_color #ffffff;
+@define-color window_bg_color #101421;
+@define-color window_fg_color #e0e8f5;
+@define-color view_bg_color #090d17;
+@define-color view_fg_color #e0e8f5;
+@define-color headerbar_bg_color #192136;
+@define-color headerbar_fg_color #edfaff;
+@define-color sidebar_bg_color #111827;
+@define-color sidebar_fg_color #c0cbe0;
+@define-color card_bg_color #192136;
+@define-color popover_bg_color #172039;
+@define-color popover_fg_color #e0e8f5;
+
+:root {
+    --accent-bg-color: #3584e4;
+    --accent-fg-color: #ffffff;
+    --window-bg-color: #101421;
+    --window-fg-color: #e0e8f5;
+    --view-bg-color: #090d17;
+    --view-fg-color: #e0e8f5;
+    --headerbar-bg-color: #192136;
+    --headerbar-fg-color: #edfaff;
+    --sidebar-bg-color: #111827;
+    --sidebar-fg-color: #c0cbe0;
+    --card-bg-color: #192136;
+    --popover-bg-color: #172039;
+    --popover-fg-color: #e0e8f5;
+}
+headerbar, window.background, popover > contents {
+    border-radius: 0;
+}
+headerbar { box-shadow: inset 0 -1px #303a53; }
+progressbar trough, progressbar progress { border-radius: 0; }

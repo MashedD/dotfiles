@@ -107,10 +107,16 @@ function M.create(options)
                     {metadata, event_label, spacing = 7, layout = wibox.layout.fixed.horizontal},
                     left = 6, right = 5, top = 3, bottom = 3, widget = wibox.container.margin,
                 }, layout = wibox.layout.fixed.horizontal,
-            }, bg = "#0c1b15", border_width = 1, border_color = "#254238", widget = wibox.container.background,
+            }, bg = options.appearance.cyberpunk and palette.card or "#0c1b15",
+            border_width = 1, border_color = options.appearance.cyberpunk and palette.line or "#254238",
+            widget = wibox.container.background,
         }
-        content:connect_signal("mouse::enter", function() content.bg = "#152b21" end)
-        content:connect_signal("mouse::leave", function() content.bg = "#0c1b15" end)
+        content:connect_signal("mouse::enter", function()
+            content.bg = options.appearance.cyberpunk and palette.menu_base or "#152b21"
+        end)
+        content:connect_signal("mouse::leave", function()
+            content.bg = options.appearance.cyberpunk and palette.card or "#0c1b15"
+        end)
         content:buttons(gears.table.join(awful.button({}, 1, open)))
         return content
     end
@@ -180,8 +186,10 @@ function M.create(options)
                     local weekend = column >= 6
                     local color = date == os.date("%Y-%m-%d") and palette.neon
                         or (has_events and palette.teal or (weekend and palette.calendar_weekend or palette.text))
-                    local background = is_selected and "#1d5944"
-                        or (has_events and "#10291f" or (weekend and palette.calendar_weekend_bg or "#0e1d17"))
+                    local background = is_selected and (options.appearance.cyberpunk and "#303b5b" or "#1d5944")
+                        or (has_events and (options.appearance.cyberpunk and "#142b35" or "#10291f")
+                            or (weekend and palette.calendar_weekend_bg
+                                or (options.appearance.cyberpunk and palette.card or "#0e1d17")))
                     local cell = wibox.widget {
                         label(tostring(day), color, 9, is_selected or has_events or weekend, "center"),
                         forced_width = 36, forced_height = 24,

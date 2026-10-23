@@ -39,10 +39,13 @@ end)
 
 beautiful.init({
     font = appearance.fonts.body,
-    bg_normal = "#c0c0c0", fg_normal = "#000000",
-    bg_focus = "#001a00", fg_focus = "#00ff41",
-    bg_urgent = "#001a00", fg_urgent = "#00ff41",
-    border_width = 2, border_normal = "#808080", border_focus = "#538ed4",
+    bg_normal = appearance.cyberpunk and appearance.palette.bg or "#c0c0c0",
+    fg_normal = appearance.cyberpunk and appearance.palette.text or "#000000",
+    bg_focus = appearance.cyberpunk and appearance.palette.menu_base or "#001a00",
+    fg_focus = appearance.cyberpunk and appearance.palette.title or "#00ff41",
+    bg_urgent = appearance.palette.urgency_bg, fg_urgent = appearance.palette.urgency,
+    border_width = 2, border_normal = appearance.cyberpunk and appearance.palette.inactive_border or "#808080",
+    border_focus = appearance.cyberpunk and appearance.palette.active_border or "#538ed4",
     titlebar_bg_normal = titlebar_normal_gradient, titlebar_fg_normal = appearance.palette.inactive,
     titlebar_bg_focus = titlebar_focus_gradient, titlebar_fg_focus = appearance.palette.title,
     menu_font = appearance.fonts.menu, menu_height = 28, menu_width = 270,
@@ -59,7 +62,8 @@ beautiful.init({
     tooltip_font = appearance.fonts.menu, tooltip_border_width = 1,
     tooltip_border_color = appearance.palette.menu_border,
     tooltip_opacity = 1, tooltip_shape = gears.shape.rectangle,
-    useless_gap = 0, bg_systray = "#174a77", systray_icon_spacing = 2,
+    useless_gap = 0, bg_systray = appearance.cyberpunk and appearance.palette.menu_base or "#174a77",
+    systray_icon_spacing = 2,
     maximized_hide_border = true, fullscreen_hide_border = true,
 })
 menubar.prompt_args = {font = appearance.fonts.menu,
@@ -834,7 +838,8 @@ client.connect_signal("request::titlebars", function(c)
         end
     end)))
     awful.titlebar(c, {position = "bottom", size = 10,
-        bg_normal = "#d7eef5aa", bg_focus = "#d7eef5bb"}):setup {
+        bg_normal = appearance.cyberpunk and appearance.palette.card or "#d7eef5aa",
+        bg_focus = appearance.cyberpunk and appearance.palette.menu_base or "#d7eef5bb"}):setup {
         nil, nil,
         {grip, width = 16, strategy = "exact", widget = wibox.container.constraint},
         layout = wibox.layout.align.horizontal,

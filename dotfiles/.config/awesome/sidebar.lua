@@ -27,18 +27,21 @@ local palette = appearance.palette
 local sidebar_gradient = appearance.forest(300)
 local card_gradient = appearance.gradient("card", 180)
 local sidebar_title_gradient = appearance.gradient("selected", 26)
-local section_header_gradient = appearance.gradient("blue", 24)
+local section_header_gradient = appearance.gradient("section", 24)
 local button_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
-    stops = {{0, "#354b64"}, {0.5, "#293c53"}, {1, "#1b2a3c"}},
+    stops = appearance.cyberpunk and {{0, "#252e45"}, {0.5, "#1a2235"}, {1, "#121a2b"}}
+        or {{0, "#354b64"}, {0.5, "#293c53"}, {1, "#1b2a3c"}},
 }
 local button_hover_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
-    stops = {{0, "#52789e"}, {0.5, "#3d5d7d"}, {1, "#2a4059"}},
+    stops = appearance.cyberpunk and {{0, "#3b4767"}, {0.5, "#293953"}, {1, "#1c2c43"}}
+        or {{0, "#52789e"}, {0.5, "#3d5d7d"}, {1, "#2a4059"}},
 }
 local button_pressed_gradient = gears.color {
     type = "linear", from = {0, 0}, to = {0, 30},
-    stops = {{0, "#17263a"}, {0.5, "#223650"}, {1, "#304967"}},
+    stops = appearance.cyberpunk and {{0, "#0c1120"}, {0.5, "#1a2540"}, {1, "#293751"}}
+        or {{0, "#17263a"}, {0.5, "#223650"}, {1, "#304967"}},
 }
 
 local function read(path)
@@ -126,42 +129,71 @@ local function set_visible(widget, value) return set_cached(widget, "visible", v
 local function set_value(widget, value) return set_cached(widget, "value", value) end
 
 local function section_header(text, trailing_widget)
-    local title = label(text, palette.title, 10, true, "center")
-    local marker = label("−", "#d9f7f4", 10, true, "center")
+    local title = label(text, palette.title, appearance.cyberpunk and 9 or 10,
+        true, appearance.cyberpunk and "left" or "center")
+    if appearance.cyberpunk then title.font = appearance.fonts.title end
+    local marker = label("−", appearance.cyberpunk and palette.active_border or "#d9f7f4", 10, true, "center")
     marker.forced_width = 18
-    local centered_title = wibox.widget {
-        title, halign = "center", valign = "center", widget = wibox.container.place,
-    }
-    local contents
+    if not appearance.cyberpunk then
+        local centered_title = wibox.widget {
+            title, halign = "center", valign = "center", widget = wibox.container.place,
+        }
+        local contents
+        if trailing_widget then
+            contents = wibox.layout.align.horizontal()
+            contents:set_left(marker)
+            contents:set_middle(centered_title)
+            contents:set_right(wibox.widget {
+                trailing_widget, left = 6, right = 2, widget = wibox.container.margin,
+            })
+        else
+            contents = wibox.layout.stack()
+            local adornments = wibox.layout.align.horizontal()
+            adornments:set_left(marker)
+            contents:add(adornments)
+            contents:add(centered_title)
+        end
+        local header = wibox.widget {
+            {
+                {forced_height = 1, bg = "#efffffff", widget = wibox.container.background},
+                {
+                    {contents, left = 2, right = 2, top = 1, bottom = 1,
+                        widget = wibox.container.margin},
+                    forced_height = 20, bg = section_header_gradient,
+                    widget = wibox.container.background,
+                },
+                {forced_height = 1, bg = "#123979aa", widget = wibox.container.background},
+                layout = wibox.layout.fixed.vertical,
+            },
+            forced_height = 24, bg = section_header_gradient,
+            border_width = 1, border_color = "#588cd4", widget = wibox.container.background,
+        }
+        return header, title, marker
+    end
+    -- Instrument-style header: one accent rail, no nested glass bevels.
+    -- Keep the title itself as the drag/click target and reserve trailing status space.
+    local contents = wibox.layout.align.horizontal()
+    contents:set_left(marker)
+    contents:set_middle(title)
     if trailing_widget then
-        -- Reserve real space for status text, including the longer UNKNOWN state.
-        contents = wibox.layout.align.horizontal()
-        contents:set_left(marker)
-        contents:set_middle(centered_title)
         contents:set_right(wibox.widget {
-            trailing_widget, left = 6, right = 2, widget = wibox.container.margin,
+            trailing_widget, left = 4, right = 3, widget = wibox.container.margin,
         })
-    else
-        contents = wibox.layout.stack()
-        local adornments = wibox.layout.align.horizontal()
-        adornments:set_left(marker)
-        contents:add(adornments)
-        contents:add(centered_title)
     end
     local header = wibox.widget {
-        {
-            {forced_height = 1, bg = "#efffffff", widget = wibox.container.background},
-            {
-                {contents, left = 2, right = 2, top = 1, bottom = 1,
-                    widget = wibox.container.margin},
-                forced_height = 20, bg = section_header_gradient,
-                widget = wibox.container.background,
-            },
-            {forced_height = 1, bg = "#123979aa", widget = wibox.container.background},
-            layout = wibox.layout.fixed.vertical,
-        },
+        {contents, left = 6, right = 4, top = 1, bottom = 1,
+            widget = wibox.container.margin},
         forced_height = 24, bg = section_header_gradient,
-        border_width = 1, border_color = "#588cd4",
+        -- Static circuit accents, painted behind the controls (no timer or overlay).
+        bgimage = function(_, cr, width, height)
+            cr:set_source(gears.color(palette.active_border))
+            cr:rectangle(0, 0, 3, height)
+            cr:fill()
+            cr:set_source(gears.color(palette.accent))
+            cr:rectangle(math.max(3, width - 20), 0, 16, 2)
+            cr:fill()
+        end,
+        border_width = 1, border_color = palette.line,
         widget = wibox.container.background,
     }
     return header, title, marker
@@ -199,9 +231,11 @@ local function card(widget, height)
         widget = wibox.container.background,
     }
     return wibox.widget {
-        {surface, margins = 1, widget = wibox.container.margin},
-        forced_height = height, bg = palette.bevel_shadow,
-        border_width = 1, border_color = palette.bevel_light,
+        appearance.cyberpunk and surface or wibox.widget {
+            surface, margins = 1, widget = wibox.container.margin,
+        },
+        forced_height = height, bg = appearance.cyberpunk and palette.bg or palette.bevel_shadow,
+        border_width = appearance.cyberpunk and 0 or 1, border_color = palette.bevel_light,
         widget = wibox.container.background,
     }
 end
@@ -230,6 +264,7 @@ local function progress(color)
     return wibox.widget {
         max_value = 100, value = 0, forced_height = progress_bar_height,
         background_color = palette.bg, color = color,
+        ticks = appearance.cyberpunk, ticks_size = 12, ticks_gap = 2,
         border_color = palette.line, border_width = 1,
         widget = wibox.widget.progressbar,
     }
@@ -604,25 +639,32 @@ function sidebar.create(s, dismiss_menu)
     mouse_battery_bar.visible = false
     local volume_text = label("Volume  --", palette.text, 10, false)
     local volume_bar = progress(palette.teal)
+    for _, readout in ipairs({cpu_text, memory_text, battery_text, mouse_battery_text,
+        root_text, network_text, volume_text}) do
+        if appearance.cyberpunk then readout.font = appearance.fonts.telemetry end
+    end
     local media_text = label("Checking player…", palette.text, 11, false, "center")
     media_text.wrap = "word_char"
     media_text.ellipsize = "end"
 
-    local header_title = label("MashedD's AwesomeBar", "#f2fffb", 9, true)
+    local header_title = label(appearance.cyberpunk and "MashedD // NIGHT CIRCUIT" or "MashedD's AwesomeBar",
+        palette.title, 9, true)
     header_title.font = appearance.fonts.title
     local header = wibox.widget {
         {
-            {forced_height = 1, bg = "#f2ffffff", widget = wibox.container.background},
+            {forced_height = 1, bg = appearance.cyberpunk and palette.active_border or "#f2ffffff",
+                widget = wibox.container.background},
             {
                 {header_title, left = 10, right = 6, widget = wibox.container.margin},
                 forced_height = 23, bg = sidebar_title_gradient,
                 widget = wibox.container.background,
             },
-            {forced_height = 1, bg = "#123f5eaa", widget = wibox.container.background},
+            {forced_height = 1, bg = appearance.cyberpunk and palette.inactive_border or "#123f5eaa",
+                widget = wibox.container.background},
             layout = wibox.layout.fixed.vertical,
         },
         forced_height = 26, bg = sidebar_title_gradient,
-        border_width = 1, border_color = "#6bb5ca",
+        border_width = 1, border_color = appearance.cyberpunk and palette.menu_border or "#6bb5ca",
         widget = wibox.container.background,
     }
     local wallpapers = wallpaper_paths(preferences.wallpaper_dirs)
@@ -1268,7 +1310,7 @@ function sidebar.create(s, dismiss_menu)
     scroll_ui.attach(panel)
     panel:setup {
         {
-            {forced_width = 2, bg = "#5ba7e8dd", widget = wibox.container.background},
+            {forced_width = 2, bg = palette.active_border, widget = wibox.container.background},
             sidebar_column,
             layout = wibox.layout.fixed.horizontal,
         },

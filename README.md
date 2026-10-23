@@ -1,7 +1,8 @@
 # Awesome desktop dotfiles
 
 CachyOS/X11, floating AwesomeWM, four desktops, native panel and sidebar.
-Frutiger Aero-inspired blue desktop chrome, Adwaita GTK controls/cursors, Breeze icons and VAX terminals.
+Choose [Win98 / Aero or Night Circuit](docs/night-circuit.md) in Control Panel → Appearance.
+Shared square geometry, Adwaita GTK controls, Breeze icons, Adwaita cursors and VAX terminals.
 Legacy configurations remain for reference; they are not the active session.
 
 ## Install

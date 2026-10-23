@@ -57,24 +57,28 @@ local function reorder_task_clients(s, dragged, drop_index, visible_clients)
     if s.tasklist and s.tasklist._do_tasklist_update then s.tasklist._do_tasklist_update() end
     return true
 end
-local panel_gradient = appearance.gradient("blue", 30)
+local panel_gradient = appearance.gradient("panel", 30)
 local panel_item_gradient = appearance.gradient("inactive", 24)
 local panel_focus_gradient = appearance.gradient("selected", 24)
+local panel_frame = appearance.cyberpunk and palette.inactive_border or "#173a6c"
+local panel_item_edge = appearance.cyberpunk and palette.inactive_border or "#8ecbff"
 local function selection_border(self, selected)
     local bg = self:get_children_by_id("background_role")[1]
     if bg then bg.border_color = selected and palette.active_border or palette.inactive_border end
+    local accent = self:get_children_by_id("focus_accent")[1]
+    if accent then accent.bg = selected and palette.active_border or palette.inactive_border end
 end
 local function glass_clock(widget)
     return wibox.widget {
         {widget, left = 5, right = 5, top = 1, bottom = 1, widget = wibox.container.margin},
         bg = panel_item_gradient, fg = palette.title,
-        border_width = 1, border_color = "#6aabea",
+        border_width = 1, border_color = appearance.cyberpunk and palette.line or "#6aabea",
         widget = wibox.container.background,
     }
 end
 local function separator()
     return wibox.widget {
-        forced_width = 3, color = "#4c83bf",
+        forced_width = 3, color = appearance.cyberpunk and palette.menu_separator or "#4c83bf",
         orientation = "vertical", widget = wibox.widget.separator,
     }
 end
@@ -249,7 +253,10 @@ function panel.create(s, menu, activate, window_menu, interaction)
     end
     s.taglist = awful.widget.taglist {
         screen = s, filter = awful.widget.taglist.filter.all,
-        style = {bg_focus = panel_focus_gradient, fg_focus = palette.title,
+        style = {bg_focus = appearance.cyberpunk and palette.workspace_active or panel_focus_gradient,
+            fg_focus = appearance.cyberpunk and palette.workspace_text or palette.title,
+            font = appearance.cyberpunk and appearance.fonts.title or appearance.fonts.body,
+            bg_urgent = palette.urgency_bg, fg_urgent = palette.urgency,
             bg_empty = panel_item_gradient, fg_empty = palette.inactive,
             bg_occupied = panel_item_gradient, fg_occupied = palette.inactive},
         buttons = gears.table.join(
@@ -275,15 +282,16 @@ function panel.create(s, menu, activate, window_menu, interaction)
                         {text = "", widget = wibox.widget.textbox}},
                     {
                         {id = "text_role", align = "center", widget = wibox.widget.textbox},
-                        left = 6, right = 6, top = 1, bottom = 1,
+                        left = appearance.cyberpunk and 10 or 6,
+                        right = appearance.cyberpunk and 10 or 6, top = 1, bottom = 1,
                         widget = wibox.container.margin,
                     },
                     layout = wibox.layout.stack,
                 },
-                id = "background_role", border_width = 1, border_color = "#8ecbff",
+                id = "background_role", border_width = 1, border_color = panel_item_edge,
                 widget = wibox.container.background,
             },
-            bg = panel_gradient, border_width = 1, border_color = "#173a6c",
+            bg = panel_gradient, border_width = 1, border_color = panel_frame,
             widget = wibox.container.background,
         },
     }
@@ -292,6 +300,7 @@ function panel.create(s, menu, activate, window_menu, interaction)
         source = ordered_task_source,
         style = {bg_normal = panel_item_gradient, fg_normal = palette.inactive,
             bg_focus = panel_focus_gradient, fg_focus = palette.title,
+            bg_urgent = palette.urgency_bg, fg_urgent = palette.urgency,
             bg_minimize = panel_item_gradient, fg_minimize = palette.minimized},
         buttons = gears.table.join(
             awful.button({}, 1, function(c)
@@ -307,18 +316,23 @@ function panel.create(s, menu, activate, window_menu, interaction)
             {
                 {
                     {
+                        {id = "focus_accent", forced_width = 3, visible = appearance.cyberpunk, bg = palette.inactive_border,
+                            widget = wibox.container.background},
                         {
-                            {id = "icon_role", forced_width = 16, forced_height = 16, widget = wibox.widget.imagebox},
-                            {id = "text_role", ellipsize = "end", widget = wibox.widget.textbox},
-                            spacing = 4, layout = wibox.layout.fixed.horizontal,
+                            {
+                                {id = "icon_role", forced_width = 16, forced_height = 16, widget = wibox.widget.imagebox},
+                                {id = "text_role", ellipsize = "end", widget = wibox.widget.textbox},
+                                spacing = 4, layout = wibox.layout.fixed.horizontal,
+                            },
+                            left = appearance.cyberpunk and 5 or 3, right = 4, top = 1, bottom = 1,
+                            widget = wibox.container.margin,
                         },
-                        left = 3, right = 4, top = 1, bottom = 1,
-                        widget = wibox.container.margin,
+                        layout = wibox.layout.align.horizontal,
                     },
-                    id = "background_role", border_width = 1, border_color = "#8ecbff",
+                    id = "background_role", border_width = 1, border_color = panel_item_edge,
                     widget = wibox.container.background,
                 },
-                bg = panel_gradient, border_width = 1, border_color = "#173a6c",
+                bg = panel_gradient, border_width = 1, border_color = panel_frame,
                 widget = wibox.container.background,
             },
             width = 160, strategy = "exact", widget = wibox.container.constraint,
@@ -359,7 +373,7 @@ function panel.create(s, menu, activate, window_menu, interaction)
     tray:set_screen("primary")
     local clock = wibox.widget.textclock("%H:%M", 1)
     local clock_container = glass_clock(clock)
-    clock.font = appearance.fonts.title
+    clock.font = appearance.fonts.telemetry
     clock.fg = palette.title
     clock.forced_width = 58
     clock.align = "center"
@@ -387,7 +401,8 @@ function panel.create(s, menu, activate, window_menu, interaction)
     }
     s.panel:setup {
         {
-            {forced_height = 1, bg = "#eaffffff", widget = wibox.container.background},
+            {forced_height = 1, bg = appearance.cyberpunk and palette.menu_border or "#eaffffff",
+                widget = wibox.container.background},
             {
                 {
                     {
@@ -400,12 +415,14 @@ function panel.create(s, menu, activate, window_menu, interaction)
                     left = 2, right = 2, top = 1, bottom = 1,
                     widget = wibox.container.margin,
                 },
-                {forced_height = 1, bg = "#73c6e199", widget = wibox.container.background},
+                {forced_height = 1, bg = appearance.cyberpunk and palette.active_border or "#73c6e199",
+                    widget = wibox.container.background},
                 layout = wibox.layout.fixed.vertical,
             },
             layout = wibox.layout.fixed.vertical,
         },
-        widget = wibox.container.margin,
+        bgimage = appearance.circuit,
+        widget = wibox.container.background,
     }
     -- Root clicks do not reach the X root window while the wibar covers it.
     -- Treat otherwise-unhandled panel clicks like outside-menu clicks, but leave

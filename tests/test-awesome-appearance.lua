@@ -1,6 +1,8 @@
 -- lua tests/test-awesome-appearance.lua
 package.preload.gears = function() return {color = function(spec) return spec end} end
-local appearance = dofile('dotfiles/.config/awesome/appearance.lua')
+local function check(appearance)
+appearance.stops.panel = appearance.stops.panel or appearance.stops.blue
+appearance.stops.section = appearance.stops.section or appearance.stops.blue
 local function rgb(hex)
     return {tonumber(hex:sub(2,3),16)/255, tonumber(hex:sub(4,5),16)/255,
         tonumber(hex:sub(6,7),16)/255, #hex == 9 and tonumber(hex:sub(8,9),16)/255 or 1}
@@ -31,6 +33,8 @@ local function sample(stops, position, wallpaper)
 end
 for name, foregrounds in pairs({
     menu = {'text','title','muted'},
+    panel = {'title','inactive'},
+    section = appearance.palette.workspace_active and {'title','muted'} or {'title'},
     control = {'title'}, control_hover = {'title'}, close = {'title'}, close_hover = {'title'},
     control_pressed = {'title'}, close_pressed = {'title'},
     blue = {'title','text','green','amber'}, selected = {'title'},
@@ -65,6 +69,14 @@ for _, background in ipairs({'scrollbar_track', 'scrollbar_rail'}) do
     end
 end
 assert(contrast(rgb(appearance.palette.text), rgb(appearance.palette.menu_base)) >= 4.5)
+if appearance.palette.urgency then
+    assert(contrast(rgb(appearance.palette.urgency), rgb(appearance.palette.urgency_bg)) >= 4.5)
+    assert(contrast(rgb(appearance.palette.workspace_text), rgb(appearance.palette.workspace_active)) >= 7)
+end
+assert(contrast(rgb(appearance.palette.active_border), rgb(appearance.palette.bg)) >= 3)
+for _, foreground in ipairs({'text', 'muted', 'green', 'teal'}) do
+    assert(contrast(rgb(appearance.palette[foreground]), rgb(appearance.palette.card)) >= 4.5)
+end
 assert(appearance.remaining_color(21) == appearance.palette.green)
 assert(appearance.remaining_color(20) == appearance.palette.amber)
 assert(appearance.remaining_color(10) == appearance.palette.red)
@@ -75,4 +87,18 @@ assert(appearance.trash_color(true) == appearance.palette.amber)
 assert(appearance.trash_color(false) == appearance.palette.green)
 assert(appearance.trash_color(nil) == appearance.palette.text)
 assert(appearance.gradient('selected',26).to[2] == 26)
-print('Awesome appearance contrast tests passed')
+local operations = 0
+local cr = setmetatable({}, {__index = function()
+    return function() operations = operations + 1 end
+end})
+if appearance.circuit then
+    appearance.circuit({}, cr, 600, 30)
+    assert(operations == 0, 'Narrow panels must not draw circuitry over their controls')
+    appearance.circuit({}, cr, 1920, 30)
+    assert(operations > 0 and operations < 150, 'Panel motif must stay bounded and static')
+end
+end
+for _, name in ipairs({'aero', 'night-circuit'}) do
+    check(dofile('dotfiles/.config/awesome/themes/' .. name .. '.lua'))
+end
+print('Awesome appearance contrast tests passed (both themes)')

@@ -5,10 +5,10 @@ for the short installation and validation instructions.
 
 This is the active desktop configuration for a CachyOS X11 session:
 
-- AwesomeWM with four workspaces, floating-by-default windows (Win+Space toggles the current tag to tile) and Win98/Matrix titlebars
-- Native Awesome 30px Win98/Matrix top panel and XEmbed tray, with snixembed bridge
+- AwesomeWM with four workspaces, floating-by-default windows (Win+Space toggles the current tag to tile) and square glass titlebars
+- Native Awesome 30px top panel and XEmbed tray, with snixembed bridge
 - kitty, xfce4-appfinder, pcmanfm, Dunst with square-edged navy/Aero notifications and urgency accents, lxqt-policykit, and xss-lock/i3lock
-- Adwaita GTK controls with blue selection, Breeze icons, and Adwaita cursors; VAX colors remain in terminals.
+- Selectable Win98 / Aero (light Adwaita) or Night Circuit (dark Adwaita with ink/violet overlays), blue selection, Breeze icons, and Adwaita cursors; VAX colors remain in terminals.
 - HDMI-A-1-0 preferred at 2560×1440/144 Hz, with internal-display recovery
 
 See the [configuration audit](config-audit.md) for references and deployment.
@@ -17,11 +17,16 @@ screenshots and locking. Overrides use `DESKTOP_*` environment names.
 Display/battery lock filenames retain their original identities to coordinate with
 running processes.
 
+Select **Control Panel → Appearance → Desktop theme** to switch between the
+previous Win98 / Aero look and Night Circuit. See [desktop themes](night-circuit.md)
+for profile persistence, per-theme wallpapers, and the original 4K artwork.
+
 ## Screenshot status
 
-![AwesomeWM](../screenshot.png)
+![Night Circuit AwesomeWM](images/night-circuit.png)
 
-Screenshot may differ from current progress.
+Private preview with temporary demo folders; the older `screenshot.png` remains
+for historical reference.
 
 ## Install and deploy
 
@@ -60,7 +65,8 @@ existing file or symlink:
 ./stow.sh unlink          # preflight, then remove only Stow-owned links
 ```
 
-The GTK setup is intentionally simple: Adwaita controls and cursors, Breeze
+The GTK setup uses light Adwaita for Win98 / Aero and dark Adwaita with optional
+Night Circuit overlays for the cyberpunk profile, plus Adwaita cursors, Breeze
 icons, and the blue selection accent. The complete Tux Start image is a regular
 Stow-managed hicolor asset; no separate theme-generation step or external theme
 package is needed. The VAX palette remains available in terminals.
@@ -107,20 +113,18 @@ Save work and log out of the old WM before running `startx`; deployment does
 not replace or kill a live WM.
 
 Awesome's built-in wibar replaces LXPanel **at the top, 30px high**, with
-a Frutiger Aero sky-blue glass gradient, a green Tux Start button, a left-aligned
-Longhorn-style glass Start menu (Start button or bare Win tap), and consistently
+profile-specific glass styling (sky-blue Aero or ink/ultraviolet Night Circuit),
+a green Tux Start button, a left-aligned matching glass Start menu (Start button or bare Win tap), and consistently
 styled display/window menus. Each actionable Start-menu entry has a unique
 underlined letter mnemonic; press it while the menu is open to launch that entry
 immediately (for example, **Q** for Quake 1 and **U** for Quake 2). Clicking outside
 the menu or elsewhere on the top bar dismisses it; the Start button still toggles it.
 Arrow/Enter navigation remains available.
 It also has four-workspace buttons (scroll up = previous workspace; scroll down = next),
-current-workspace taskbar (including minimized windows),
-CPU graph, battery status, volume, tray and `Fri  DD.MM.YY  HH:MM:SS` clock
-(localized abbreviated weekday, fixed width, bold 9pt text, one-second updates). Click the
-clock for a Monday-first calendar; hover CPU/battery/clock for details.
-Volume: left-click opens pavucontrol, right/middle-click mutes, scroll changes
-volume using the same helper as the media keys. The complete 65×25 Start image
+current-workspace taskbar (including minimized windows), tray and compact `HH:MM`
+clock. Click the clock for a Monday-first calendar. CPU, battery and integrated
+volume controls live in the sidebar's System Status card, with segmented mint
+meters and monospace numeric readouts. The complete 65×25 Start image
 is rendered at native size without a duplicate text label. The native systray appears only
 on the primary monitor; snixembed bridges SNI applications. LXPanel is no
 longer autostarted. All normal/dialog windows still float with click-to-focus.

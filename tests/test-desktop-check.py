@@ -178,6 +178,12 @@ esac
         self.assertIn('GTK icon theme: expected Breeze', result.stdout)
         self.assertIn('GTK cursor theme: expected Adwaita', result.stdout)
 
+    def test_dark_adwaita_is_supported(self):
+        settings = self.config / 'xsettingsd/xsettingsd.conf'
+        settings.write_text(settings.read_text().replace('"Adwaita"', '"Adwaita-dark"', 1))
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stdout)
+
     def test_missing_default_wallpaper_is_required(self):
         (self.home / '.local/share/wallpapers/aurora-cabin.png').unlink()
         result = self.invoke()
